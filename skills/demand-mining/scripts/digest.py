@@ -119,8 +119,13 @@ def build_markdown(cards: list[dict], coverage: dict | None = None,
     cfg = cfg or load_config()
     date = date or now_utc().date().isoformat()
     coverage = coverage or {}
+    # Count conservation: 合格 (qualified/actionable) must match the rendered body. Kano cut/noise is
+    # dropped from the queue AND every pool, so it must NOT be counted as 合格 — surface it as 剔噪
+    # instead, so 合格 + 剔噪 == total reconciles (no over-reporting of the actionable count).
+    actionable = [c for c in cards if not _is_cut(c)]
+    n_cut = len(cards) - len(actionable)
     cov = (f"> 覆盖: 内部需求 {coverage.get('internal',0)} · 外部 {coverage.get('external',0)}"
-           f" · 候选 {coverage.get('candidates',0)} · 合格 {len(cards)}"
+           f" · 候选 {coverage.get('candidates',0)} · 合格 {len(actionable)} · 剔噪 {n_cut}"
            f" · 推送 {coverage.get('pushed',0)} · 候审合并 {coverage.get('candidate_merge',0)}"
            f" · gen {iso(now_utc())}")
     lines = [f"# Demand Mining EOD — {date}", "", cov, ""]

@@ -127,6 +127,7 @@ def decide(candidate: dict, matched: dict | None, cfg: dict | None = None) -> di
     Otherwise SUPPRESS (already-pushed demand recurs: count it, do not re-push)."""
     cfg = cfg or load_config()
     jump = float(cfg["scoring"].get("resurface_score_jump", 15))
+    vel_jump = float(cfg["scoring"].get("resurface_velocity_jump", 5.0))
     if matched is None:
         return {"branch": NEW, "delta": {}}
 
@@ -143,11 +144,20 @@ def decide(candidate: dict, matched: dict | None, cfg: dict | None = None) -> di
     new_sources = cur_sources - prev_sources
     crossed_two = (len(prev_sources) < 2 <= len(cur_sources))
     competitor_shipped = bool(cur_comp) and cur_comp != prev_comp and "shipped" in cur_comp.lower()
+    # urgency/velocity JUMP (docstring + ARCHITECTURE RESURFACE trigger): a demand whose velocity
+    # spikes (trend acceleration / competitor momentum via trend-pulse) is now-urgent even with the
+    # score/sources/competitor unchanged — re-surface it. Guarded: only when BOTH a prior and a
+    # current velocity are present and the absolute jump clears the floor, so a missing velocity or
+    # a tiny wiggle never re-pushes (anti-spam, no over-resurface).
+    prev_vel, cur_vel = ext.get(EXT + "velocity"), candidate.get("velocity")
+    velocity_jumped = (prev_vel is not None and cur_vel is not None and
+                       abs(float(cur_vel) - float(prev_vel)) >= vel_jump)
 
     material = (
         abs(cur_score - prev_score) >= jump or
         (len(new_sources) >= 1 and crossed_two) or
-        competitor_shipped
+        competitor_shipped or
+        velocity_jumped
     )
     branch = RESURFACE if material else SUPPRESS
     return {"branch": branch, "delta": {
@@ -155,6 +165,7 @@ def decide(candidate: dict, matched: dict | None, cfg: dict | None = None) -> di
         "new_sources": sorted(new_sources),
         "crossed_two_sources": crossed_two,
         "competitor_shipped": competitor_shipped,
+        "velocity_jumped": velocity_jumped,
     }}
 
 

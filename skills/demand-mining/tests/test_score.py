@@ -108,3 +108,22 @@ def test_weight_regression_detects_drift():
     new = {"reach": 0.0, "impact": 1.0, "confidence": 1.0, "effort": 1.0}
     g = weight_regression_gate(items, None, new, CFG)
     assert g["decision"] in ("needs_review", "block")
+
+
+# ---------------------------------------------------------------- batch-3 R3 (T3 effort clamp):
+# `eff = max(effort_min, float(effort or effort_tbd_default))` used `or`, which silently swallows an
+# explicit effort=0 (a genuine trivial / already-half-built quick-win) and an explicit negative,
+# treating them as the TBD neutral default (2.0) instead of clamping to the effort floor (0.5). A
+# real trivial win's RICE was understated ~4x so it sank below TBD items in ranking. Explicit-0 /
+# negative must clamp to the floor; only None (=unestimated) maps to the TBD neutral default.
+def test_rice_explicit_zero_effort_clamps_to_floor_not_tbd():
+    floor = CFG["scoring"]["effort_min"]
+    tbd = CFG["scoring"]["effort_tbd_default"]
+    assert floor < tbd  # precondition: the bug is only observable when these differ
+    r0 = rice(10, 2.0, 1.0, 0, CFG)
+    rneg = rice(10, 2.0, 1.0, -3, CFG)
+    rtbd = rice(10, 2.0, 1.0, None, CFG)
+    assert r0["effort"] == floor, "explicit 0 effort must clamp to the floor, not become TBD"
+    assert rneg["effort"] == floor, "negative effort must clamp to the floor"
+    assert r0["rice_raw"] > rtbd["rice_raw"], "a trivial (0-effort) win must outrank a TBD item"
+    assert rtbd["effort"] == tbd, "None effort stays the neutral TBD default (unchanged)"

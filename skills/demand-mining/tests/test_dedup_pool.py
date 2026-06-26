@@ -116,3 +116,32 @@ def test_merge_authors_union_and_max():
     by = {m["author_hash"]: m for m in merged}
     assert set(by) == {"u_a", "u_b"}
     assert by["u_a"]["urgency"] == "blocking"   # escalation kept
+
+
+# ---------------------------------------------------------------- batch-3 R1 (T2 evolution): decide()
+# RESURFACE incomplete vs its own docstring + ARCHITECTURE. Both list an urgency/velocity JUMP as a
+# RESURFACE trigger (competitor momentum / trend acceleration via trend-pulse get_trend_velocity),
+# but the implementation only inspected score / new-source / competitor-shipped and IGNORED velocity
+# entirely — so a demand whose velocity spiked while score/sources/competitor were unchanged stayed
+# SUPPRESS and was never re-surfaced to the founder (a now-urgent need goes silent). Guarded so it
+# only fires when BOTH prior and current velocity are present and the jump clears the config floor.
+def _row_vel(velocity):
+    r = _row("dark mode", "reduce eye strain", "ui-ux", 70)
+    r["ext"][EXT + "velocity"] = velocity
+    return r
+
+
+def test_decide_resurface_on_velocity_jump():
+    row = _row_vel(1.0)
+    cand = _cand("dark mode", "reduce eye strain", "ui-ux", 70)   # same score/sources/competitor
+    cand["velocity"] = 20.0                                       # urgency spike (trend acceleration)
+    assert dd.decide(cand, dd.match_existing(cand, [row], CFG), CFG)["branch"] == dd.RESURFACE
+
+
+def test_decide_no_overresurface_on_velocity_noise_or_absence():
+    # a tiny velocity wiggle must NOT re-push (anti-spam), and absent velocity = unchanged behavior.
+    row = _row_vel(1.0)
+    wiggle = _cand("dark mode", "reduce eye strain", "ui-ux", 70); wiggle["velocity"] = 1.4
+    assert dd.decide(wiggle, dd.match_existing(wiggle, [row], CFG), CFG)["branch"] == dd.SUPPRESS
+    absent = _cand("dark mode", "reduce eye strain", "ui-ux", 70)   # no velocity key at all
+    assert dd.decide(absent, dd.match_existing(absent, [row], CFG), CFG)["branch"] == dd.SUPPRESS
