@@ -164,12 +164,23 @@ def decide(candidate: dict, matched: dict | None, cfg: dict | None = None) -> di
                           .get("external_origin_count", 0) or 0)
     external_corroboration_new = (prev_ext_origins == 0 and cur_ext_origins >= 1)
 
+    # ESCALATION INTO Tier0 (ARCHITECTURE RESURFACE trigger "紧迫跳变" + Kano stop-the-bleed): a demand
+    # that crosses INTO tier0 (its Kano must_be is now missing/broken) is the highest-urgency
+    # transition there is — it must re-surface for immediate attention even with score/sources/
+    # velocity/competitor all flat, otherwise a now-critical stop-the-bleed item silently SUPPRESSes
+    # and is never re-pushed. Guarded to the not-tier0 -> tier0 transition only: a demand that STAYS
+    # tier0 (already surfaced) or DE-escalates out of tier0 does not re-push (anti-spam).
+    prev_tier = str(ext.get(EXT + "tier", "") or "")
+    cur_tier = str(candidate.get("tier", "") or "")
+    escalated_to_tier0 = (cur_tier == "tier0" and prev_tier != "tier0")
+
     material = (
         abs(cur_score - prev_score) >= jump or
         (len(new_sources) >= 1 and crossed_two) or
         competitor_shipped or
         velocity_jumped or
-        external_corroboration_new
+        external_corroboration_new or
+        escalated_to_tier0
     )
     branch = RESURFACE if material else SUPPRESS
     return {"branch": branch, "delta": {
@@ -179,6 +190,7 @@ def decide(candidate: dict, matched: dict | None, cfg: dict | None = None) -> di
         "competitor_shipped": competitor_shipped,
         "velocity_jumped": velocity_jumped,
         "external_corroboration_new": external_corroboration_new,
+        "escalated_to_tier0": escalated_to_tier0,
     }}
 
 
