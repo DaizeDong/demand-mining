@@ -3,9 +3,9 @@ from redact import redact, pseudonymize, has_pii
 
 
 def test_email_phone_redacted():
-    r = redact("ping me at jane.doe@acme.io or +1 (201) 306-8634 please")
+    r = redact("ping me at jane.doe@acme.io or +1 (555) 867-5309 please")
     assert "jane.doe@acme.io" not in r["redacted"]
-    assert "3068634" not in r["redacted"].replace(" ", "")
+    assert "8675309" not in r["redacted"].replace(" ", "")
     assert r["found"].get("EMAIL") == 1 and r["found"].get("PHONE") == 1
 
 
