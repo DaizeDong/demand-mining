@@ -88,6 +88,7 @@ DEFAULT_CONFIG = {
         "confidence_map": {
             "internal_explicit_multi": 1.0,   # internal explicit + >=2 independent origins
             "internal_cluster_3plus": 0.8,    # single internal cluster, >=3 mentions
+            "cross_validated_multi": 0.8,     # >=2 independent origins (no internal-explicit): cross-validated
             "single_implicit_or_external": 0.5,  # 1-2 complaints, or single external trend
             "unverified_frontier": 0.3,       # pure unvalidated frontier
         },
@@ -352,6 +353,12 @@ def confidence_from_evidence(independent_source_count: int, has_internal_explici
         return float(cm["internal_explicit_multi"])
     if int(internal_mentions or 0) >= 3:
         return float(cm["internal_cluster_3plus"])
+    # >=2 INDEPENDENT origins cross-validate the demand even without an internal-explicit mention:
+    # the architecture wants "≥2 independent sources" encoded into Confidence as a high band, and
+    # the score must be MONOTONE non-decreasing in independent_source_count. Previously n=1 and n>=2
+    # were both 0.5 (a 1->2 cross-validation gave NO lift) — the >=2 line now clears the single band.
+    if n >= 2:
+        return float(cm.get("cross_validated_multi", cm["internal_cluster_3plus"]))
     if n >= 1:
         return float(cm["single_implicit_or_external"])
     return float(cm["unverified_frontier"])

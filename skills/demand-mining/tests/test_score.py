@@ -146,3 +146,24 @@ def test_wsjf_no_competitor_or_already_high_tc_unchanged():  # reverse: no spuri
     assert base["urgency_wsjf"] == wsjf(8, 2, 3, 5, CFG)     # no competitor => verbatim TC=2
     hi = score_demand(_p(time_criticality=13, competitor_status="rival shipped it"), CFG)
     assert hi["urgency_wsjf"] == wsjf(8, 13, 3, 5, CFG)      # already at anchor => idempotent
+
+
+# ---------------------------------------------------------------- T3 batch-5: confidence monotonicity
+def test_confidence_cross_validated_multi_source_beats_single():
+    """ARCHITECTURE encodes '>=2 independent sources cross-validated = high confidence band' and
+    Confidence must be a monotone non-decreasing function of independent_source_count. Previously it
+    was FLAT 0.5 for n=1..4 (a 1->2 cross-validation gave NO lift) even though >=2 independent
+    origins is the cross-validation gate the architecture wants encoded into the score."""
+    single = confidence_from_evidence(1, False, 1, CFG)        # single external/implicit
+    cross = confidence_from_evidence(2, False, 1, CFG)         # 2 independent, no internal-explicit
+    assert cross > single
+    assert cross >= CFG["scoring"]["confidence_map"]["internal_cluster_3plus"]
+    # monotone non-decreasing across the source-count axis
+    seq = [confidence_from_evidence(n, False, 1, CFG) for n in (0, 1, 2, 3, 4)]
+    assert seq == sorted(seq)
+    # guard (no over-credit / no regression): top band still needs internal-explicit, n<=1 unchanged
+    assert confidence_from_evidence(2, True, 3, CFG) == 1.0
+    assert confidence_from_evidence(1, False, 1, CFG) == \
+        CFG["scoring"]["confidence_map"]["single_implicit_or_external"]
+    assert confidence_from_evidence(0, False, 0, CFG) == \
+        CFG["scoring"]["confidence_map"]["unverified_frontier"]

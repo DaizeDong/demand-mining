@@ -32,7 +32,7 @@ import sys
 
 from lib import (canonical_key, extract_entities, intensity as compute_intensity, iso,
                  load_config, now_utc, demand_id)
-from redact import redact, pseudonymize
+from redact import redact, pseudonymize, has_pii
 from score import score_demand
 import dedup as dd
 from verify_gate import gate_batch
@@ -71,12 +71,30 @@ def _redact_card(cand: dict) -> dict:
     return c
 
 
+def _scrub_entities(ents: list) -> list:
+    """Defense-in-depth: scrub raw PII out of upstream-PROPOSED entity tokens before they become the
+    canonical_key (= the schedule-reminder idempotency_key persisted LONG-TERM in the need pool). A
+    clean token is returned byte-identical (no over-scrub / no canonical_key churn); a token that
+    still carries PII (e.g. an email or @handle the upstream slipped in) is folded to its redacted
+    placeholder-derived slug so no raw email/handle/id is ever stored as the pool key."""
+    out = []
+    for e in ents or []:
+        e = str(e)
+        if has_pii(e):
+            toks = extract_entities(redact(e)["redacted"])
+            out.extend(toks if toks else ["redacted"])
+        else:
+            out.append(e)
+    return out
+
+
 def build_card(cand: dict, cfg: dict, run_id: str) -> dict:
     cand = _redact_card(cand)
     title = cand.get("title", "")
     job = cand.get("inferred_job") or title
     track = cand.get("track") or cand.get("taxonomy_track") or "other"
-    entities = cand.get("entities") or extract_entities(job + " " + title + " " + cand.get("summary", ""))
+    entities = _scrub_entities(cand.get("entities") or
+                               extract_entities(job + " " + title + " " + cand.get("summary", "")))
     ck = cand.get("canonical_key") or canonical_key(entities, track)
 
     authors = cand.get("authors", [])
