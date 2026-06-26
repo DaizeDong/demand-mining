@@ -82,6 +82,26 @@ An EOD digest with an iteration-direction queue, each line showing all three axe
 
 plus Quick-win / Big-bet pools. On a quiet day it honestly prints `今日无合格新需求`.
 
+## Config
+
+`demand-mining` is **config-bearing** — it reads per-product tunables (RICE weights, thresholds, Kano
+map, taxonomy, push limits) and secrets (pseudonym HMAC salt, Discord creds) from a **separate,
+private** companion config repo. Full contract: [CONFIG.md](CONFIG.md). Absent → built-in
+`scripts/lib.py:DEFAULT_CONFIG`.
+
+- **Mount (discovery order):** `$DEMAND_MINING_CONFIG` → `~/.demand-mining-config/` →
+  `~/.config/demand-mining-config/`. First that exists wins; absent = runs on defaults.
+- **First time:**
+  ```bash
+  python scripts/init_config.py --product <slug>  # stamp skeleton (deterministic)
+  export DEMAND_MINING_CONFIG=~/.demand-mining-config                   # or pass --out <dir>
+  python scripts/verify_config.py                  # doctor: PASS/FAIL, names gaps
+  ```
+- **Switch configs (hot-swap):** point the env var at another config dir — configs are self-contained,
+  no other change: `export DEMAND_MINING_CONFIG=~/configs/work` ↔ `~/configs/personal`.
+- **Secrets:** Mode B — `secrets/*` is gitignored and never enters git; back up out-of-band. The
+  pseudonym salt may instead come from `$DEMAND_MINING_PSEUDONYM_SALT`.
+
 ## Limitations
 
 - v0.1 is an **offline skeleton**: the deterministic tail (redact/extract/dedup/score/gate/digest)
