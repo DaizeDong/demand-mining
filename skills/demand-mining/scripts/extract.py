@@ -64,15 +64,33 @@ def _norm_for_match(s: str) -> str:
     return re.sub(r"\s+", " ", s).strip()
 
 
+_CJK = re.compile(r"[㐀-䶿一-鿿぀-ヿ가-힯]")
+
+
+def _meaning_len(q: str) -> int:
+    """Information-aware length: a CJK character is far denser than a Latin letter, so it counts
+    double. So a 4-char CJK demand phrase ("批量导出" = batch-export) clears the meaningfulness floor
+    that is tuned for sparse Latin tokens, while a too-short Latin fragment ("the") still does not.
+    Spaces/punctuation (already folded to single spaces by _norm_for_match) do not count."""
+    n = 0
+    for ch in q:
+        if ch == " ":
+            continue
+        n += 2 if _CJK.match(ch) else 1
+    return n
+
+
 def verbatim_grounding(quote: str, redacted_source: str, min_len: int = 6) -> bool:
     """A demand's evidence quote MUST be locatable (substring, whitespace/case-insensitive) in the
     REDACTED source text. Returns False (=> caller REJECTS the extraction) when:
-      * quote is too short to be meaningful, or
+      * quote is too short to be meaningful (CJK-aware: a dense CJK phrase clears the floor with
+        fewer chars; omission ~2x fabrication = the bigger sin, so do not over-reject real quotes), or
       * quote is not found in the source (LLM fabricated/paraphrased it).
     This is the fail-closed anti-hallucination gate: an ungrounded demand is dropped, not trusted.
-    A placeholder like [PERSON_1] in the quote is fine — it is part of the redacted source too."""
+    A placeholder like [PERSON_1] in the quote is fine — it is part of the redacted source too. The
+    contiguous content-word substring check is unchanged, so fabrication/paraphrase is still rejected."""
     q = _norm_for_match(quote)
-    if len(q) < int(min_len):
+    if _meaning_len(q) < int(min_len):
         return False
     return q in _norm_for_match(redacted_source)
 
