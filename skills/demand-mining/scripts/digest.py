@@ -39,16 +39,25 @@ def resolve_archive_dir(explicit: str | None = None) -> Path:
 
 # --------------------------------------------------------------------------- brainstorm structure
 
+def _is_cut(c: dict) -> bool:
+    """A Kano indifferent/reverse demand (or one already tiered 'cut') is noise — never an iteration
+    direction. Mirrors iteration_queue's filter so cut noise leaks into NO surface (queue OR pools)."""
+    return c.get("tier") == "cut" or (c.get("kano") or "").lower() in ("indifferent", "reverse")
+
+
 def split_pools(cards: list[dict], cfg: dict | None = None) -> dict:
     """Quick-win vs Big-bet split (deterministic). Quick-win = high opportunity & modest effort &
     Kano in {must_be, performance}. Big-bet = Kano delighter OR (high impact & lower confidence).
-    Anything else falls into 'other' (still listed, lower in the queue)."""
+    Anything else falls into 'other' (still listed, lower in the queue). Kano cut/indifferent/reverse
+    noise is excluded from every pool (it must never be recommended as a brainstorm direction)."""
     cfg = cfg or load_config()
     sc = cfg["scoring"]
     opp_hi = float(sc.get("opportunity_high", 10.0))
     eff_modest = float(sc.get("quickwin_effort_max", 3.0))
     quick, big, other = [], [], []
     for c in cards:
+        if _is_cut(c):
+            continue
         kano = (c.get("kano") or "").lower()
         opp = float(c.get("opportunity_score", 0) or 0)
         eff = float((c.get("rice") or {}).get("effort", 99) or 99)
@@ -73,7 +82,7 @@ def iteration_queue(cards: list[dict], cfg: dict | None = None) -> list[dict]:
     tier_rank = {"tier0": 0, "tier1": 1, "tier2": 2, "backlog": 3, "cut": 9}
     # Kano indifferent/reverse => tier "cut" (砍, do not build): drop it from the actionable queue
     # so noise is never recommended as an iteration direction (an all-noise day => empty queue).
-    cards = [c for c in cards if c.get("tier") != "cut"]
+    cards = [c for c in cards if not _is_cut(c)]
     ordered = sorted(cards, key=lambda c: (tier_rank.get(c.get("tier", "backlog"), 5),
                                            -float(c.get("final_score", 0)),
                                            str(c.get("canonical_key", ""))))
@@ -115,13 +124,15 @@ def build_markdown(cards: list[dict], coverage: dict | None = None,
            f" · 推送 {coverage.get('pushed',0)} · 候审合并 {coverage.get('candidate_merge',0)}"
            f" · gen {iso(now_utc())}")
     lines = [f"# Demand Mining EOD — {date}", "", cov, ""]
-    if not cards:
+    # An empty card list OR a day whose every card is Kano cut/noise has ZERO actionable demands:
+    # emit the honest empty-day message, never a dangling empty iteration-queue header (filler).
+    queue = iteration_queue(cards, cfg)
+    if not queue:
         lines += ["**今日无合格新需求** (no demand cleared the evidence + score floor).",
                   "诚实空日，非灌水。", ""]
         return "\n".join(lines)
 
     pools = split_pools(cards, cfg)
-    queue = iteration_queue(cards, cfg)
 
     lines.append("## 迭代方向队列 (顺序 · 需求程度 · 紧迫性)")
     for q in queue:

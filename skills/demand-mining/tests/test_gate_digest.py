@@ -125,3 +125,35 @@ def test_catchup_overslept_backfill_bounded():
 
 def test_catchup_cold_start_no_storm():
     assert missed_digest_dates("", "2026-06-25T12:00:00Z") == ["2026-06-25"]
+
+
+# ---------------------------------------------------------------- batch-2 R1 (T4): cut noise must
+# not leak into the Big-bet pool. Batch 1 dropped Kano cut/indifferent from the iteration_queue,
+# but split_pools still routed a high-impact/low-confidence indifferent card into big_bet, so it
+# was recommended as a "Big-bet" iteration direction in the EOD markdown (recommending noise).
+def test_split_pools_excludes_cut_noise():
+    noise = {"kano": "indifferent", "tier": "cut", "opportunity_score": 2,
+             "final_score": 30, "title": "noise idea", "canonical_key": "n::other",
+             "rice": {"impact": 3.0, "confidence": 0.5, "effort": 2.0, "rice_raw": 2.25}}
+    real = _card()
+    pools = split_pools([noise, real], CFG)
+    flat = pools["quick_win"] + pools["big_bet"] + pools["other"]
+    assert noise not in flat, "Kano cut/indifferent noise must not enter any brainstorm pool"
+    assert real in flat, "a genuine demand must still be pooled (no over-filter)"
+    md = build_markdown([noise, real], date="2026-06-25")
+    assert "noise idea" not in md, "cut noise must never be recommended in the EOD digest"
+
+
+# ---------------------------------------------------------------- batch-2 R2 (T4): a day whose only
+# cards are Kano cut/noise has zero actionable demands => the digest must print the honest empty-day
+# message, NOT a dangling "迭代方向队列" header with no items (filler-by-omission).
+def test_all_cut_day_is_honest_empty():
+    cards = [{"kano": "indifferent", "tier": "cut", "opportunity_score": 1, "final_score": 10,
+              "title": "noise1", "canonical_key": "a::other",
+              "rice": {"impact": 1, "confidence": 1, "effort": 2, "rice_raw": 0.5}},
+             {"kano": "reverse", "tier": "cut", "opportunity_score": 1, "final_score": 5,
+              "title": "noise2", "canonical_key": "b::other",
+              "rice": {"impact": 1, "confidence": 1, "effort": 2, "rice_raw": 0.2}}]
+    md = build_markdown(cards, date="2026-06-25")
+    assert "今日无合格新需求" in md, "all-cut day must emit the honest empty-day message"
+    assert "迭代方向队列" not in md, "must not emit a dangling empty iteration-queue header"
