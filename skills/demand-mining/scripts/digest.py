@@ -71,6 +71,9 @@ def iteration_queue(cards: list[dict], cfg: dict | None = None) -> list[dict]:
     exposes all three axes so the decision is auditable, never a single opaque number."""
     cfg = cfg or load_config()
     tier_rank = {"tier0": 0, "tier1": 1, "tier2": 2, "backlog": 3, "cut": 9}
+    # Kano indifferent/reverse => tier "cut" (砍, do not build): drop it from the actionable queue
+    # so noise is never recommended as an iteration direction (an all-noise day => empty queue).
+    cards = [c for c in cards if c.get("tier") != "cut"]
     ordered = sorted(cards, key=lambda c: (tier_rank.get(c.get("tier", "backlog"), 5),
                                            -float(c.get("final_score", 0)),
                                            str(c.get("canonical_key", ""))))

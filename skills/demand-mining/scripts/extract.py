@@ -54,7 +54,14 @@ def is_demand(intents: list[str]) -> bool:
 
 
 def _norm_for_match(s: str) -> str:
-    return re.sub(r"\s+", " ", (s or "").lower()).strip()
+    """Normalize for grounding: lowercase, fold every non-word char (punctuation, commas, em-dashes,
+    smart quotes) to a single space. This is punctuation-INSENSITIVE so a genuine quote is not
+    rejected over a stray comma (omission ~2x fabrication = the bigger sin) — but it stays a
+    contiguous CONTENT-WORD substring check, so fabricated/paraphrased quotes are still rejected.
+    \\w keeps CJK and the redaction placeholders' underscores (e.g. person_1), so [PERSON_1] in the
+    quote and source fold identically."""
+    s = re.sub(r"[^\w]+", " ", (s or "").lower(), flags=re.UNICODE)
+    return re.sub(r"\s+", " ", s).strip()
 
 
 def verbatim_grounding(quote: str, redacted_source: str, min_len: int = 6) -> bool:
