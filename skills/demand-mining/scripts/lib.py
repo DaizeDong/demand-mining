@@ -233,6 +233,11 @@ _ENTITY_STOP = set(
     "got make made build built want need would like please could able really very much more "
     "when how why what where who do does did not no yes also even still only".split()
 )
+# Meaningful <3-char tech acronyms that the generic "drop short ASCII tokens" filter would otherwise
+# eat — losing them collapses DISTINCT demands to one canonical_key ("add AI mode" == "add VR mode").
+# Frozen whitelist (not free-form): kept as entities; generic 2-char stop tokens (is/to/of/in/...)
+# remain filtered via _ENTITY_STOP, so no noise is re-admitted.
+_SHORT_KEEP = {"ai", "ui", "ux", "ml", "vr", "ar", "qa"}
 
 
 def slug(s: str) -> str:
@@ -247,7 +252,9 @@ def extract_entities(text: str, max_n: int = 8) -> list[str]:
     toks = _TOKEN_RE.findall((text or "").lower())
     out, seen = [], set()
     for t in toks:
-        if (t.isascii() and len(t) < 3) or t in _ENTITY_STOP:
+        if t in _ENTITY_STOP:
+            continue
+        if t.isascii() and len(t) < 3 and t not in _SHORT_KEEP:
             continue
         t = slug(t)
         if t in seen:

@@ -174,8 +174,12 @@ def decide(candidate: dict, matched: dict | None, cfg: dict | None = None) -> di
     cur_tier = str(candidate.get("tier", "") or "")
     escalated_to_tier0 = (cur_tier == "tier0" and prev_tier != "tier0")
 
+    # DIRECTIONAL score jump: RESURFACE means the demand became MORE important/urgent (an upward
+    # jump), so re-push an evolution UPDATE card. abs() wrongly re-surfaced a DECLINING demand (a big
+    # downward drop) as if it were resurging — but a decline is handled by the fade path and must
+    # SUPPRESS here (anti-spam). Only an upward jump >= floor is material.
     material = (
-        abs(cur_score - prev_score) >= jump or
+        (cur_score - prev_score) >= jump or
         (len(new_sources) >= 1 and crossed_two) or
         competitor_shipped or
         velocity_jumped or
