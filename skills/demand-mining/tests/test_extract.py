@@ -64,3 +64,20 @@ def test_jtbd_completeness_flags_forces():
     jc = jtbd_completeness({"push": "x", "anxiety": "y"})
     assert jc["has_demand_force"] and jc["has_implicit_force"]
     assert set(jc["forces_present"]) == {"push", "anxiety"}
+
+
+def test_grounding_cjk_short_quote_recall_cuts_omission():
+    # Omission (~2x fabrication) is the bigger sin. A CJK demand phrase is information-dense: 4 CJK
+    # chars ("批量导出" = batch-export) is a complete, meaningful ask. The char-count min_len (tuned
+    # for sparse Latin tokens) wrongly rejected such genuinely-present CJK quotes => real demands
+    # silently dropped. A CJK-aware meaningfulness check must accept them WITHOUT weakening either
+    # the Latin fabrication guard or the contiguous-substring anti-paraphrase property.
+    src = "我真的需要批量导出功能 不然每次都要手动复制 太麻烦了"
+    assert verbatim_grounding("批量导出", src) is True       # real 4-char CJK quote, present
+    assert verbatim_grounding("导出功能", src) is True       # real 4-char CJK quote, present
+    # fabrication / paraphrase still rejected: different content chars, not a contiguous substring
+    assert verbatim_grounding("一键同步到云端", src) is False  # fabricated CJK content
+    assert verbatim_grounding("批量删除", src) is False        # plausible but not in source
+    # Latin fabrication guard unchanged: a too-short Latin fragment is still rejected
+    assert verbatim_grounding("the", "the export is slow") is False
+    assert verbatim_grounding("a b", "a b c d e f") is False
