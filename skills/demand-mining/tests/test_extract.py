@@ -81,3 +81,29 @@ def test_grounding_cjk_short_quote_recall_cuts_omission():
     # Latin fabrication guard unchanged: a too-short Latin fragment is still rejected
     assert verbatim_grounding("the", "the export is slow") is False
     assert verbatim_grounding("a b", "a b c d e f") is False
+
+
+def test_track_hint_ascii_keyword_word_boundary_not_substring():
+    """GAP (batch 6 R1): _track_hint did naive ASCII substring matching, so 'important' hit the
+    'import' integrations keyword and 'therapist' hit 'api' -> both mis-tagged 'integrations'. An
+    ASCII keyword must match on a WORD BOUNDARY; CJK keywords (no spaces) must stay substring."""
+    import extract
+    from lib import load_config
+    cfg = load_config()
+    # false-positive cases: must NOT be 'integrations'
+    assert extract._track_hint("this is really important to me", cfg) != "integrations"
+    assert extract._track_hint("my therapist recommended it", cfg) != "integrations"
+    # true-positive ASCII word still matches (whole word present)
+    assert extract._track_hint("please add csv export to the api", cfg) == "integrations"
+    # the actual mechanism (isolated): a stem keyword matches its word AND common inflections, but
+    # NOT a longer word that merely embeds it (the trap). This is what kills the false-positive
+    # without losing morphological recall.
+    assert extract._kw_hit("crash", "the app keeps crashing") is True     # inflection kept
+    assert extract._kw_hit("import", "the nightly imports broke") is True  # plural kept
+    assert extract._kw_hit("import", "this is really important") is False  # trap rejected
+    assert extract._kw_hit("api", "my therapist recommended it") is False  # embedded, rejected
+    # end-to-end recall: an inflected performance keyword still routes to performance.
+    assert extract._track_hint("the app keeps crashing every day", cfg) == "performance"
+    # reverse guard: CJK substring matching preserved (no spaces between CJK keywords)
+    assert extract._track_hint("注册流程很困难", cfg) in ("onboarding", "core-workflow")
+    assert extract._track_hint("界面难用", cfg) == "ui-ux"

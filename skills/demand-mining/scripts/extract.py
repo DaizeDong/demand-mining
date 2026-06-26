@@ -159,6 +159,22 @@ def build_unit(proposal: dict, redacted_source: str, author_pseudo: str,
     return {"ok": True, "unit": unit}
 
 
+def _kw_hit(kw: str, hay: str) -> bool:
+    """Keyword match that respects word boundaries for ASCII keywords but stays substring for CJK.
+    Naive `kw in hay` produced false positives: 'important' contains the 'import' keyword and
+    'therapist' contains 'api', mis-tagging both as 'integrations'. An ASCII keyword must match on a
+    word boundary, BUT to keep morphological recall it also accepts a common English inflectional
+    suffix (s/es/ed/ing/d) — so 'crashing'/'imports'/'crashed' still match 'crash'/'import' while
+    'important' (the trap: 'import'+'ant', not an allowed suffix) and 'therapist' (no boundary before
+    'api') do NOT. A CJK keyword has no word boundaries, so it keeps plain substring matching."""
+    kw = (kw or "").lower()
+    if not kw:
+        return False
+    if kw.isascii():
+        return re.search(r"(?<!\w)" + re.escape(kw) + r"(?:s|es|ed|ing|d)?(?!\w)", hay) is not None
+    return kw in hay
+
+
 def _track_hint(text: str, cfg: dict) -> str:
     """Deterministic taxonomy track by keyword hit count (ties → config order). Same input → same
     label (byte-identical). 'other' is the safe default when nothing matches."""
@@ -166,7 +182,7 @@ def _track_hint(text: str, cfg: dict) -> str:
     tracks = [t for t in cfg.get("taxonomy", []) if t.get("enabled", True)]
     best, best_key = None, None
     for order, t in enumerate(tracks):
-        hits = sum(1 for kw in t.get("keywords", []) if kw and kw.lower() in hay)
+        hits = sum(1 for kw in t.get("keywords", []) if _kw_hit(kw, hay))
         key = (hits, float(t.get("weight", 1.0)), -order)
         if hits > 0 and (best_key is None or key > best_key):
             best_key, best = key, t
