@@ -180,3 +180,20 @@ def test_eod_coverage_count_excludes_cut_noise():
     md2 = build_markdown([real], coverage={"internal": 1}, date="2026-06-25")
     assert re.search(r"合格 (\d+)", md2).group(1) == "1"
     assert re.search(r"剔噪 (\d+)", md2).group(1) == "0"
+
+
+# ---------------------------------------------------------------- batch-4 R1 (T6 egress DLP): the
+# fail-closed PII scan only covered top-level user-visible fields (title/summary/...), but
+# evidence[].redacted_snippet is ALSO rendered into the pushed card and archived to the pool — a
+# residual email/phone hiding in a snippet rode straight through validate_card (ok=True) and leaked.
+# Architecture §4 / T6: nothing with leftover PII may ever be pushed/archived (落池后无邮箱/电话).
+def test_blocks_residual_pii_in_evidence_snippet():
+    c = _card()                                   # clean top-level fields
+    c["evidence"][0]["redacted_snippet"] = "pls email me at alice@example.com about this"
+    ok, errs = validate_card(c, CFG)
+    assert not ok and any("PII" in e and "evidence" in e for e in errs)
+
+
+def test_clean_evidence_snippet_still_passes():   # reverse: no false-positive on clean snippets
+    ok, errs = validate_card(_card(), CFG)
+    assert ok, errs
