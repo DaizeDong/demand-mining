@@ -153,11 +153,23 @@ def decide(candidate: dict, matched: dict | None, cfg: dict | None = None) -> di
     velocity_jumped = (prev_vel is not None and cur_vel is not None and
                        abs(float(cur_vel) - float(prev_vel)) >= vel_jump)
 
+    # FIRST external corroboration (ARCHITECTURE §3 RESURFACE trigger "新外部 corroboration"): an
+    # internal-only demand that now gets its first external ORIGIN validating it is a confidence/RICE-
+    # moving market event, distinct from crossing the >=2 source line. Guarded to the 0 -> >=1
+    # external_origin_count transition only, so more external when one already existed never re-pushes
+    # (anti-spam) and an internal-only demand (count stays 0 / absent) never fires.
+    prev_ext_origins = int((ext.get(EXT + "external_corroboration") or {})
+                           .get("external_origin_count", 0) or 0)
+    cur_ext_origins = int((candidate.get("external_corroboration") or {})
+                          .get("external_origin_count", 0) or 0)
+    external_corroboration_new = (prev_ext_origins == 0 and cur_ext_origins >= 1)
+
     material = (
         abs(cur_score - prev_score) >= jump or
         (len(new_sources) >= 1 and crossed_two) or
         competitor_shipped or
-        velocity_jumped
+        velocity_jumped or
+        external_corroboration_new
     )
     branch = RESURFACE if material else SUPPRESS
     return {"branch": branch, "delta": {
@@ -166,6 +178,7 @@ def decide(candidate: dict, matched: dict | None, cfg: dict | None = None) -> di
         "crossed_two_sources": crossed_two,
         "competitor_shipped": competitor_shipped,
         "velocity_jumped": velocity_jumped,
+        "external_corroboration_new": external_corroboration_new,
     }}
 
 

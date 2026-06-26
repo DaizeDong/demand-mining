@@ -77,6 +77,14 @@ def validate_card(card: dict, cfg: dict | None = None) -> tuple[bool, list[str]]
     leaked = [f for f in _PII_FIELDS if card.get(f) and has_pii(str(card.get(f)))]
     if leaked:
         errs.append(f"residual PII in fields {leaked} (egress blocked)")
+    # evidence[].redacted_snippet is ALSO user-visible (rendered into the pushed card + archived to
+    # the pool), so it must clear the SAME egress DLP — a residual email/phone hiding in a snippet is
+    # an exfil path identical to one in the title. Fail-closed per evidence unit.
+    snippet_leaks = [i for i, e in enumerate(ev)
+                     if (e.get("redacted_snippet") or e.get("quote"))
+                     and has_pii(str(e.get("redacted_snippet") or e.get("quote")))]
+    if snippet_leaks:
+        errs.append(f"residual PII in evidence snippet idx {snippet_leaks} (egress blocked)")
 
     return (len(errs) == 0, errs)
 

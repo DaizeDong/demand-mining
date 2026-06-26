@@ -145,3 +145,34 @@ def test_decide_no_overresurface_on_velocity_noise_or_absence():
     assert dd.decide(wiggle, dd.match_existing(wiggle, [row], CFG), CFG)["branch"] == dd.SUPPRESS
     absent = _cand("dark mode", "reduce eye strain", "ui-ux", 70)   # no velocity key at all
     assert dd.decide(absent, dd.match_existing(absent, [row], CFG), CFG)["branch"] == dd.SUPPRESS
+
+
+# ---------------------------------------------------------------- batch-4 R3 (T2 evolution): decide()
+# RESURFACE missed "新外部 corroboration" — ARCHITECTURE §3 lists the FIRST external origin validating
+# an internal demand as its own RESURFACE trigger, distinct from crossing the >=2 source line. With
+# >=2 internal sources already present and score/competitor/velocity flat, external_origin_count going
+# 0->1 (a market validation that moves confidence/RICE) was SUPPRESSed and never re-surfaced.
+def _row_extcorr(internal=2, external=0):
+    r = _row("dark mode", "reduce eye strain", "ui-ux", 70)
+    r["ext"][EXT + "external_corroboration"] = {"internal_count": internal,
+                                                "external_origin_count": external}
+    return r
+
+
+def test_decide_resurface_on_first_external_corroboration():
+    row = _row_extcorr(internal=2, external=0)
+    cand = _cand("dark mode", "reduce eye strain", "ui-ux", 70)   # same score/sources/competitor
+    cand["external_corroboration"] = {"internal_count": 2, "external_origin_count": 1}
+    assert dd.decide(cand, dd.match_existing(cand, [row], CFG), CFG)["branch"] == dd.RESURFACE
+
+
+def test_decide_no_resurface_when_external_already_present_or_absent():
+    # reverse (anti-spam): more external when one already existed (1->2) does NOT re-push; and
+    # internal-only both days (external stays 0 / key absent) does NOT re-push.
+    row1 = _row_extcorr(internal=2, external=1)
+    more = _cand("dark mode", "reduce eye strain", "ui-ux", 70)
+    more["external_corroboration"] = {"internal_count": 2, "external_origin_count": 2}
+    assert dd.decide(more, dd.match_existing(more, [row1], CFG), CFG)["branch"] == dd.SUPPRESS
+    row0 = _row_extcorr(internal=2, external=0)
+    none_ = _cand("dark mode", "reduce eye strain", "ui-ux", 70)   # no external_corroboration key
+    assert dd.decide(none_, dd.match_existing(none_, [row0], CFG), CFG)["branch"] == dd.SUPPRESS

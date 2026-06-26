@@ -108,8 +108,16 @@ def score_demand(proposal: dict, cfg: dict | None = None) -> dict:
 
     opp = opp_calc(float(proposal.get("importance", 0)),
                    float(proposal.get("satisfaction", 0)), cfg)
-    urg = wsjf_calc(float(proposal.get("user_business_value", 0)),
-                    float(proposal.get("time_criticality", 0)),
+    # Deterministic time-criticality floor — the cross-skill differentiator (ARCHITECTURE §5C): a
+    # competitor that JUST SHIPPED this feature = highest urgency. This is a MECHANICAL function of
+    # external tracking (like Confidence), not a guess the upstream LLM may under-rate, so we floor
+    # TimeCriticality at the competitor_shipped anchor whenever competitor_status says "shipped".
+    # max() makes it idempotent (an already-high TC is untouched) and verbatim when no competitor.
+    tc = float(proposal.get("time_criticality", 0))
+    if "shipped" in str(proposal.get("competitor_status", "")).lower():
+        tc = max(tc, float(cfg["scoring"].get("time_criticality_anchors", {})
+                           .get("competitor_shipped", 13)))
+    urg = wsjf_calc(float(proposal.get("user_business_value", 0)), tc,
                     float(proposal.get("risk_reduction", 0)),
                     float(proposal.get("job_size", 1)), cfg)
 

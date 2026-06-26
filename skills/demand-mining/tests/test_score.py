@@ -127,3 +127,22 @@ def test_rice_explicit_zero_effort_clamps_to_floor_not_tbd():
     assert rneg["effort"] == floor, "negative effort must clamp to the floor"
     assert r0["rice_raw"] > rtbd["rice_raw"], "a trivial (0-effort) win must outrank a TBD item"
     assert rtbd["effort"] == tbd, "None effort stays the neutral TBD default (unchanged)"
+
+
+# ---------------------------------------------------------------- batch-4 R2 (T3 WSJF): the
+# architecture's headline cross-skill differentiator — "a competitor JUST shipped this = highest
+# time-criticality (13)" — was NOT enforced. score_demand took the upstream TimeCriticality verbatim,
+# so a competitor-shipped demand whose LLM-proposed TC was low got the SAME urgency as a demand with
+# no competitor pressure (the external->internal urgency fusion silently lost). Deterministic floor:
+# competitor_status containing "shipped" floors TimeCriticality at the competitor_shipped anchor.
+def test_wsjf_competitor_shipped_floors_time_criticality():
+    shipped = score_demand(_p(time_criticality=1, competitor_status="competitorX shipped it"), CFG)
+    none_ = score_demand(_p(time_criticality=1, competitor_status=""), CFG)
+    assert shipped["urgency_wsjf"] > none_["urgency_wsjf"]   # competitor pressure raises urgency
+
+
+def test_wsjf_no_competitor_or_already_high_tc_unchanged():  # reverse: no spurious / double floor
+    base = score_demand(_p(time_criticality=2, competitor_status=""), CFG)
+    assert base["urgency_wsjf"] == wsjf(8, 2, 3, 5, CFG)     # no competitor => verbatim TC=2
+    hi = score_demand(_p(time_criticality=13, competitor_status="rival shipped it"), CFG)
+    assert hi["urgency_wsjf"] == wsjf(8, 13, 3, 5, CFG)      # already at anchor => idempotent
