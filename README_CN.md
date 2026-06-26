@@ -84,6 +84,25 @@ EOD 汇总 + 迭代方向队列,每行三轴齐显:
 - 隐性需求召回是死穴,靠持续扩充对抗 fixture 迭代提升。
 - Kano 为 LLM 代理(无问卷)——上线后用真实社群样本校准。
 
+## 配置
+
+`demand-mining` 是**带 config 的 skill** —— 每产品的可调参数(RICE 权重、阈值、Kano 映射、taxonomy、
+推送上限)与密钥(假名 HMAC salt、Discord 凭证)都放在一个**独立、私有**的伴随 config 仓里。完整规范见
+[CONFIG.md](CONFIG.md)。缺失则回落内置 `scripts/lib.py:DEFAULT_CONFIG`。
+
+- **挂载(发现顺序):** `$DEMAND_MINING_CONFIG` → `~/.demand-mining-config/` →
+  `~/.config/demand-mining-config/`。命中第一个即用;都没有则跑默认值。
+- **首次配置:**
+  ```bash
+  python scripts/init_config.py --product <slug>  # 生成骨架(确定性)
+  export DEMAND_MINING_CONFIG=~/.demand-mining-config                   # 或给 init 传 --out <dir>
+  python scripts/verify_config.py                  # doctor:逐项 PASS/FAIL 报缺
+  ```
+- **切换 config(即插即用):** 把环境变量指向另一个 config 目录即可 —— config 自包含,无需别的改动:
+  `export DEMAND_MINING_CONFIG=~/configs/work` ↔ `~/configs/personal`。
+- **密钥:** Mode B —— `secrets/*` 已 gitignore,永不入库,请用库外备份。假名 salt 也可改由
+  `$DEMAND_MINING_PSEUDONYM_SALT` 提供。
+
 ## 语言
 
 中文 (`README_CN.md`) · English (`README.md`, 权威版)
