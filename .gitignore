@@ -1,0 +1,21 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+.venv/
+venv/
+.idea/
+.vscode/
+
+# self-evolve run artifacts (never commit sandbox/run state)
+.sie/
+
+# any local secrets that ever leak into the skill repo (belt-and-suspenders; secrets belong in the
+# Mode-B companion config repo, not here)
+secrets/
+*.env
+*.pseudo-map
+pseudonym_hmac_salt
