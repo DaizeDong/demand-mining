@@ -211,3 +211,35 @@ def test_decide_no_resurface_when_staying_or_leaving_tier0():
     base_cand["tier"] = "tier2"
     m = dd.match_existing(base_cand, [base_row], CFG)
     assert dd.decide(base_cand, m, CFG)["branch"] == dd.SUPPRESS
+
+
+def test_decide_no_resurface_on_score_drop():
+    """GAP (batch 6 R2): decide() used abs(score delta) >= jump, so a demand whose score DROPPED
+    by >= jump (it became LESS important — a declining demand) was re-pushed as a RESURFACE
+    evolution UPDATE card. RESURFACE means "became more important/urgent"; a decline must SUPPRESS
+    (the fade path handles decline). Directional fix: only an UPWARD jump re-surfaces."""
+    row = _row("dark mode", "reduce eye strain", "ui-ux", 80)
+    cand = _cand("dark mode", "reduce eye strain", "ui-ux", 55)   # -25 DROP, all else flat
+    m = dd.match_existing(cand, [row], CFG)
+    assert dd.decide(cand, m, CFG)["branch"] == dd.SUPPRESS
+    # reverse guard: an equivalent UPWARD jump still RESURFACEs (no over-suppression)
+    row2 = _row("dark mode", "reduce eye strain", "ui-ux", 55)
+    cand2 = _cand("dark mode", "reduce eye strain", "ui-ux", 80)  # +25 RISE
+    m2 = dd.match_existing(cand2, [row2], CFG)
+    assert dd.decide(cand2, m2, CFG)["branch"] == dd.RESURFACE
+
+
+def test_short_tech_acronym_entities_prevent_canonical_collapse():
+    """GAP (batch 6 R3): extract_entities dropped every <3-char ASCII token, so meaningful tech
+    acronyms (ai/ui/ux/ml/vr/ar/qa) vanished from the subject -> two DISTINCT demands collapsed to
+    the same canonical_key ('add AI mode' == 'add VR mode' == 'add|mode::other'), a false merge.
+    A small frozen whitelist keeps these acronyms as entities; generic stop 2-char tokens stay out."""
+    ai = extract_entities("please add AI mode")
+    vr = extract_entities("please add VR mode")
+    assert "ai" in ai and "vr" in vr                       # acronym kept (recall)
+    assert canonical_key(ai, "other") != canonical_key(vr, "other")   # no false collapse
+    # reverse guard: generic 2-char stop tokens are STILL dropped (no noise re-admitted)
+    ents = extract_entities("is it on to of in")
+    assert "is" not in ents and "to" not in ents and "of" not in ents and "in" not in ents
+    # reverse guard: existing 3+ char behavior unchanged
+    assert extract_entities("bulk export records") == ["bulk", "export", "records"]
