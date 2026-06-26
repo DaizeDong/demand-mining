@@ -176,3 +176,38 @@ def test_decide_no_resurface_when_external_already_present_or_absent():
     row0 = _row_extcorr(internal=2, external=0)
     none_ = _cand("dark mode", "reduce eye strain", "ui-ux", 70)   # no external_corroboration key
     assert dd.decide(none_, dd.match_existing(none_, [row0], CFG), CFG)["branch"] == dd.SUPPRESS
+
+
+# ---------------------------------------------------------------- T2 batch-5: escalation into Tier0
+def test_decide_resurface_on_escalation_into_tier0():
+    """A demand that escalates INTO tier0 (Kano must_be now missing = stop-the-bleed) must RESURFACE
+    for immediate attention even with score/sources/velocity/competitor unchanged — a now-missing
+    must-be is the highest-urgency transition (ARCHITECTURE: must_be missing -> immediate Tier0;
+    RESURFACE on 紧迫跳变). Without this it SUPPRESSes and the critical item is never re-pushed."""
+    row = _row("scheduled report export", "email reports on a schedule", "core-workflow", 60)
+    row["ext"][EXT + "tier"] = "tier2"
+    cand = _cand("scheduled report export", "email reports on a schedule", "core-workflow", 60)
+    cand["tier"] = "tier0"          # escalated (kano must_be now missing)
+    m = dd.match_existing(cand, [row], CFG)
+    assert m is not None
+    d = dd.decide(cand, m, CFG)
+    assert d["branch"] == dd.RESURFACE
+    assert d["delta"].get("escalated_to_tier0") is True
+
+
+def test_decide_no_resurface_when_staying_or_leaving_tier0():
+    """Guard (anti-spam / no over-resurface): a demand ALREADY tier0 that stays tier0 does NOT
+    re-push (already surfaced), and a de-escalation (tier0 -> tier2) is not a resurface either.
+    Only the not-tier0 -> tier0 escalation transition fires."""
+    base_row = _row("scheduled report export", "email reports on a schedule", "core-workflow", 60)
+    base_cand = _cand("scheduled report export", "email reports on a schedule", "core-workflow", 60)
+    # staying tier0
+    base_row["ext"][EXT + "tier"] = "tier0"
+    base_cand["tier"] = "tier0"
+    m = dd.match_existing(base_cand, [base_row], CFG)
+    assert dd.decide(base_cand, m, CFG)["branch"] == dd.SUPPRESS
+    # leaving tier0 (de-escalation)
+    base_row["ext"][EXT + "tier"] = "tier0"
+    base_cand["tier"] = "tier2"
+    m = dd.match_existing(base_cand, [base_row], CFG)
+    assert dd.decide(base_cand, m, CFG)["branch"] == dd.SUPPRESS

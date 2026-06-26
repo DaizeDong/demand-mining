@@ -111,3 +111,30 @@ def test_ledger_source_isolation(tmp_path):
     R.process([cand], CFG, ledger=lc, dry_run=False, archive_dir=str(tmp_path / "pool"))
     keys = [dd._row_key(r) for r in lc.list_active()]
     assert all(not k.startswith("other-skill:") for k in keys)
+
+
+# ---------------------------------------------------------------- T6 batch-5: entities PII leak
+def test_raw_pii_in_entities_scrubbed_from_canonical_key():
+    """Defense-in-depth (T6): even if the upstream slips raw PII into the proposed `entities`, it must
+    NOT survive into canonical_key — which becomes the schedule-reminder idempotency_key persisted
+    LONG-TERM in the need pool. build_card redacts only text fields/evidence/authors; the entities ->
+    canonical_key path was trusted verbatim, leaking an email/handle into the pool key. has_pii over
+    the canonical_key must be False, while a clean entity list stays byte-identical (no over-scrub)."""
+    from redact import has_pii
+    from lib import canonical_key as _ck
+    dirty = {"title": "please add export", "summary": "we need export",
+             "inferred_job": "export data",
+             "entities": ["export", "data", "alice@example.com", "@johndoe"],
+             "evidence": [{"channel": "discord", "origin_type": "internal",
+                           "redacted_snippet": "add export pls", "ts": "2026-06-25T10:00:00Z"}],
+             "authors": [{"author_hash": "u_x", "urgency": "need", "segment": "pro"}],
+             "reach": 3, "impact_label": "high", "independent_source_count": 1,
+             "has_internal_explicit": True, "importance": 8, "satisfaction": 2,
+             "user_business_value": 5, "time_criticality": 3, "risk_reduction": 2, "job_size": 3}
+    card = R.build_card(dirty, CFG, "r1")
+    assert not has_pii(card["canonical_key"])           # no raw email/handle in the persisted key
+    assert "@" not in card["canonical_key"] and "alice" not in card["canonical_key"]
+    # guard: a clean entity list is byte-identical to the direct canonical_key (no over-scrub)
+    clean = dict(dirty); clean["entities"] = ["export", "data", "schedule"]
+    ck_clean = R.build_card(clean, CFG, "r1")["canonical_key"]
+    assert ck_clean == _ck(["export", "data", "schedule"], "other")
