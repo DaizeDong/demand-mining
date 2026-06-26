@@ -50,6 +50,14 @@ _INVITE = re.compile(r"\b(?:https?://)?(?:discord\.gg|discord(?:app)?\.com/invit
 _URL = re.compile(r"\bhttps?://\S+", re.IGNORECASE)
 _HANDLE = re.compile(r"(?<![\w/])@([A-Za-z0-9_]{2,32})\b")    # @handle (not an email local-part)
 _IPV4 = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
+# IPv6 — full 8-group form OR any "::"-compressed form (architecture Tier1 lists "IPs"). Guarded in
+# the substituter so plain decimal times/ratios (colons but no "::" and not 8 hex groups) are never
+# eaten. Lookaround stops partial matches inside larger word/colon runs.
+_IPV6 = re.compile(
+    r"(?<![\w:.])(?:"
+    r"(?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}"                                   # 8 full groups
+    r"|(?:[0-9A-Fa-f]{1,4}:)*[0-9A-Fa-f]{0,4}::(?:[0-9A-Fa-f]{1,4}:)*[0-9A-Fa-f]{0,4}"  # :: compressed
+    r")(?![\w:.])")
 # phone: loose international-ish; validated by digit count to avoid eating ordinary numbers
 _PHONE = re.compile(r"(?<!\w)(\+?\d[\d\s().-]{7,}\d)(?!\w)")
 _CCARD = re.compile(r"(?<!\d)(?:\d[ -]?){13,19}(?!\d)")
@@ -137,6 +145,17 @@ def redact(text: str, salt: bytes | None = None) -> dict:
             bump("PHONE"); return mint.get("PHONE", re.sub(r"\D", "", v))
         return v
     text = _PHONE.sub(sub_phone, text)
+
+    def sub_ipv6(m):
+        v = m.group(0)
+        # require a real "::" or the full 8-group form, and at least one hex digit — so a bare
+        # "::" or a decimal time/ratio is left untouched (fail-safe against over-redaction).
+        if "::" not in v and v.count(":") != 7:
+            return v
+        if not re.search(r"[0-9A-Fa-f]", v):
+            return v
+        bump("IP"); return mint.get("IP", v)
+    text = _IPV6.sub(sub_ipv6, text)
 
     def sub_ip(m):
         bump("IP"); return mint.get("IP", m.group(0))

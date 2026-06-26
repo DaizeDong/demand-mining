@@ -48,6 +48,18 @@ def test_build_unit_rejects_non_demand_and_ungrounded():
     assert bad["ok"] is False and "grounded" in bad["reject_reason"]
 
 
+def test_grounding_punctuation_insensitive_cuts_omission():
+    # Omission (~2x fabrication per the architecture) is the bigger sin: a genuinely-present quote
+    # that differs from the source only by PUNCTUATION (comma, em-dash) must still ground — while
+    # the anti-fabrication property holds (different CONTENT WORDS are still rejected).
+    src = "honestly the export keeps timing out, so i just gave up and copy-paste manually."
+    assert verbatim_grounding("the export keeps timing out so i just gave up", src) is True
+    assert verbatim_grounding("the import works perfectly fine", src) is False   # fabricated content
+    src2 = "the dashboard is so slow it is unusable — i switched to a spreadsheet"
+    assert verbatim_grounding("the dashboard is so slow it is unusable - i switched", src2) is True
+    assert verbatim_grounding("the dashboard is fast and snappy", src2) is False  # fabricated content
+
+
 def test_jtbd_completeness_flags_forces():
     jc = jtbd_completeness({"push": "x", "anxiety": "y"})
     assert jc["has_demand_force"] and jc["has_implicit_force"]
