@@ -157,3 +157,26 @@ def test_all_cut_day_is_honest_empty():
     md = build_markdown(cards, date="2026-06-25")
     assert "今日无合格新需求" in md, "all-cut day must emit the honest empty-day message"
     assert "迭代方向队列" not in md, "must not emit a dangling empty iteration-queue header"
+
+
+# ---------------------------------------------------------------- batch-3 R2 (T4 count conservation):
+# batches 1-2 correctly dropped Kano cut/noise from the iteration queue AND every brainstorm pool,
+# but the EOD coverage header still printed "合格 {len(cards)}" counting the cut noise — so the
+# header OVER-reported the qualified/actionable count vs the rendered body (a reader sees 合格 2 but
+# only 1 queue item). Conservation: the 合格 header must equal the actionable queue, and the cut
+# count must be surfaced so actionable + cut == total reconciles.
+def test_eod_coverage_count_excludes_cut_noise():
+    import re
+    real = _card()  # tier1 performance = actionable
+    noise = {"kano": "indifferent", "tier": "cut", "opportunity_score": 1, "final_score": 70,
+             "title": "noise idea", "canonical_key": "n::other",
+             "rice": {"impact": 1, "confidence": 1, "effort": 2, "rice_raw": 0.5}}
+    md = build_markdown([real, noise], coverage={"internal": 2}, date="2026-06-25")
+    q = iteration_queue([real, noise], CFG)
+    m = re.search(r"合格 (\d+)", md)
+    assert m and int(m.group(1)) == len(q) == 1, "合格 header must match the actionable queue (cut excluded)"
+    assert re.search(r"剔噪 (\d+)", md).group(1) == "1", "the excluded cut-noise count must be surfaced"
+    # a pure-real day is unchanged (no over-correction): 合格 == total, 剔噪 0
+    md2 = build_markdown([real], coverage={"internal": 1}, date="2026-06-25")
+    assert re.search(r"合格 (\d+)", md2).group(1) == "1"
+    assert re.search(r"剔噪 (\d+)", md2).group(1) == "0"

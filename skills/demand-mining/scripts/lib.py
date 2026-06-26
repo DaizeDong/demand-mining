@@ -121,6 +121,7 @@ DEFAULT_CONFIG = {
         "tier_bands": {"tier1": 80, "tier2": 60, "backlog": 40},  # >= band => that tier
         # ---- evolution / cross-day.
         "resurface_score_jump": 15,
+        "resurface_velocity_jump": 5.0,   # abs velocity jump (trend accel) that re-surfaces a demand
         "lookback_days": 30,
         "samples_cap": 30,
         "fading_quiet_days": 5,
@@ -364,7 +365,11 @@ def rice(reach: float, impact: float, confidence: float, effort: float,
     `reach` is the real distinct-author × source-breadth count (no estimation)."""
     cfg = cfg or load_config()
     sc = cfg["scoring"]
-    eff = max(float(sc.get("effort_min", 0.5)), float(effort or sc.get("effort_tbd_default", 2.0)))
+    # Distinguish None (=unestimated TBD => neutral default) from an explicit 0 / negative (a genuine
+    # trivial / already-half-built quick-win) — `effort or default` wrongly swallowed an explicit 0
+    # into the TBD default, understating a trivial win's RICE ~4x. Explicit 0/neg clamps to the floor.
+    e = float(sc.get("effort_tbd_default", 2.0)) if effort is None else float(effort)
+    eff = max(float(sc.get("effort_min", 0.5)), e)
     raw = (max(0.0, float(reach)) * max(0.0, float(impact)) * max(0.0, float(confidence))) / eff
     return {"rice_raw": round(raw, 6), "reach": float(reach), "impact": float(impact),
             "confidence": float(confidence), "effort": eff}
