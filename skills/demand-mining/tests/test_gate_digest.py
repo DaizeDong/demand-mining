@@ -90,6 +90,19 @@ def test_iteration_queue_tier_order():
     assert q[0]["order"] == 1
 
 
+def test_iteration_queue_excludes_cut_noise():
+    # Kano indifferent/reverse => tier "cut" (砍, do not build). A cut demand is noise and must
+    # NOT surface as an iteration direction; only real (non-cut) demands are recommended.
+    cut = _card(score=5, tier="cut", kano="indifferent"); cut["canonical_key"] = "noise|x::other"
+    real = _card(score=80, tier="tier1", kano="performance"); real["canonical_key"] = "real|y::ui-ux"
+    q = iteration_queue([cut, real], CFG)
+    assert all(x["tier"] != "cut" for x in q), [x["tier"] for x in q]
+    assert [x["canonical_key"] for x in q] == ["real|y::ui-ux"]
+    assert q[0]["order"] == 1                      # order numbers stay contiguous after the drop
+    # all-noise day yields an empty actionable queue (no filler iteration directions)
+    assert iteration_queue([cut], CFG) == []
+
+
 def test_empty_day_markdown_honest():
     md = build_markdown([], {"candidates": 0}, cfg=CFG)
     assert "今日无合格新需求" in md
