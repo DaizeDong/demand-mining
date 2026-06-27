@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here (Keep a Changelog style).
 
+## [0.1.1] - 2026-06-27
+### Changed
+- **Discord egress unified through Agent Center relay**: pushes now prefer schedule-reminder's
+  `relay.py send --stream demand` (per-stream identity in the Agent Center server) when the base
+  is installed, and **fall back to the Big Brother relay (send.py) when it is not** — fully
+  pluggable, no behaviour change when the base is absent. Existing env/arg overrides still win.
+
 ## [0.1.0] - 2026-06-25
 ### Added
 - Initial release — offline skeleton (skill-smith build #6).

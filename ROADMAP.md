@@ -1,8 +1,8 @@
 # Roadmap
 
-Current: **v0.1.0**
+Current: **v0.1.1**
 
-## v0.1.0 (current) — offline skeleton
+## v0.1.1 (current) — offline skeleton
 
 - Deterministic tail real + tested (56 tests): redact-on-ingest, demand extraction + verbatim
   grounding, need pool (two-gate dedup + distinct-author intensity + NEW/SUPPRESS/RESURFACE) over
