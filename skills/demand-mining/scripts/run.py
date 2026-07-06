@@ -253,12 +253,17 @@ def main() -> int:
     ap.add_argument("--run-id", default="")
     ap.add_argument("--archive-dir", default="")
     ap.add_argument("--no-ledger", action="store_true")
+    ap.add_argument("--catch-up", action="store_true",
+                    help="T7: backfill missed daily-digest items since the last watermark, then exit "
+                         "(idempotent; for the cron/orchestration layer after an oversleep)")
     a = ap.parse_args()
 
-    raw = open(a.infile, encoding="utf-8").read() if a.infile else sys.stdin.read()
-    candidates = json.loads(raw or "[]")
-    if isinstance(candidates, dict):
-        candidates = candidates.get("candidates", [])
+    candidates = []
+    if not a.catch_up:  # catch-up backfills digests from the ledger; it reads no candidate input
+        raw = open(a.infile, encoding="utf-8").read() if a.infile else sys.stdin.read()
+        candidates = json.loads(raw or "[]")
+        if isinstance(candidates, dict):
+            candidates = candidates.get("candidates", [])
 
     cfg = load_config()
     ledger = None if a.no_ledger else dd.LedgerClient()
@@ -267,6 +272,13 @@ def main() -> int:
             ledger.init()
         except Exception:
             ledger = None
+    if a.catch_up:
+        if ledger is None:
+            print(json.dumps({"catch_up": [], "error": "no ledger (schedule-reminder base required)"}))
+            return 1
+        dates = dg.catch_up_digests(ledger, ledger.get_watermark())
+        print(json.dumps({"catch_up": dates}, ensure_ascii=False))
+        return 0
     res = process(candidates, cfg, ledger, dry_run=a.dry_run,
                   run_id=a.run_id or None, archive_dir=a.archive_dir or None)
     res.pop("digest_markdown", None)

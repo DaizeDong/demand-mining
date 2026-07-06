@@ -34,9 +34,12 @@ and **delegates every deep job** to its sister skills. It never re-implements an
 ## Workflow (load one `reference/<shard>.md` per step)
 
 1. **Redact-on-ingest (FIRST, always)** — `reference/privacy.md`. Every raw message goes through
-   `redact.py` BEFORE any LLM/embedding sees it: Tier1 regex+Luhn, Tier2 entropy, unique
-   placeholders (`[PERSON_1]`/`[EMAIL_2]`, never collapsed), HMAC author pseudonym. Only redacted
-   text flows downstream. The pool stores distilled items, never raw conversation.
+   `redact.py` (NFKC-normalized, so full-width/homoglyph obfuscation can't smuggle PII past it)
+   BEFORE any LLM/embedding sees it: Tier1 regex+Luhn (email/phone/card/URL/IP/discord-id/handle),
+   Tier2 entropy (secrets), unique placeholders (`[EMAIL_1]`/`[PHONE_2]`, never collapsed), HMAC
+   author pseudonym. **Names & street addresses are NOT stripped yet** — that is the Tier3 NER hook
+   (v0.2, `apply_ner`); until it is wired, keep raw personal names out of the pipeline. Only redacted
+   text flows downstream; the pool stores distilled items, never raw conversation.
 2. **Extract demand** — `reference/extract.md`. Stage A: 8-label mutually-exclusive intent (context
    LLM, NOT keyword chitchat filtering). Stage B: session disentanglement by thread/reference
    chains (never time-window slicing) → JTBD four forces (Anxiety/Habit = the implicit goldmine) →
@@ -72,9 +75,11 @@ python scripts/run.py --in candidates.json --dry-run --no-ledger   # offline pre
 
 ## Hard rules (each maps to a guardrail; never violate)
 
-1. **Privacy first.** redact-on-ingest runs before any model call; the pool stores only redacted,
-   distilled demand items + HMAC pseudonyms — never raw chat. Unique placeholders, never collapsed.
-   The HMAC salt lives in gitignored secrets (Mode B); salt-in-repo = pseudonym-in-clear.
+1. **Privacy first.** redact-on-ingest runs before any model call; the pool stores redacted,
+   distilled demand items + HMAC pseudonyms — never raw chat. Structured PII (email/phone/card/
+   secret/id/url/ip/handle) is stripped fail-closed (NFKC-normalized against obfuscation); **names/
+   addresses need the Tier3 NER hook (v0.2) and are not yet redacted — keep them out of ingest.**
+   Unique placeholders, never collapsed. The HMAC salt lives in gitignored secrets (Mode B).
 2. **Never send user words to a third party.** Delegated queries to market-intel / web carry only
    non-private topics (feature name, competitor name) — never a user's raw message (privacy + injection).
 3. **Job over feature.** Never排期 a literal feature ask; force an inferred JTBD job + 5-Whys.

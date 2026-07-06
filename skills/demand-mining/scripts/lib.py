@@ -437,11 +437,3 @@ def parse_ts(s: str) -> datetime:
 
 def iso(dt: datetime) -> str:
     return dt.astimezone(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
-
-
-def age_hours(ts: str, ref: datetime | None = None) -> float:
-    ref = ref or now_utc()
-    try:
-        return max(0.0, (ref - parse_ts(ts)).total_seconds() / 3600.0)
-    except Exception:
-        return 0.0
