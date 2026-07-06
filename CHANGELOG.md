@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented here (Keep a Changelog style).
 
+## [0.1.2] - 2026-07-06
+### Security / privacy
+- **Redactor: NFKC hardening.** Full-width / ideographic-dot obfuscated emails (e.g. bob@host。com,
+  ｊｏｈｎ＠ｅｖｉｌ．ｃｏｍ — realistic for a CJK product) bypassed Tier-1 regexes and the has_pii DLP.
+  redact()/has_pii() now NFKC-normalize + fold confusable dots before matching, so obfuscated
+  structured PII is caught. Plain CJK text is not over-redacted.
+- **Honesty fix (no over-claim).** SKILL.md advertised a `[PERSON_1]` placeholder + "stores only
+  redacted, never raw chat", but names/addresses are the unwired Tier3 NER hook (v0.2). Docs now
+  state the true scope: structured PII (email/phone/card/secret/id/url/ip/handle) is stripped;
+  **names/addresses are NOT yet redacted — keep them out of ingest** until apply_ner is wired.
+### Fixed / added
+- **T7 catch-up entry** (`run.py --catch-up`): the tested `catch_up_digests` backfill was invoked by
+  nothing; now reachable (idempotent, reads no stdin) for the cron/orchestration layer.
+- Removed dead `lib.age_hours` (zero callers).
+- Regression tests `tests/test_redact_unicode_and_catchup.py` (+5). 85 passed.
+
 ## [0.1.1] - 2026-06-27
 ### Changed
 - **Discord egress unified through Agent Center relay**: pushes now prefer schedule-reminder's

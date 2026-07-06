@@ -14,8 +14,10 @@ Layers (cost-ascending; Tier1/Tier2 are pure-stdlib and always on):
             point (apply_ner) the skill can wire in v0.2; absent => Tier1/2 still redact.
 
 Two anti-patterns this file exists to kill:
-  1. Unified placeholders that COLLAPSE distinct entities ("[PERSON]" for two people loses who
-     said what). We mint UNIQUE, stable-within-a-message placeholders: [PERSON_1], [EMAIL_2]...
+  1. Unified placeholders that COLLAPSE distinct entities (one "[EMAIL]" for two addresses loses who
+     said what). We mint UNIQUE, stable-within-a-message placeholders: [EMAIL_1], [PHONE_2]...
+     (NOTE: names/addresses are the Tier3 v0.2 NER hook and are NOT redacted yet — structured PII
+     only. Do not rely on this to strip a person's name; wire apply_ner or keep raw names out.)
   2. A consistent author pseudonym that is reversible. `pseudonymize()` = HMAC-SHA256(salt, id):
      same person → same token across messages (a real clustering signal) but not invertible. The
      salt is read from secrets/env at call time and NEVER hardcoded or echoed; salt-in-repo would
@@ -32,12 +34,25 @@ import math
 import os
 import re
 import sys
+import unicodedata
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
 except Exception:
     pass
+
+# Confusable dot/at punctuation that NFKC does NOT fold (ideographic full stops etc.). Mapped to
+# ASCII BEFORE NFKC so full-width / homoglyph obfuscation cannot smuggle structured PII past the
+# Tier-1 regexes (e.g. bob@host。com, ｊｏｈｎ＠ｅｖｉｌ．ｃｏｍ). NFKC handles the U+FF00 full-width block.
+_CONFUSABLE_PUNCT = str.maketrans({"。": ".", "｡": ".", "︒": ".", "﹒": ".", "･": ".", "‧": "."})
+
+
+def _normalize(text: str) -> str:
+    """Canonicalize text so obfuscated structured PII is matchable: fold confusable dots, then NFKC
+    (full-width -> ASCII). Applied only inside redact()/has_pii(); the redacted output is the
+    normalized form (acceptable for the distilled pool; CJK content is unchanged by NFKC)."""
+    return unicodedata.normalize("NFKC", (text or "").translate(_CONFUSABLE_PUNCT))
 
 # --------------------------------------------------------------------------- Tier-1 patterns
 
@@ -110,6 +125,7 @@ def redact(text: str, salt: bytes | None = None) -> dict:
     before @handle so an email local-part is never mistaken for a handle."""
     found: dict[str, int] = {}
     mint = _Minter()
+    text = _normalize(text or "")  # fold full-width/homoglyph obfuscation before Tier-1 matching
 
     def bump(k):
         found[k] = found.get(k, 0) + 1
