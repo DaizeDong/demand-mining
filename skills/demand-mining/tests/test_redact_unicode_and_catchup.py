@@ -28,7 +28,7 @@ def test_ideographic_dot_email_is_caught():
 
 
 def test_normal_email_still_caught():
-    assert redact.has_pii("a@b.com") and not redact.has_pii("just plain words no pii")
+    assert redact.has_pii("a@example.com") and not redact.has_pii("just plain words no pii")
 
 
 def test_plain_cjk_not_over_redacted():

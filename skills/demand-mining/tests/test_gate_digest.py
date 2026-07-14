@@ -18,7 +18,7 @@ def _card(score=80, tier="tier1", n=2, internal=True, pii=False, kano="performan
             "opportunity_score": 12, "urgency_wsjf": 4, "kano": kano,
             "final_score": score, "grade": "B", "tier": tier,
             "independent_source_count": n, "evidence": ev,
-            "title": "contact bob@x.com" if pii else "faster csv export",
+            "title": "contact bob@example.com" if pii else "faster csv export",
             "why": "users churn", "recommendation": "stream the export"}
 
 
