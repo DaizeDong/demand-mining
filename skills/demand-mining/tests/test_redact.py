@@ -26,11 +26,11 @@ def test_credit_card_luhn_only():
 
 def test_unique_placeholders_no_collapse():
     # two DISTINCT emails must get DISTINCT placeholders (anti-collapse)
-    r = redact("a@x.com vs b@y.com")
+    r = redact("a@example.com vs b@example.org")
     phs = [p for p, k in r["placeholders"].items() if k == "EMAIL"]
     assert len(set(phs)) == 2, r["placeholders"]
     # the SAME email twice must reuse ONE placeholder (co-reference preserved)
-    r2 = redact("mail a@x.com then a@x.com again")
+    r2 = redact("mail a@example.com then a@example.com again")
     phs2 = [p for p, k in r2["placeholders"].items() if k == "EMAIL"]
     assert len(phs2) == 1
 
@@ -50,7 +50,7 @@ def test_pseudonym_stable_and_irreversible():
 
 
 def test_has_pii_egress_guard():
-    assert has_pii("contact bob@x.com") is True
+    assert has_pii("contact bob@example.com") is True
     assert has_pii("add dark mode to the settings page") is False
 
 
