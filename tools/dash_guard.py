@@ -26,10 +26,12 @@ Replacement (deterministic):
 from __future__ import annotations
 
 import argparse
+import io
 import os
 import re
 import subprocess
 import sys
+import tokenize
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -39,8 +41,17 @@ except Exception:
 
 _DASHES = "–—―"          # – — ―
 _DASH_RE = re.compile(f"[{_DASHES}]")
-_TEXT_EXT = {".md", ".markdown", ".py", ".ps1", ".txt", ".json", ".yml", ".yaml", ".toml",
-             ".cfg", ".ini", ".js", ".ts", ".sh", ".rst"}
+# How each extension is processed:
+#   "md"    Markdown/rst: full prose de-dash, code fences + inline `code` exempt.
+#   "prose" plain text: full prose de-dash, line by line.
+#   "py"    Python: de-dash COMMENT tokens ONLY. Every string literal (docstring AND a data literal
+#           like re.compile(r"[–—]")) is left untouched, so a functional dash-as-data is never
+#           corrupted. Output/display strings are handled by the skill's runtime _inline normalizer,
+#           not here.
+# Any extension not listed is left completely alone (a mixed prose/data code file we cannot auto-edit
+# safely). The rule is enforced on published docs + the .py comment prose; runtime output compliance
+# is the renderer's job.
+_KIND = {".md": "md", ".markdown": "md", ".rst": "md", ".txt": "prose", ".py": "py"}
 
 _SPACED = re.compile(rf"\s+[{_DASHES}]+\s+")
 _RANGE = re.compile(rf"([A-Za-z0-9])[{_DASHES}]+([A-Za-z0-9])")
@@ -74,8 +85,37 @@ def _split_md_code(line: str, in_fence: bool):
 _ALLOW = "dash-guard: allow"       # a line carrying this marker is left untouched (rare legit dash)
 
 
-def process_text(text: str, is_md: bool):
-    """Return (new_text, hits) where hits = list of (lineno, original_line). Skips code spans in md."""
+def _process_py(text: str):
+    """De-dash Python COMMENT tokens ONLY. Every string literal (docstring AND a data literal such as
+    re.compile(r"[–—]") or a test fixture) is left untouched, so a functional dash-as-data is never
+    corrupted. A line carrying the allow marker is skipped. Unparseable source is left as-is (we never
+    blind-edit code we cannot tokenize). Returns (new_text, hits)."""
+    try:
+        toks = list(tokenize.generate_tokens(io.StringIO(text).readline))
+    except (tokenize.TokenError, IndentationError, SyntaxError, ValueError):
+        return text, []
+    edits = {}                       # lineno -> (col_of_hash, fixed_comment)
+    for tok in toks:
+        if tok.type == tokenize.COMMENT and _ALLOW not in tok.line:
+            fixed = fix_prose(tok.string)
+            if fixed != tok.string:
+                edits[tok.start[0]] = (tok.start[1], fixed)
+    if not edits:
+        return text, []
+    lines, hits = text.split("\n"), []
+    for lineno, (col, fixed) in edits.items():
+        orig = lines[lineno - 1]
+        lines[lineno - 1] = orig[:col] + fixed      # a comment always runs to end of line
+        hits.append((lineno, orig))
+    return "\n".join(lines), hits
+
+
+def process_text(text: str, kind: str):
+    """Return (new_text, hits) where hits = list of (lineno, original_line).
+    kind: "py" (comments only), "md" (prose, code spans exempt), "prose" (plain text, full)."""
+    if kind == "py":
+        return _process_py(text)
+    is_md = (kind == "md")
     out_lines, hits, in_fence = [], [], False
     for lineno, line in enumerate(text.split("\n"), 1):
         if _ALLOW in line:
@@ -109,12 +149,12 @@ def _git(repo, *a):
 
 
 def _tracked(repo):
-    return [f for f in _git(repo, "ls-files").splitlines() if os.path.splitext(f)[1].lower() in _TEXT_EXT]
+    return [f for f in _git(repo, "ls-files").splitlines() if os.path.splitext(f)[1].lower() in _KIND]
 
 
 def _staged(repo):
     out = _git(repo, "diff", "--cached", "--name-only", "--diff-filter=ACM")
-    return [f for f in out.splitlines() if os.path.splitext(f)[1].lower() in _TEXT_EXT]
+    return [f for f in out.splitlines() if os.path.splitext(f)[1].lower() in _KIND]
 
 
 def main() -> int:
@@ -148,8 +188,10 @@ def main() -> int:
             continue
         if not _DASH_RE.search(text):
             continue
-        is_md = os.path.splitext(path)[1].lower() in (".md", ".markdown", ".rst")
-        new_text, hits = process_text(text, is_md)
+        kind = _KIND.get(os.path.splitext(path)[1].lower())
+        if kind is None:
+            continue
+        new_text, hits = process_text(text, kind)
         if not hits:
             continue
         total += len(hits)
