@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """Deterministic verify gate (Acceptance Gate T4 schema + anti-filler + T6 egress DLP). Stdlib.
 
-LLM proposes, this gate disposes — fail-closed, final veto. A demand card is BLOCKED (never pushed,
+LLM proposes, this gate disposes, fail-closed, final veto. A demand card is BLOCKED (never pushed,
 never archived to the pool) unless EVERY rule holds:
 
   * canonical_key + taxonomy track present       * final_score in [0,100]
   * three axes present (rice, opportunity, wsjf)  * tier in the enum
   * >=1 INTERNAL evidence unit {channel, redacted_snippet, ts}  (an iteration suggestion with no
-    internal grounding is forbidden filler — anti-pattern: no-evidence filler)
+    internal grounding is forbidden filler, anti-pattern: no-evidence filler)
   * independent_source_count >= min_independent_sources for any card that crosses the push floor
-  * egress DLP: the card carries NO residual PII (redact.has_pii over the user-visible fields) —
+  * egress DLP: the card carries NO residual PII (redact.has_pii over the user-visible fields) ,
     fail-closed, nothing with leftover PII is ever pushed/archived.
 
 Missing/short/PII = explicit gap returned, not a silent pass. Used per-card (validate_card) and as
@@ -78,7 +78,7 @@ def validate_card(card: dict, cfg: dict | None = None) -> tuple[bool, list[str]]
     if leaked:
         errs.append(f"residual PII in fields {leaked} (egress blocked)")
     # evidence[].redacted_snippet is ALSO user-visible (rendered into the pushed card + archived to
-    # the pool), so it must clear the SAME egress DLP — a residual email/phone hiding in a snippet is
+    # the pool), so it must clear the SAME egress DLP, a residual email/phone hiding in a snippet is
     # an exfil path identical to one in the title. Fail-closed per evidence unit.
     snippet_leaks = [i for i, e in enumerate(ev)
                      if (e.get("redacted_snippet") or e.get("quote"))

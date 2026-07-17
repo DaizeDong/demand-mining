@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""demand-mining shared library — deterministic primitives, stdlib only.
+"""demand-mining shared library, deterministic primitives, stdlib only.
 
 Everything here is a PURE function (no clock, no network) unless explicitly noted, so the
 acceptance-gate pytest suite can byte-compare outputs. Network/MCP/LLM work (Discord ingest,
@@ -8,7 +8,7 @@ layer, NOT here. This file holds: config discovery + defaults, entity normalizat
 canonical_key, SimHash/Hamming/Jaccard, the three orthogonal prioritization frameworks
 (RICE / Opportunity-ODI / WSJF), Kano gating, distinct-author intensity, and time helpers.
 
-The privacy layer (redact-on-ingest, HMAC pseudonyms, unique placeholders) lives in redact.py —
+The privacy layer (redact-on-ingest, HMAC pseudonyms, unique placeholders) lives in redact.py ,
 it must run BEFORE any text reaches an LLM/embedding, so it is kept separate and called first.
 """
 from __future__ import annotations
@@ -35,7 +35,7 @@ CONFIG_ENV = "DEMAND_MINING_CONFIG"
 CONFIG_FALLBACKS = ["~/.demand-mining-config", "~/.config/demand-mining-config"]
 
 # Eight mutually-exclusive Stage-A intent labels (a message may carry >1). `chitchat` is the
-# discard bucket (logged-then-dropped). Frozen enum — a new label is a schema_version bump, never
+# discard bucket (logged-then-dropped). Frozen enum, a new label is a schema_version bump, never
 # a free-form LLM invention (anti-pattern: category drift breaks cross-day comparability).
 INTENT_LABELS = ["feature_request", "bug_complaint", "pain_workaround", "competitor_compare",
                  "pricing_objection", "how_to_question", "praise", "chitchat"]
@@ -75,10 +75,10 @@ DEFAULT_CONFIG = {
          "keywords": [], "enabled": True},
     ],
     "focus_topics": ["activation friction", "competitor switch", "power-user workflow"],
-    # Hard mutes — clusters whose text matches these are dropped (spam/noise).
+    # Hard mutes, clusters whose text matches these are dropped (spam/noise).
     "exclude": ["airdrop giveaway", "promo code spam", "nsfw"],
     "scoring": {
-        # ---- A) RICE (ordering / bang-for-buck) — Intercom anchored scale, no free numerals.
+        # ---- A) RICE (ordering / bang-for-buck), Intercom anchored scale, no free numerals.
         "rice_weights": {"reach": 1.0, "impact": 1.0, "confidence": 1.0, "effort": 1.0},
         "impact_anchors": {"massive": 3.0, "high": 2.0, "medium": 1.0,
                            "low": 0.5, "minimal": 0.25},
@@ -179,7 +179,7 @@ def _product_dir(d: Path) -> Path | None:
 
 
 def load_config(explicit_path: str | None = None) -> dict:
-    """Probe for the tunable surface; deep-merge over DEFAULT_CONFIG. Never raises on absence — a
+    """Probe for the tunable surface; deep-merge over DEFAULT_CONFIG. Never raises on absence, a
     missing companion repo degrades to the built-in default set (documented). Supports two layouts:
       * flat:        <dir>/priority.json (or watchlist.json)
       * per-product: <dir>/registry.json -> products/<slug>/{priority,taxonomy}.json
@@ -234,7 +234,7 @@ _ENTITY_STOP = set(
     "when how why what where who do does did not no yes also even still only".split()
 )
 # Meaningful <3-char tech acronyms that the generic "drop short ASCII tokens" filter would otherwise
-# eat — losing them collapses DISTINCT demands to one canonical_key ("add AI mode" == "add VR mode").
+# eat, losing them collapses DISTINCT demands to one canonical_key ("add AI mode" == "add VR mode").
 # Frozen whitelist (not free-form): kept as entities; generic 2-char stop tokens (is/to/of/in/...)
 # remain filtered via _ENTITY_STOP, so no noise is re-admitted.
 _SHORT_KEEP = {"ai", "ui", "ux", "ml", "vr", "ar", "qa"}
@@ -247,7 +247,7 @@ def slug(s: str) -> str:
 
 def extract_entities(text: str, max_n: int = 8) -> list[str]:
     """Deterministic, dependency-free NER stand-in: lowercase content tokens, alias-folded,
-    stop-word filtered, order-preserving dedup, capped. Good enough for a canonical_key — the
+    stop-word filtered, order-preserving dedup, capped. Good enough for a canonical_key, the
     heavy lifting is the multi-signal dedup (entities + semantic + author)."""
     toks = _TOKEN_RE.findall((text or "").lower())
     out, seen = [], set()
@@ -316,7 +316,7 @@ def hamming(a: int, b: int) -> int:
 
 def intensity(authors: list[dict], cfg: dict | None = None) -> dict:
     """Need-weighted demand intensity, accumulated per DISTINCT author only (anti-vote-stuffing:
-    one loud user must not inflate intensity; repeats only bump mention_count). NO time decay —
+    one loud user must not inflate intensity; repeats only bump mention_count). NO time decay ,
     a long-standing strong need keeps its weight (time-sensitivity is the separate `velocity`).
 
     `authors`: list of {author_hash, urgency, segment} (urgency in should/need/blocking,
@@ -363,7 +363,7 @@ def confidence_from_evidence(independent_source_count: int, has_internal_explici
     # >=2 INDEPENDENT origins cross-validate the demand even without an internal-explicit mention:
     # the architecture wants "≥2 independent sources" encoded into Confidence as a high band, and
     # the score must be MONOTONE non-decreasing in independent_source_count. Previously n=1 and n>=2
-    # were both 0.5 (a 1->2 cross-validation gave NO lift) — the >=2 line now clears the single band.
+    # were both 0.5 (a 1->2 cross-validation gave NO lift), the >=2 line now clears the single band.
     if n >= 2:
         return float(cm.get("cross_validated_multi", cm["internal_cluster_3plus"]))
     if n >= 1:
@@ -380,7 +380,7 @@ def rice(reach: float, impact: float, confidence: float, effort: float,
     cfg = cfg or load_config()
     sc = cfg["scoring"]
     # Distinguish None (=unestimated TBD => neutral default) from an explicit 0 / negative (a genuine
-    # trivial / already-half-built quick-win) — `effort or default` wrongly swallowed an explicit 0
+    # trivial / already-half-built quick-win), `effort or default` wrongly swallowed an explicit 0
     # into the TBD default, understating a trivial win's RICE ~4x. Explicit 0/neg clamps to the floor.
     e = float(sc.get("effort_tbd_default", 2.0)) if effort is None else float(effort)
     eff = max(float(sc.get("effort_min", 0.5)), e)
@@ -409,7 +409,7 @@ def wsjf(user_business_value: float, time_criticality: float, risk_reduction: fl
          job_size: float, cfg: dict | None = None) -> float:
     """WSJF urgency = (UBV + TimeCriticality + RiskReduction) / JobSize. Inputs are Fibonacci
     anchored (1/2/3/5/8/13). JobSize clamped to a floor (same anti-small-divisor rule). Pure.
-    Competitor-just-shipped maps TimeCriticality=13 (highest) — the cross-skill differentiator."""
+    Competitor-just-shipped maps TimeCriticality=13 (highest), the cross-skill differentiator."""
     cfg = cfg or load_config()
     js = max(1.0, float(job_size or 1.0))
     return round((float(user_business_value) + float(time_criticality) +

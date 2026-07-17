@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Privacy core — redact-on-ingest (Acceptance Gate T6). Stdlib only, PURE, deterministic.
+"""Privacy core, redact-on-ingest (Acceptance Gate T6). Stdlib only, PURE, deterministic.
 
 This is the load-bearing privacy guarantee, enforced in code BEFORE any text reaches an LLM,
 embedding, or the need pool. The architecture's hard rule: redaction must happen *before* the
@@ -7,23 +7,23 @@ model ever sees the message, otherwise the PII has already leaked. So `redact()`
 first step of ingest in run.py, on every raw message, and only its output flows downstream.
 
 Layers (cost-ascending; Tier1/Tier2 are pure-stdlib and always on):
-  * Tier1 — deterministic regex + checksum: emails, phones, credit cards (Luhn-verified),
+  * Tier1, deterministic regex + checksum: emails, phones, credit cards (Luhn-verified),
             Discord user-id / @handle / invite link, URLs, IPs.
-  * Tier2 — entropy: long high-entropy tokens (API keys / secrets) → [SECRET_n].
-  * Tier3 — NER (Presidio, LOCAL-only, never a third-party PII API) for names/addresses: a hook
+  * Tier2, entropy: long high-entropy tokens (API keys / secrets) → [SECRET_n].
+  * Tier3, NER (Presidio, LOCAL-only, never a third-party PII API) for names/addresses: a hook
             point (apply_ner) the skill can wire in v0.2; absent => Tier1/2 still redact.
 
 Two anti-patterns this file exists to kill:
   1. Unified placeholders that COLLAPSE distinct entities (one "[EMAIL]" for two addresses loses who
      said what). We mint UNIQUE, stable-within-a-message placeholders: [EMAIL_1], [PHONE_2]...
-     (NOTE: names/addresses are the Tier3 v0.2 NER hook and are NOT redacted yet — structured PII
+     (NOTE: names/addresses are the Tier3 v0.2 NER hook and are NOT redacted yet, structured PII
      only. Do not rely on this to strip a person's name; wire apply_ner or keep raw names out.)
   2. A consistent author pseudonym that is reversible. `pseudonymize()` = HMAC-SHA256(salt, id):
      same person → same token across messages (a real clustering signal) but not invertible. The
      salt is read from secrets/env at call time and NEVER hardcoded or echoed; salt-in-repo would
      make the pseudonym as good as plaintext.
 
-The need pool stores ONLY redacted, distilled items — never raw conversation. See run.py.
+The need pool stores ONLY redacted, distilled items, never raw conversation. See run.py.
 """
 from __future__ import annotations
 
@@ -65,7 +65,7 @@ _INVITE = re.compile(r"\b(?:https?://)?(?:discord\.gg|discord(?:app)?\.com/invit
 _URL = re.compile(r"\bhttps?://\S+", re.IGNORECASE)
 _HANDLE = re.compile(r"(?<![\w/])@([A-Za-z0-9_]{2,32})\b")    # @handle (not an email local-part)
 _IPV4 = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
-# IPv6 — full 8-group form OR any "::"-compressed form (architecture Tier1 lists "IPs"). Guarded in
+# IPv6, full 8-group form OR any "::"-compressed form (architecture Tier1 lists "IPs"). Guarded in
 # the substituter so plain decimal times/ratios (colons but no "::" and not 8 hex groups) are never
 # eaten. Lookaround stops partial matches inside larger word/colon runs.
 _IPV6 = re.compile(
@@ -81,13 +81,13 @@ _TOKEN = re.compile(r"\b[A-Za-z0-9_\-]{24,}\b")
 
 # A bare ISO calendar date (YYYY-MM-DD) and a pure run of 4-digit years look like a loose phone
 # (8+ digits joined by '-'/space) but are NEVER contact numbers. The phone substituter skips them so
-# a date header or a '2020-2026' range is not mislabeled [PHONE_*] — which would also make the
+# a date header or a '2020-2026' range is not mislabeled [PHONE_*], which would also make the
 # fail-closed has_pii() gate abort an otherwise-clean digest. A real phone survives both guards.
 _ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 
 
 def _is_year_run(v: str) -> bool:
-    """True if v is nothing but 4-digit calendar years (1900-2099) joined by phone-ish separators —
+    """True if v is nothing but 4-digit calendar years (1900-2099) joined by phone-ish separators ,
     e.g. '2020-2026', '2019 2020 2021 2022'. Such a value is a date range/list in prose, not a phone;
     a real number's groups (area 3 / exchange 3 / line 4) are not all 4-digit years, so it is kept."""
     groups = re.findall(r"\d+", v)
@@ -172,7 +172,7 @@ def redact(text: str, salt: bytes | None = None) -> dict:
     def sub_phone(m):
         v = m.group(1)
         # date/year-safe: an ISO date or a pure year range/list is never a phone (see _ISO_DATE /
-        # _is_year_run) — skip so a date header / '2020-2026' is not flagged by redact()/has_pii().
+        # _is_year_run), skip so a date header / '2020-2026' is not flagged by redact()/has_pii().
         if _ISO_DATE.fullmatch(v) or _is_year_run(v):
             return v
         if len(re.sub(r"\D", "", v)) >= 8:
@@ -182,7 +182,7 @@ def redact(text: str, salt: bytes | None = None) -> dict:
 
     def sub_ipv6(m):
         v = m.group(0)
-        # require a real "::" or the full 8-group form, and at least one hex digit — so a bare
+        # require a real "::" or the full 8-group form, and at least one hex digit, so a bare
         # "::" or a decimal time/ratio is left untouched (fail-safe against over-redaction).
         if "::" not in v and v.count(":") != 7:
             return v
@@ -253,7 +253,7 @@ def pseudonymize(user_id: str, salt: bytes | None = None) -> str:
 
 
 def has_pii(text: str) -> bool:
-    """Cheap egress check (DLP): True if any Tier1/Tier2 pattern still matches — used fail-closed
+    """Cheap egress check (DLP): True if any Tier1/Tier2 pattern still matches, used fail-closed
     before anything leaves the machine (push, delegation query). A True here BLOCKS egress."""
     r = redact(text or "")
     return bool(r["found"])

@@ -122,7 +122,7 @@ def test_merge_authors_union_and_max():
 # RESURFACE incomplete vs its own docstring + ARCHITECTURE. Both list an urgency/velocity JUMP as a
 # RESURFACE trigger (competitor momentum / trend acceleration via trend-pulse get_trend_velocity),
 # but the implementation only inspected score / new-source / competitor-shipped and IGNORED velocity
-# entirely — so a demand whose velocity spiked while score/sources/competitor were unchanged stayed
+# entirely, so a demand whose velocity spiked while score/sources/competitor were unchanged stayed
 # SUPPRESS and was never re-surfaced to the founder (a now-urgent need goes silent). Guarded so it
 # only fires when BOTH prior and current velocity are present and the jump clears the config floor.
 def _row_vel(velocity):
@@ -148,7 +148,7 @@ def test_decide_no_overresurface_on_velocity_noise_or_absence():
 
 
 # ---------------------------------------------------------------- batch-4 R3 (T2 evolution): decide()
-# RESURFACE missed "新外部 corroboration" — ARCHITECTURE §3 lists the FIRST external origin validating
+# RESURFACE missed "新外部 corroboration", ARCHITECTURE §3 lists the FIRST external origin validating
 # an internal demand as its own RESURFACE trigger, distinct from crossing the >=2 source line. With
 # >=2 internal sources already present and score/competitor/velocity flat, external_origin_count going
 # 0->1 (a market validation that moves confidence/RICE) was SUPPRESSed and never re-surfaced.
@@ -181,7 +181,7 @@ def test_decide_no_resurface_when_external_already_present_or_absent():
 # ---------------------------------------------------------------- T2 batch-5: escalation into Tier0
 def test_decide_resurface_on_escalation_into_tier0():
     """A demand that escalates INTO tier0 (Kano must_be now missing = stop-the-bleed) must RESURFACE
-    for immediate attention even with score/sources/velocity/competitor unchanged — a now-missing
+    for immediate attention even with score/sources/velocity/competitor unchanged, a now-missing
     must-be is the highest-urgency transition (ARCHITECTURE: must_be missing -> immediate Tier0;
     RESURFACE on 紧迫跳变). Without this it SUPPRESSes and the critical item is never re-pushed."""
     row = _row("scheduled report export", "email reports on a schedule", "core-workflow", 60)
@@ -215,7 +215,7 @@ def test_decide_no_resurface_when_staying_or_leaving_tier0():
 
 def test_decide_no_resurface_on_score_drop():
     """GAP (batch 6 R2): decide() used abs(score delta) >= jump, so a demand whose score DROPPED
-    by >= jump (it became LESS important — a declining demand) was re-pushed as a RESURFACE
+    by >= jump (it became LESS important, a declining demand) was re-pushed as a RESURFACE
     evolution UPDATE card. RESURFACE means "became more important/urgent"; a decline must SUPPRESS
     (the fade path handles decline). Directional fix: only an UPWARD jump re-surfaces."""
     row = _row("dark mode", "reduce eye strain", "ui-ux", 80)

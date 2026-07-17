@@ -1,7 +1,7 @@
 <#
 demand-mining headless EOD wrapper for the Windows Task Scheduler.
 
-ABSOLUTE python/claude paths (Task Scheduler PATH is minimal — a bare `python` half-runs and
+ABSOLUTE python/claude paths (Task Scheduler PATH is minimal, a bare `python` half-runs and
 silently fails), fail-fast preflight, notify-on-abort. It does NOT use the in-session CronCreate
 tool (session-only = wrong primitive).
 
@@ -63,10 +63,10 @@ try {
   if ($rc -ne 0) { Notify-Abort "claude -p exited rc=$rc (see $log)" }
 
   # ---- commit + push the day's demand pool + digest to the PRIVATE companion repo ----
-  # Best-effort durability/sync of the private archive (the demand pool is DATA — it lives ONLY in the
+  # Best-effort durability/sync of the private archive (the demand pool is DATA, it lives ONLY in the
   # private companion repo, never a public tree). A push failure must NOT fail the run (the headlines
   # already delivered). origin is the ssh-alias remote (git@daizedong:) for unattended auth;
-  # --rebase --autostash absorbs drift. Only pool/ is committed — other local changes stay the user's,
+  # --rebase --autostash absorbs drift. Only pool/ is committed, other local changes stay the user's,
   # and secrets/ is .gitignored so it is never staged.
   if ($rc -eq 0 -and $ConfigDir -and (Test-Path (Join-Path $ConfigDir '.git'))) {
     try {

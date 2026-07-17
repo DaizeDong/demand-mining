@@ -1,17 +1,17 @@
-# delegation — external competitor / hotspot / public-demand tracking (Step 3)
+# delegation, external competitor / hotspot / public-demand tracking (Step 3)
 
 demand-mining owns the cadence; the deep work is delegated. Three external lanes feed the *same*
 need pool, clustered by the same `canonical_key` (cross-source triangulation = the biggest dedup
 dividend).
 
-## Lane 1 — hotspots / public demand (consume, never re-collect)
+## Lane 1, hotspots / public demand (consume, never re-collect)
 
 Read daily-hotspots' companion `opportunities.jsonl` (filter by the product's tracks/focus_topics)
 or its digest "今日商业机会" block. **Only** when a demand cluster hits a product track that
 daily-hotspots did not cover that day do you补采 that narrow topic. Never re-run the
 gdelt/hn/PH/trend-pulse fan-out (anti-pattern #2).
 
-## Lane 2 — public demand mining (nichesonar + IndieHackers crossing)
+## Lane 2, public demand mining (nichesonar + IndieHackers crossing)
 
 HN Algolia full-text for gap phrases (`I gave up on` / `is there a tool that` / `I ended up just
 building` / `nothing works for` / `no tool for`); GitHub competitor repos' 2-yr-unsolved high-+1
@@ -20,7 +20,7 @@ negative reviews. Store the JTBD *under* the complaint, not the surface ask. **�
 ORIGINs** (triangulated) before a public demand enters the pool; a 1-origin candidate is logged as
 an explicit `below_sources` gap, never silently dropped.
 
-## Lane 3 — competitor gap (gated delegation to market-intel, ≤3-5 deep/day)
+## Lane 3, competitor gap (gated delegation to market-intel, ≤3-5 deep/day)
 
 Trigger gate (fail-closed) = {demand cluster evidence references a competitor name} OR {competitor
 public signal crosses a threshold} OR {weekly scheduled deep sweep}. `competitors.json` holds the

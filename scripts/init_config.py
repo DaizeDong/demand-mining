@@ -3,7 +3,7 @@
 
 Generic + deterministic. Stamps an empty, conformant config skeleton using the skill's actual
 **per-product** layout (registry.json -> products[] -> products/<slug>/{priority,taxonomy}.json),
-Mode B secrets gitignored. Re-running with the same args produces byte-identical output —
+Mode B secrets gitignored. Re-running with the same args produces byte-identical output ,
 template-driven, no interactive divergence (E4). Stdlib only; never writes/echoes secrets.
 
 Discovery convention (mirrors scripts/lib.py:find_config_dir, also in CONFIG.md E2). The config dir
@@ -29,7 +29,7 @@ import sys
 DEFAULT_SKILL = "demand-mining"
 
 GITIGNORE = """\
-# Secrets gate (config-spec E6 / Mode B) — real values never enter git.
+# Secrets gate (config-spec E6 / Mode B), real values never enter git.
 secrets/*
 !secrets/README.md
 !secrets/.gitkeep
@@ -48,7 +48,7 @@ claude.json
 """
 
 SECRETS_README = """\
-# secrets/ — Mode B (gitignored)
+# secrets/, Mode B (gitignored)
 
 Real secret values live here and are **gitignored** (see ../.gitignore). They never enter git.
 Back them up out-of-band (cloud sync / encrypted drive). Restore on a new machine by copying the
@@ -57,9 +57,9 @@ files back into this directory, then re-running `scripts/verify_config.py`.
 Active storage mode: **B** (gitignored + out-of-band backup). Files MUST be UTF-8 without BOM.
 
 demand-mining secrets:
-- `pseudonym_hmac_salt` — HMAC salt driving redact.py pseudonyms (or set env
+- `pseudonym_hmac_salt`, HMAC salt driving redact.py pseudonyms (or set env
   DEMAND_MINING_PSEUDONYM_SALT instead). Never log or echo it.
-- Discord bot credentials — normally supplied by the shared `auto-support` relay; only place a
+- Discord bot credentials, normally supplied by the shared `auto-support` relay; only place a
   per-config override here if you are NOT using the shared bot.
 """
 
@@ -139,7 +139,7 @@ def main():
     print("Init config for skill '%s' (mode %s) at %s" % (skill, a.mode, out))
     print("Discovery env var: %s  (fallback %s)" % (env_var(skill), default_dir(skill)))
 
-    # registry.json — per-product variant; deterministic, no machine-specific content (E4/E5).
+    # registry.json, per-product variant; deterministic, no machine-specific content (E4/E5).
     registry = {"schema_version": 1, "skill": skill,
                 "products": ([{"slug": slug}] if slug else [])}
     write(os.path.join(out, "registry.json"), dumps(registry), a.force)

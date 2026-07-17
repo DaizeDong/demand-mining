@@ -1,7 +1,7 @@
-# dedup-pool — need pool, cross-day dedup, evolution (Step 5)
+# dedup-pool, need pool, cross-day dedup, evolution (Step 5)
 
 Backend = the **schedule-reminder base** (frozen `api_version 1.0.0`): subprocess via `reminder.py
---json` only. **Never** read the `.db`, build SQL, or put it on OneDrive (WAL corruption) — local
+--json` only. **Never** read the `.db`, build SQL, or put it on OneDrive (WAL corruption), local
 NTFS only. `scripts/dedup.py` is the pool layer.
 
 ## Demand → base item mapping
@@ -24,15 +24,15 @@ only `cluster_id` for reverse lookup.
 
 ## Two-gate dedup (forbid single-signal merges, anti-pattern #9)
 
-1. **Message-level exact** — message_id / content hash filters re-posts.
-2. **Semantic cluster (double gate)** — same demand iff **cosine ≥ 0.83 AND simhash Hamming ≤ 3**
+1. **Message-level exact**, message_id / content hash filters re-posts.
+2. **Semantic cluster (double gate)**, same demand iff **cosine ≥ 0.83 AND simhash Hamming ≤ 3**
    AND entity overlap AND subject agreement (`dedup.match_existing`). Boundary band 0.78-0.83 →
    `candidate-merge` (human review, **never** auto-merge; surfaced as a gap). Pure semantic alone
    false-merges "same words, different need"; pure string-match misses rewrites.
-3. **canonical_key idempotent UPSERT** — match a cluster centroid → `add` same key UPSERTs
+3. **canonical_key idempotent UPSERT**, match a cluster centroid → `add` same key UPSERTs
    (mention++, intensity accrues, evidence appended, recency updated); miss → new. Periodic offline
    recluster (HDBSCAN/agglomerative) guards centroid drift.
-4. **Cross-source triangulation** — internal + external signals extract the same entities → same
+4. **Cross-source triangulation**, internal + external signals extract the same entities → same
    `canonical_key` → merge with attribution, `frequency++`, never re-file.
 
 ## Intensity (need-weight, anti-stuffing)

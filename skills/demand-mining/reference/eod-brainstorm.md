@@ -1,4 +1,4 @@
-# eod-brainstorm — EOD digest + structured brainstorm + tiered push (Step 6)
+# eod-brainstorm, EOD digest + structured brainstorm + tiered push (Step 6)
 
 The daily close pipeline's deterministic tail (`scripts/digest.py` + `verify_gate.py` +
 `push_card.py`).
@@ -17,13 +17,13 @@ cluster (merge synonyms, record mention count + source distribution) → ③ per
    fed by daily-hotspots + market-intel).
 3. Each candidate direction → three-axis score → order.
 4. **Quick-win** (high demand / low effort, Kano Performance/Must-be) vs **Big-bet** (high impact /
-   low confidence, Kano Delighter) — two pools, each Top-N.
+   low confidence, Kano Delighter), two pools, each Top-N.
 5. Trend: which demands are heating (frequency/recency up) vs yesterday's pool diff.
 
 ## verify_gate (fail-closed)
 
 Every iteration suggestion carries **≥1 internal evidence** {channel, redacted_snippet, ts} (ideally
-+1 external) or `verify_gate.validate_card` BLOCKS it as an explicit gap — never no-evidence filler.
++1 external) or `verify_gate.validate_card` BLOCKS it as an explicit gap, never no-evidence filler.
 Push-grade cards also need ≥2 independent sources. **Egress DLP**: any residual PII blocks the card.
 Empty day → honest "今日无合格新需求", never filler.
 

@@ -12,17 +12,17 @@ Daily user-demand mining + competitor/hotspot tracking + EOD brainstorm + RICE/K
 
 ---
 
-## ⭐ Read this first — the design philosophy
+## ⭐ Read this first, the design philosophy
 
-**LLM proposes, a deterministic gate disposes — and the gate guards privacy first.** A shipped
+**LLM proposes, a deterministic gate disposes, and the gate guards privacy first.** A shipped
 product's user signal is messy, sensitive, and easy to mis-rank. So every judgement call (reading a
 Discord session, recovering intent + the Job-To-Be-Done, proposing a score) is the model's, but
-every *ruling* — what counts as a demand, what merges, what ships, what gets pushed — is made by a
+every *ruling*, what counts as a demand, what merges, what ships, what gets pushed, is made by a
 pure Python gate that fails closed. And before the model ever sees a message, `redact.py` strips the
 PII. The need pool stores only redacted, distilled demand items, never raw conversation.
 
 This is the orchestration product `market-intel` reserved and `daily-hotspots`' twin: it owns the
-*seam* (cadence, pool, scoring, delivery) and **delegates every engine** — it never re-implements
+*seam* (cadence, pool, scoring, delivery) and **delegates every engine**, it never re-implements
 search, verification, the Discord listener, or the hotspot fan-out.
 
 📜 **[Read the full design philosophy -> PHILOSOPHY.md](PHILOSOPHY.md)**
@@ -73,7 +73,7 @@ Trigger words: **需求挖掘 · demand mining · 迭代建议 · EOD 汇总**, 
 
 ## Example output
 
-**Pushed to Discord** — ONE ranked *headlines* message/day (top ≤5 archivable demands), not an embed
+**Pushed to Discord**, ONE ranked *headlines* message/day (top ≤5 archivable demands), not an embed
 per demand:
 
 ```
@@ -88,7 +88,7 @@ A 78 · RICE=9 · 3证据
 ```
 
 The 【】 tag is the demand's **urgency·need-type** (立即/本周/本月 · 刚需/期望/惊喜). Unlike the
-`daily-hotspots` sibling the headline carries **no url** — this skill mines private conversation and
+`daily-hotspots` sibling the headline carries **no url**, this skill mines private conversation and
 the fail-closed egress gate aborts on any link, so evidence stays private and the full digest is
 pointed at by a plain-text hint.
 
@@ -103,7 +103,7 @@ plus Quick-win / Big-bet pools. On a quiet day it honestly prints `今日无合�
 
 ## Config
 
-`demand-mining` is **config-bearing** — it reads per-product tunables (RICE weights, thresholds, Kano
+`demand-mining` is **config-bearing**, it reads per-product tunables (RICE weights, thresholds, Kano
 map, taxonomy, push limits) and secrets (pseudonym HMAC salt, Discord creds) from a **separate,
 private** companion config repo. Full contract: [CONFIG.md](CONFIG.md). Absent → built-in
 `scripts/lib.py:DEFAULT_CONFIG`.
@@ -116,9 +116,9 @@ private** companion config repo. Full contract: [CONFIG.md](CONFIG.md). Absent �
   export DEMAND_MINING_CONFIG=~/.demand-mining-config                   # or pass --out <dir>
   python scripts/verify_config.py                  # doctor: PASS/FAIL, names gaps
   ```
-- **Switch configs (hot-swap):** point the env var at another config dir — configs are self-contained,
+- **Switch configs (hot-swap):** point the env var at another config dir, configs are self-contained,
   no other change: `export DEMAND_MINING_CONFIG=~/configs/work` ↔ `~/configs/personal`.
-- **Secrets:** Mode B — `secrets/*` is gitignored and never enters git; back up out-of-band. The
+- **Secrets:** Mode B, `secrets/*` is gitignored and never enters git; back up out-of-band. The
   pseudonym salt may instead come from `$DEMAND_MINING_PSEUDONYM_SALT`.
 
 ## Limitations
@@ -127,7 +127,7 @@ private** companion config repo. Full contract: [CONFIG.md](CONFIG.md). Absent �
   is real and tested; the live Discord tap + real secrets + competitor changelog diff land in v0.2
   (see ROADMAP). The product code root and Discord bot wiring are `@DEFERRED` until provided.
 - Implicit-demand recall is the hard part; it improves by adding adversarial fixtures over time.
-- Kano is an LLM proxy (no survey) — calibrated on real community samples after go-live.
+- Kano is an LLM proxy (no survey), calibrated on real community samples after go-live.
 
 ## Languages
 

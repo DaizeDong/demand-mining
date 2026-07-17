@@ -6,11 +6,11 @@ change, ask the governing test: *does it fix the framing, or just patch a sympto
 ## Ground rules
 
 - **Privacy is non-negotiable.** Anything that touches a user message must keep redact-on-ingest
-  first. Never store raw conversation; never commit secrets (Mode B — `secrets/` is gitignored).
+  first. Never store raw conversation; never commit secrets (Mode B, `secrets/` is gitignored).
 - **LLM proposes, the gate disposes.** Keep judgement in SKILL.md and rulings in `scripts/` pure
   functions. New scoring/dedup logic needs a deterministic test, not a prompt tweak.
 - **Own the seam, delegate engines.** Do not add a 2nd Discord bot, a hotspot collector, or a
-  competitor scraper here — delegate (auto-support / daily-hotspots / market-intel).
+  competitor scraper here, delegate (auto-support / daily-hotspots / market-intel).
 
 ## Workflow
 
@@ -21,4 +21,4 @@ change, ask the governing test: *does it fix the framing, or just patch a sympto
 5. Keep the four version sources in lock-step (plugin.json · README badge · ROADMAP · CHANGELOG).
 
 Every discovered mis-judgement / false-merge / PII-leak class should become a new adversarial
-fixture in the matching T-suite — that is how the skill earns "tested-real".
+fixture in the matching T-suite, that is how the skill earns "tested-real".

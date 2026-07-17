@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Deterministic EOD pipeline orchestrator — the gate that disposes what the LLM proposes.
+"""Deterministic EOD pipeline orchestrator, the gate that disposes what the LLM proposes.
 
 INPUT (stdin or --in): a JSON list of *candidate demand clusters* the SKILL.md orchestration layer
-already produced — Discord sessions read in context, intent + JTBD recovered, opinion-units
+already produced, Discord sessions read in context, intent + JTBD recovered, opinion-units
 extracted, cross-source de-duplicated into one demand per canonical subject, each with its
 (already-redacted) evidence[], its distinct authors[], and a temperature-0 per-axis score
 proposal. Shape per candidate:
@@ -228,9 +228,9 @@ def process(candidates: list[dict], cfg: dict | None = None, ledger=None,
             except Exception:
                 pass
     # Deliver ONLY the compact headlines: the top max_per_day (default 5) archivable demands ranked by
-    # tier+score — a consistent briefing, not the raw markdown and not a message per demand. The full
+    # tier+score, a consistent briefing, not the raw markdown and not a message per demand. The full
     # markdown (every field + RICE + evidence) is the archived digest file above; we point at it with a
-    # PLAIN-TEXT hint (never a url — demand-mining's egress gate aborts on any link). No card ships.
+    # PLAIN-TEXT hint (never a url, demand-mining's egress gate aborts on any link). No card ships.
     cap = int((cfg.get("push", {}) or {}).get("max_per_day", 5))
     digest_hint = ""
     if digest_path:
