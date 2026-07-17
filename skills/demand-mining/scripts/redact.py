@@ -79,6 +79,20 @@ _CCARD = re.compile(r"(?<!\d)(?:\d[ -]?){13,19}(?!\d)")
 # high-entropy token (Tier2): a long run of base64/hex-ish chars with no spaces
 _TOKEN = re.compile(r"\b[A-Za-z0-9_\-]{24,}\b")
 
+# A bare ISO calendar date (YYYY-MM-DD) and a pure run of 4-digit years look like a loose phone
+# (8+ digits joined by '-'/space) but are NEVER contact numbers. The phone substituter skips them so
+# a date header or a '2020-2026' range is not mislabeled [PHONE_*] — which would also make the
+# fail-closed has_pii() gate abort an otherwise-clean digest. A real phone survives both guards.
+_ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+def _is_year_run(v: str) -> bool:
+    """True if v is nothing but 4-digit calendar years (1900-2099) joined by phone-ish separators —
+    e.g. '2020-2026', '2019 2020 2021 2022'. Such a value is a date range/list in prose, not a phone;
+    a real number's groups (area 3 / exchange 3 / line 4) are not all 4-digit years, so it is kept."""
+    groups = re.findall(r"\d+", v)
+    return bool(groups) and all(len(g) == 4 and 1900 <= int(g) <= 2099 for g in groups)
+
 
 def _luhn_ok(num: str) -> bool:
     ds = [int(c) for c in re.sub(r"\D", "", num)]
@@ -157,6 +171,10 @@ def redact(text: str, salt: bytes | None = None) -> dict:
 
     def sub_phone(m):
         v = m.group(1)
+        # date/year-safe: an ISO date or a pure year range/list is never a phone (see _ISO_DATE /
+        # _is_year_run) — skip so a date header / '2020-2026' is not flagged by redact()/has_pii().
+        if _ISO_DATE.fullmatch(v) or _is_year_run(v):
+            return v
         if len(re.sub(r"\D", "", v)) >= 8:
             bump("PHONE"); return mint.get("PHONE", re.sub(r"\D", "", v))
         return v

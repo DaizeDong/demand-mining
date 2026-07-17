@@ -51,10 +51,47 @@ try {
   }
 
   "[$(Get-Date -Format o)] demand-mining EOD start (py=$script:py)" | Tee-Object -FilePath $log -Append
-  & $claude.Source -p "Run the demand-mining skill EOD now: redact + read today's Discord demand signals, recover intent + JTBD, dedup into the need pool, score the three axes, brainstorm Quick-win/Big-bet iteration directions, push the digest to Discord, and archive." --dangerously-skip-permissions *>> $log
+  # PowerShell footgun (2026-07): under $ErrorActionPreference='Stop', `*>> $log` on a NATIVE command
+  # turns any stderr line into a terminating NativeCommandError -> the wrapper throws -> catch fires a
+  # FALSE ABORT and skips the "end rc=" marker EVEN when claude -p succeeded. Drop to 'Continue' around
+  # the native call so stderr is merely captured and $LASTEXITCODE is the single source of truth.
+  $ErrorActionPreference = 'Continue'
+  & $claude.Source -p "Run the demand-mining skill EOD now: redact + read today's Discord demand signals, recover intent + JTBD, dedup into the need pool, score the three axes, brainstorm Quick-win/Big-bet iteration directions, deliver the ranked headlines digest to Discord, and archive." --dangerously-skip-permissions *>> $log
   $rc = $LASTEXITCODE
+  $ErrorActionPreference = 'Stop'
   "[$(Get-Date -Format o)] demand-mining EOD end rc=$rc" | Tee-Object -FilePath $log -Append
   if ($rc -ne 0) { Notify-Abort "claude -p exited rc=$rc (see $log)" }
+
+  # ---- commit + push the day's demand pool + digest to the PRIVATE companion repo ----
+  # Best-effort durability/sync of the private archive (the demand pool is DATA — it lives ONLY in the
+  # private companion repo, never a public tree). A push failure must NOT fail the run (the headlines
+  # already delivered). origin is the ssh-alias remote (git@daizedong:) for unattended auth;
+  # --rebase --autostash absorbs drift. Only pool/ is committed — other local changes stay the user's,
+  # and secrets/ is .gitignored so it is never staged.
+  if ($rc -eq 0 -and $ConfigDir -and (Test-Path (Join-Path $ConfigDir '.git'))) {
+    try {
+      Push-Location $ConfigDir
+      $ErrorActionPreference = 'Continue'
+      & git add pool/ *>> $log
+      & git diff --cached --quiet
+      if ($LASTEXITCODE -ne 0) {
+        & git commit -m "data: demand pool + digest $(Get-Date -Format 'yyyy-MM-dd')" *>> $log
+        & git pull --rebase --autostash origin master *>> $log
+        & git push origin master *>> $log
+        $pushRc = $LASTEXITCODE
+        "[$(Get-Date -Format o)] archive push rc=$pushRc" | Tee-Object -FilePath $log -Append
+        if ($pushRc -ne 0) { Notify-Abort "archive push failed rc=$pushRc (pool backup may lag; see $log)" }
+      } else {
+        "[$(Get-Date -Format o)] archive: nothing to commit" | Tee-Object -FilePath $log -Append
+      }
+      $ErrorActionPreference = 'Stop'
+      Pop-Location
+    } catch {
+      $ErrorActionPreference = 'Stop'
+      try { Pop-Location } catch {}
+      "[$(Get-Date -Format o)] archive push exception: $($_.Exception.Message)" | Tee-Object -FilePath $log -Append
+    }
+  }
   exit $rc
 }
 catch {

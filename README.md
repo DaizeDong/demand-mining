@@ -73,7 +73,26 @@ Trigger words: **需求挖掘 · demand mining · 迭代建议 · EOD 汇总**, 
 
 ## Example output
 
-An EOD digest with an iteration-direction queue, each line showing all three axes:
+**Pushed to Discord** — ONE ranked *headlines* message/day (top ≤5 archivable demands), not an embed
+per demand:
+
+```
+📊 **需求头条** · 2026-07-15
+合格 8 · 精选 5 · 剔噪 1 · 候选 12
+
+**1.【立即·刚需】可靠地导出我的数据**
+用户反复手动逐月下载再转表格，几十分钟重复劳动，论坛高频抱怨。建议：一键区间导出 CSV/Excel。
+A 78 · RICE=9 · 3证据
+...
+📄 完整版（全部字段 + RICE + 证据）: 私有归档 2026/2026-07-15.md
+```
+
+The 【】 tag is the demand's **urgency·need-type** (立即/本周/本月 · 刚需/期望/惊喜). Unlike the
+`daily-hotspots` sibling the headline carries **no url** — this skill mines private conversation and
+the fail-closed egress gate aborts on any link, so evidence stays private and the full digest is
+pointed at by a plain-text hint.
+
+The **archived** digest file keeps the full iteration-direction queue, each line showing all three axes:
 
 ```
 1. [tier0/immediate] reliably export my data — final 78 · RICE(R=6,I=3,C=1.0,E=2)=9 ·

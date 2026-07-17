@@ -2,7 +2,10 @@
 (quick-win/big-bet split, iteration queue order, catch-up dates, empty-day honesty)."""
 from lib import load_config
 from verify_gate import validate_card, gate_batch
-from digest import split_pools, iteration_queue, missed_digest_dates, build_markdown
+from digest import (split_pools, iteration_queue, missed_digest_dates, build_markdown,
+                    build_headlines)
+from redact import redact as _core_redact
+import push_card as _pc
 
 CFG = load_config()
 
@@ -197,3 +200,82 @@ def test_blocks_residual_pii_in_evidence_snippet():
 def test_clean_evidence_snippet_still_passes():   # reverse: no false-positive on clean snippets
     ok, errs = validate_card(_card(), CFG)
     assert ok, errs
+
+
+# ---------------------------------------------------------------- headlines (pushed daily message)
+def test_headlines_rank_tag_and_meta():
+    t0 = _card(score=90, tier="tier0", kano="must_be")
+    t0["title"] = "批量导出对账单"
+    t1 = _card(score=60, tier="tier1", kano="performance")
+    t1["title"] = "移动端离线草稿"
+    h = build_headlines([t1, t0], {"candidates": 7}, date="2026-07-15", cap=5)
+    # tier0 ranks above tier1 regardless of input order; bold numbered headline + 领域=urgency·need
+    assert h.index("批量导出对账单") < h.index("移动端离线草稿")
+    assert "**1.【立即·刚需】批量导出对账单**" in h
+    assert "**2.【本周·期望】移动端离线草稿**" in h
+    assert "📊 **需求头条** · 2026-07-15" in h
+    assert "证据" in h and "RICE=" in h
+
+
+def test_headlines_cap_and_overflow_note():
+    cards = [_card(score=90 - i, tier="tier1") for i in range(8)]
+    for i, c in enumerate(cards):
+        c["title"] = f"需求{i}"
+        c["canonical_key"] = f"k|{i}"
+    h = build_headlines(cards, cap=5, date="2026-07-15")
+    assert "精选 5" in h and "合格 8" in h
+    assert "另有 3 条" in h                      # overflow acknowledged, not silently dropped
+
+
+def test_headlines_excludes_cut_noise():
+    real = _card(score=80, tier="tier1", kano="performance"); real["title"] = "真需求"
+    noise = _card(score=50, tier="cut", kano="indifferent"); noise["title"] = "噪声"
+    h = build_headlines([real, noise], date="2026-07-15")
+    assert "真需求" in h and "噪声" not in h
+    assert "剔噪 1" in h
+
+
+def test_headlines_empty_day_is_honest():
+    assert "今日无合格新需求" in build_headlines([], {"candidates": 0}, date="2026-07-15")
+    # an all-cut day is also an honest empty day (no filler headline)
+    cut = _card(tier="cut", kano="reverse")
+    assert "今日无合格新需求" in build_headlines([cut], date="2026-07-15")
+
+
+def test_headlines_prose_from_why_and_recommendation():
+    c = _card(tier="tier0", kano="must_be")
+    c["why"] = "用户反复手动导出，耗时且易错"
+    c["recommendation"] = "一键区间导出"
+    h = build_headlines([c], date="2026-07-15")
+    assert "用户反复手动导出" in h and "建议：一键区间导出" in h
+    assert "。。" not in h                        # sentence-join must not double a full stop
+
+
+def test_headlines_carries_no_url_and_passes_egress_gate():
+    # demand-mining's egress deliver() aborts on ANY url/handle; the headlines must therefore contain
+    # neither, and the date header / year ranges must NOT trip the core phone matcher.
+    c = _card(tier="tier1"); c["why"] = "2020-2026 讨论持续升温，是高频痛点"
+    h = build_headlines([c], date="2026-07-15", digest_hint="私有归档 2026/2026-07-15.md")
+    assert "http" not in h and "@" not in h
+    assert not _core_redact(h)["found"], "headlines must be clean for the fail-closed has_pii gate"
+    ok, detail = _pc.deliver(h, dry_run=True)
+    assert ok is True and "dry-run" in detail    # gate does not abort a clean headlines message
+
+
+def test_headlines_robust_to_malformed_score():
+    # score.py always emits a numeric final_score, but a hand-built/malformed card must not crash the
+    # build: None sorts as 0 and shows '?'; a non-numeric string must not raise in the sort key.
+    bad = [{"tier": "tier1", "title": "空分数", "final_score": None, "canonical_key": "k|a"},
+           {"tier": "tier1", "title": "坏分数", "final_score": "NaNlike", "canonical_key": "k|b"},
+           {"tier": "tier0", "title": "正常", "final_score": 90, "grade": "A", "canonical_key": "k|c"}]
+    h = build_headlines(bad, date="2026-07-15")           # must not raise
+    assert "正常" in h and "空分数" in h and "坏分数" in h
+    assert "None" not in h                                 # explicit-None score renders '?', never 'None'
+
+
+def test_headlines_injection_neutralized():
+    c = _card(tier="tier0", kano="must_be")
+    c["title"] = "evil`code`\n|table"            # backticks / pipe / newline in an (untrusted) field
+    h = build_headlines([c], date="2026-07-15")
+    line = [ln for ln in h.splitlines() if "evil" in ln][0]
+    assert "`" not in line and "|" not in line and "\n" not in line.rstrip()
