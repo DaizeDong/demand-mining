@@ -1,6 +1,6 @@
-# cron-setup — scheduling the daily EOD run (Step 7)
+# cron-setup, scheduling the daily EOD run (Step 7)
 
-**Never `CronCreate`** — an in-session cron dies with the session (wrong primitive). The correct
+**Never `CronCreate`**, an in-session cron dies with the session (wrong primitive). The correct
 chain on Windows:
 
 `Windows Task Scheduler (off-:00, e.g. 21:53 to avoid top-of-hour congestion) → wrapper.ps1
@@ -22,7 +22,7 @@ alert via `the notifier` so a silent failure is impossible.
 ## Idempotency + catch-up
 
 The EOD digest is an idempotent schedule-reminder item (`idempotency_key=demand-mining:digest:<date>`)
-— a re-run / backfill never double-sends. After the machine sleeps, the next run uses
+, a re-run / backfill never double-sends. After the machine sleeps, the next run uses
 `since=last_run_at-5min` + fingerprint UPSERT = at-least-once + dedupe. `digest.catch_up_digests`
 backfills the most-recent missed days, **bounded** (an overslept laptop never floods the channel).
 
@@ -36,4 +36,4 @@ start a competing channel). Otherwise the skill pushes its own digest via the re
 Deploy as a plugin into the product root `.claude/` (mirrors auto-support), carrying
 `templates/settings.json.template` (`permissions.deny` + a PreToolUse hook). The privacy/secret
 boundary is enforced by the **deterministic layer** (permissions.deny + PreToolUse hook + stdlib
-guardrails in redact.py) **outside** the prompt — not by SKILL.md text promises.
+guardrails in redact.py) **outside** the prompt, not by SKILL.md text promises.

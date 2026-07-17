@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
-"""Discord delivery — tiered push (anti-spam) + egress DLP (Acceptance Gate T6). Stdlib.
+"""Discord delivery, tiered push (anti-spam) + egress DLP (Acceptance Gate T6). Stdlib.
 
 Builds BOTH a Discord embed dict (future embed bot) AND a plain-text rendering (current content-
 only relay). Two fail-closed guards run BEFORE anything leaves the machine:
 
-  1. egress DLP — every user-visible string is re-scanned with redact.has_pii; ANY residual PII or
+  1. egress DLP, every user-visible string is re-scanned with redact.has_pii; ANY residual PII or
      secret aborts the send (returns ok=False, reason). The pool stores only redacted data, but
      this is the belt-and-suspenders backstop so raw PII can never reach Discord.
-  2. Discord hard limits — embed<=6000 / <=25 fields / value<=1024 / <=10 embeds / content<=2000,
+  2. Discord hard limits, embed<=6000 / <=25 fields / value<=1024 / <=10 embeds / content<=2000,
      validated up front so nothing is silently truncated by Discord.
 
 Delivery seam (clean bot switch, zero code change):
-  DEMAND_MINING_RELAY_CMD — JSON list / shell string; receives the message on argv[1].
+  DEMAND_MINING_RELAY_CMD, JSON list / shell string; receives the message on argv[1].
   else fallback to the notifier (content-only relay).
-The Discord token is NEVER read or echoed here — the relay owns the token; this script hands text.
+The Discord token is NEVER read or echoed here, the relay owns the token; this script hands text.
 """
 from __future__ import annotations
 

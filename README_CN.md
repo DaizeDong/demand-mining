@@ -12,15 +12,15 @@
 
 ---
 
-## ⭐ 先读这里 — 设计理念
+## ⭐ 先读这里, 设计理念
 
-**LLM 提议,确定性 gate 裁决——而 gate 首先守护隐私。** 已发布产品的用户信号杂、敏感、易误排。
-所以每个判断(读 Discord 会话、还原意图与 JTBD、提议打分)交给模型,但每个**裁决**——什么算需求、
-什么该合并、什么该做、什么该推——由 fail-closed 的纯 Python gate 做出;且在模型看到任何消息**之前**,
+**LLM 提议,确定性 gate 裁决,而 gate 首先守护隐私。** 已发布产品的用户信号杂、敏感、易误排。
+所以每个判断(读 Discord 会话、还原意图与 JTBD、提议打分)交给模型,但每个**裁决**,什么算需求、
+什么该合并、什么该做、什么该推,由 fail-closed 的纯 Python gate 做出;且在模型看到任何消息**之前**,
 `redact.py` 先脱去 PII。需求池只存脱敏提炼项,绝不存原始对话。
 
 它是 `market-intel` 预留的编排产品、`daily-hotspots` 的孪生:只拥有 *seam*(节律、池、打分、推送),
-**深活全部委托**——绝不重写检索、验证、Discord 监听层或热点扇出。
+**深活全部委托**,绝不重写检索、验证、Discord 监听层或热点扇出。
 
 📜 **[完整设计理念 -> PHILOSOPHY.md](PHILOSOPHY.md)**
 
@@ -67,7 +67,7 @@ redact → score → dedup → verify → push → pool → digest → watermark
 
 ## 示例输出
 
-**推送到 Discord** —— 每日一条排序「需求头条」(top ≤5 合格需求),不再逐需求发卡片:
+**推送到 Discord**, 每日一条排序「需求头条」(top ≤5 合格需求),不再逐需求发卡片:
 
 ```
 📊 **需求头条** · 2026-07-15
@@ -81,7 +81,7 @@ A 78 · RICE=9 · 3证据
 ```
 
 【】标签是需求的**紧迫度·需求性质**(立即/本周/本月 · 刚需/期望/惊喜)。与 `daily-hotspots` 孪生不同,
-头条**不含任何链接** —— 本 skill 挖私密对话,fail-closed 出口门遇链接即中止,证据保持私有,完整 digest
+头条**不含任何链接**, 本 skill 挖私密对话,fail-closed 出口门遇链接即中止,证据保持私有,完整 digest
 用纯文本指针指向私有归档。
 
 **归档**的 digest 文件保留完整迭代方向队列,每行三轴齐显:
@@ -99,11 +99,11 @@ A 78 · RICE=9 · 3证据
   真实 secrets + 竞品 changelog diff 在 v0.2(见 ROADMAP)。产品代码根与 Discord bot 接线 `@DEFERRED`,
   待提供。
 - 隐性需求召回是死穴,靠持续扩充对抗 fixture 迭代提升。
-- Kano 为 LLM 代理(无问卷)——上线后用真实社群样本校准。
+- Kano 为 LLM 代理(无问卷),上线后用真实社群样本校准。
 
 ## 配置
 
-`demand-mining` 是**带 config 的 skill** —— 每产品的可调参数(RICE 权重、阈值、Kano 映射、taxonomy、
+`demand-mining` 是**带 config 的 skill**, 每产品的可调参数(RICE 权重、阈值、Kano 映射、taxonomy、
 推送上限)与密钥(假名 HMAC salt、Discord 凭证)都放在一个**独立、私有**的伴随 config 仓里。完整规范见
 [CONFIG.md](CONFIG.md)。缺失则回落内置 `scripts/lib.py:DEFAULT_CONFIG`。
 
@@ -115,9 +115,9 @@ A 78 · RICE=9 · 3证据
   export DEMAND_MINING_CONFIG=~/.demand-mining-config                   # 或给 init 传 --out <dir>
   python scripts/verify_config.py                  # doctor:逐项 PASS/FAIL 报缺
   ```
-- **切换 config(即插即用):** 把环境变量指向另一个 config 目录即可 —— config 自包含,无需别的改动:
+- **切换 config(即插即用):** 把环境变量指向另一个 config 目录即可, config 自包含,无需别的改动:
   `export DEMAND_MINING_CONFIG=~/configs/work` ↔ `~/configs/personal`。
-- **密钥:** Mode B —— `secrets/*` 已 gitignore,永不入库,请用库外备份。假名 salt 也可改由
+- **密钥:** Mode B, `secrets/*` 已 gitignore,永不入库,请用库外备份。假名 salt 也可改由
   `$DEMAND_MINING_PSEUDONYM_SALT` 提供。
 
 ## 语言

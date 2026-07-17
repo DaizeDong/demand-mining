@@ -1,4 +1,4 @@
-"""T1 — demand extraction: intent normalization, demand-vs-noise, verbatim grounding (100%),
+"""T1, demand extraction: intent normalization, demand-vs-noise, verbatim grounding (100%),
 implicit not dropped, no raw text in the built unit."""
 from extract import (normalize_intents, is_demand, verbatim_grounding, build_unit,
                      jtbd_completeness)
@@ -50,12 +50,12 @@ def test_build_unit_rejects_non_demand_and_ungrounded():
 
 def test_grounding_punctuation_insensitive_cuts_omission():
     # Omission (~2x fabrication per the architecture) is the bigger sin: a genuinely-present quote
-    # that differs from the source only by PUNCTUATION (comma, em-dash) must still ground — while
+    # that differs from the source only by PUNCTUATION (comma, em-dash) must still ground, while
     # the anti-fabrication property holds (different CONTENT WORDS are still rejected).
     src = "honestly the export keeps timing out, so i just gave up and copy-paste manually."
     assert verbatim_grounding("the export keeps timing out so i just gave up", src) is True
     assert verbatim_grounding("the import works perfectly fine", src) is False   # fabricated content
-    src2 = "the dashboard is so slow it is unusable — i switched to a spreadsheet"
+    src2 = "the dashboard is so slow it is unusable, i switched to a spreadsheet"
     assert verbatim_grounding("the dashboard is so slow it is unusable - i switched", src2) is True
     assert verbatim_grounding("the dashboard is fast and snappy", src2) is False  # fabricated content
 

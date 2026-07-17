@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Three-axis prioritization (Acceptance Gate T3). PURE aggregation — byte-identical across runs.
+"""Three-axis prioritization (Acceptance Gate T3). PURE aggregation, byte-identical across runs.
 
 The per-axis INPUTS are PROPOSED upstream by the pinned, temperature-0 LLM judge with anchored
 rubric samples (that step lives in SKILL.md, outside this deterministic boundary). THIS file is
 the pure aggregator that disposes them into a reproducible ordering. The three axes are kept
-ORTHOGONAL (never collapsed into one number — that hides the trade-off):
+ORTHOGONAL (never collapsed into one number, that hides the trade-off):
 
   A) demand strength  = Opportunity/ODI  (Importance + max(Importance−Satisfaction,0))   "how strong"
   B) ordering         = RICE             ((Reach×Impact×Confidence)/Effort)               "do first?"
@@ -14,7 +14,7 @@ ORTHOGONAL (never collapsed into one number — that hides the trade-off):
 `final_score` (0-100) is a BOUNDED, monotone, saturating transform of RICE used only as the
 ordering metric and push threshold; it never replaces the orthogonal display of all three axes.
 Effort/JobSize are clamped (anti-pattern: small-divisor explosions). Tier is a deterministic 2D
-matrix (demand × urgency) with the Kano floor on top — only tier BANDS are argued, never single
+matrix (demand × urgency) with the Kano floor on top, only tier BANDS are argued, never single
 points (anti false-precision).
 """
 from __future__ import annotations
@@ -108,7 +108,7 @@ def score_demand(proposal: dict, cfg: dict | None = None) -> dict:
 
     opp = opp_calc(float(proposal.get("importance", 0)),
                    float(proposal.get("satisfaction", 0)), cfg)
-    # Deterministic time-criticality floor — the cross-skill differentiator (ARCHITECTURE §5C): a
+    # Deterministic time-criticality floor, the cross-skill differentiator (ARCHITECTURE §5C): a
     # competitor that JUST SHIPPED this feature = highest urgency. This is a MECHANICAL function of
     # external tracking (like Confidence), not a guess the upstream LLM may under-rate, so we floor
     # TimeCriticality at the competitor_shipped anchor whenever competitor_status says "shipped".
@@ -141,7 +141,7 @@ def score_demand(proposal: dict, cfg: dict | None = None) -> dict:
 
 # --------------------------------------------------------------------------- weight-regression gate
 # rice_weights is a live tuning surface. Because score_demand is a pure function of the persisted
-# proposal, a whole golden set can be re-ranked under any weight vector WITHOUT re-evaluating — the
+# proposal, a whole golden set can be re-ranked under any weight vector WITHOUT re-evaluating, the
 # gate is fully deterministic (LLM proposes weights, code disposes: auto_pass/needs_review/block).
 # (Re-weighting reach/impact/confidence/effort scales rice_raw; final_score order may shift.)
 

@@ -1,7 +1,7 @@
-# privacy — redact-on-ingest (Step 1, runs FIRST, always)
+# privacy, redact-on-ingest (Step 1, runs FIRST, always)
 
 The load-bearing guarantee, enforced in code (`scripts/redact.py`), not in a prompt promise.
-**Redaction must happen before any LLM / embedding / pool write touches a message** — once the
+**Redaction must happen before any LLM / embedding / pool write touches a message**, once the
 model has seen PII, it has leaked. So run.py redacts every raw message first; only the output flows.
 
 ## Layers (cost-ascending; Tier1/Tier2 always on, pure stdlib)
@@ -17,7 +17,7 @@ model has seen PII, it has leaked. So run.py redacts every raw message first; on
 1. **Collapsed placeholders.** A unified `[PERSON]` for two people loses who-said-what. We mint
    **unique, co-reference-stable** placeholders: `[EMAIL_1]`/`[EMAIL_2]`; the same value twice in
    one message reuses one placeholder. (Tested: `test_redact.py::test_unique_placeholders_no_collapse`.)
-2. **Reversible / committed pseudonyms.** `pseudonymize(user_id) = HMAC-SHA256(salt, id)[:16]` —
+2. **Reversible / committed pseudonyms.** `pseudonymize(user_id) = HMAC-SHA256(salt, id)[:16]` ,
    same person → same token (a real clustering signal), not invertible. The salt is read from
    `DEMAND_MINING_PSEUDONYM_SALT` env or `secrets/pseudonym_hmac_salt` (gitignored, Mode B) at call
    time, **never hardcoded or echoed**. Salt-in-repo = pseudonym-in-clear.
@@ -30,12 +30,12 @@ slip cannot reach Discord or a delegated web query.
 
 ## Pool storage rule + retention
 
-The need pool stores **only distilled, redacted demand items** — canonical job/pain + redacted
+The need pool stores **only distilled, redacted demand items**, canonical job/pain + redacted
 evidence snippet + msg pointer + HMAC pseudonym. **Never raw conversation.** Retention (config
 `privacy`): Tier0 raw 7-30 days cron-purged; pool long-lived; pseudo-map (if persisted) short-TTL +
 encrypted. Right-to-erasure = forward-delete every evidence row by `author_hash` (no reverse table).
 
 ## Delegation hygiene
 
-Queries handed to market-intel / web carry only non-private topics (feature/competitor name) —
+Queries handed to market-intel / web carry only non-private topics (feature/competitor name) ,
 never a user's raw words. That is both a privacy rule and a prompt-injection defense.

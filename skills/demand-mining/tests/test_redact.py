@@ -1,4 +1,4 @@
-"""T6 — privacy: redact-on-ingest, unique placeholders (no collapse), stable irreversible pseudonym."""
+"""T6, privacy: redact-on-ingest, unique placeholders (no collapse), stable irreversible pseudonym."""
 from redact import redact, pseudonymize, has_pii
 
 
@@ -56,7 +56,7 @@ def test_has_pii_egress_guard():
 
 def test_ipv6_redacted_and_egress_blocked():
     # Architecture Tier1 lists "IPs"; IPv6 (full 8-group + ::-compressed) must redact like IPv4,
-    # and a residual IPv6 must trip the egress DLP (has_pii) fail-closed — otherwise it leaks.
+    # and a residual IPv6 must trip the egress DLP (has_pii) fail-closed, otherwise it leaks.
     r = redact("server 2001:0db8:85a3:0000:0000:8a2e:0370:7334 and gw fe80::1ff:fe23:4567:890a down")
     assert "2001:0db8:85a3" not in r["redacted"]
     assert "fe80::1ff" not in r["redacted"]

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Need pool — cross-day dedup, intensity accumulation, evolution (Acceptance Gate T2/T5/T7).
+"""Need pool, cross-day dedup, intensity accumulation, evolution (Acceptance Gate T2/T5/T7).
 
 Backed by the schedule-reminder base (frozen contract api_version 1.0.0): subprocess only, NEVER
 read the .db / build SQL / put it on OneDrive. Each demand is a base item with kind=task (a demand
-is an executable iteration candidate — never an event), source=demand-mining, and the demand-only
+is an executable iteration candidate, never an event), source=demand-mining, and the demand-only
 data namespaced under ext.x_demand_mining_* (MUST-PRESERVE round-trip). idempotency_key =
-'demand-mining:' + canonical_key, so re-capturing the same demand UPSERTs (same id, ext merged) —
+'demand-mining:' + canonical_key, so re-capturing the same demand UPSERTs (same id, ext merged) ,
 that is the built-in cross-day idempotency.
 
 Two clean layers:
@@ -122,7 +122,7 @@ def in_candidate_band(candidate: dict, ledger_rows: list[dict], cfg: dict | None
 # --------------------------------------------------------------------------- pure: evolution
 
 def decide(candidate: dict, matched: dict | None, cfg: dict | None = None) -> dict:
-    """Three-branch matrix (pure). RESURFACE on a material change — new external corroboration,
+    """Three-branch matrix (pure). RESURFACE on a material change, new external corroboration,
     competitor shipped, urgency/velocity jump, a new origin crossing the ≥2 line, or a score jump.
     Otherwise SUPPRESS (already-pushed demand recurs: count it, do not re-push)."""
     cfg = cfg or load_config()
@@ -146,7 +146,7 @@ def decide(candidate: dict, matched: dict | None, cfg: dict | None = None) -> di
     competitor_shipped = bool(cur_comp) and cur_comp != prev_comp and "shipped" in cur_comp.lower()
     # urgency/velocity JUMP (docstring + ARCHITECTURE RESURFACE trigger): a demand whose velocity
     # spikes (trend acceleration / competitor momentum via trend-pulse) is now-urgent even with the
-    # score/sources/competitor unchanged — re-surface it. Guarded: only when BOTH a prior and a
+    # score/sources/competitor unchanged, re-surface it. Guarded: only when BOTH a prior and a
     # current velocity are present and the absolute jump clears the floor, so a missing velocity or
     # a tiny wiggle never re-pushes (anti-spam, no over-resurface).
     prev_vel, cur_vel = ext.get(EXT + "velocity"), candidate.get("velocity")
@@ -166,7 +166,7 @@ def decide(candidate: dict, matched: dict | None, cfg: dict | None = None) -> di
 
     # ESCALATION INTO Tier0 (ARCHITECTURE RESURFACE trigger "紧迫跳变" + Kano stop-the-bleed): a demand
     # that crosses INTO tier0 (its Kano must_be is now missing/broken) is the highest-urgency
-    # transition there is — it must re-surface for immediate attention even with score/sources/
+    # transition there is, it must re-surface for immediate attention even with score/sources/
     # velocity/competitor all flat, otherwise a now-critical stop-the-bleed item silently SUPPRESSes
     # and is never re-pushed. Guarded to the not-tier0 -> tier0 transition only: a demand that STAYS
     # tier0 (already surfaced) or DE-escalates out of tier0 does not re-push (anti-spam).
@@ -176,7 +176,7 @@ def decide(candidate: dict, matched: dict | None, cfg: dict | None = None) -> di
 
     # DIRECTIONAL score jump: RESURFACE means the demand became MORE important/urgent (an upward
     # jump), so re-push an evolution UPDATE card. abs() wrongly re-surfaced a DECLINING demand (a big
-    # downward drop) as if it were resurging — but a decline is handled by the fade path and must
+    # downward drop) as if it were resurging, but a decline is handled by the fade path and must
     # SUPPRESS here (anti-spam). Only an upward jump >= floor is material.
     material = (
         (cur_score - prev_score) >= jump or
@@ -234,7 +234,7 @@ def _row_ext(row: dict) -> dict:
 def build_ext(card: dict, prior_ext: dict | None = None, cfg: dict | None = None) -> dict:
     """Construct/merge the x_demand_mining_* ext namespace (MUST-PRESERVE). Merges authors across
     days, recomputes distinct-author intensity, appends a redacted sample, caps the ring buffer,
-    tracks first/last seen + source_set + push_count. Stores ONLY redacted/distilled data —
+    tracks first/last seen + source_set + push_count. Stores ONLY redacted/distilled data ,
     never raw conversation text (privacy hard rule)."""
     cfg = cfg or load_config()
     cap = int(cfg["scoring"].get("samples_cap", 30))
@@ -263,7 +263,7 @@ def build_ext(card: dict, prior_ext: dict | None = None, cfg: dict | None = None
         EXT + "canonical_key": card["canonical_key"],
         EXT + "cluster_id": card.get("cluster_id", ""),
         EXT + "simhash": simhash(text),
-        EXT + "text": text,                              # redacted, distilled job — not raw chat
+        EXT + "text": text,                              # redacted, distilled job, not raw chat
         EXT + "first_seen": prior_ext.get(EXT + "first_seen", now),
         EXT + "last_seen": now,
         EXT + "last_score": card.get("final_score", 0),

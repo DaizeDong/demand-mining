@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
-"""Demand extraction — deterministic structuring + grounding (Acceptance Gate T1). Stdlib, PURE.
+"""Demand extraction, deterministic structuring + grounding (Acceptance Gate T1). Stdlib, PURE.
 
 The INTERPRETIVE work (reading a Discord session, judging intent in context, recovering the
 JTBD four forces, doing the three-layer language translation literal→job→emotion) is the LLM's
-job in SKILL.md — it cannot be a keyword regex (anti-pattern #10: keyword chitchat filtering
+job in SKILL.md, it cannot be a keyword regex (anti-pattern #10: keyword chitchat filtering
 mis-handles "April/Penny"-style ambiguity and sarcasm). THIS file is the deterministic frame the
 LLM proposal must satisfy:
 
-  * normalize_intents  — clamp proposed labels to the frozen 8-label enum; classify demand vs noise.
-  * is_demand          — does this opinion-unit carry a real demand signal (not praise/chitchat)?
-  * verbatim_grounding — every extracted demand MUST quote a span that is locatable in the
+  * normalize_intents, clamp proposed labels to the frozen 8-label enum; classify demand vs noise.
+  * is_demand, does this opinion-unit carry a real demand signal (not praise/chitchat)?
+  * verbatim_grounding, every extracted demand MUST quote a span that is locatable in the
                          REDACTED source text; if not locatable → REJECT (research shows omission
-                         ≈ 2× fabrication and ~7.7% of quotes are unfindable — so we fail-closed on
+                         ≈ 2× fabrication and ~7.7% of quotes are unfindable, so we fail-closed on
                          ungrounded extractions rather than trust them).
-  * build_unit         — assemble one validated, grounded, dual-track (explicit|implicit) opinion
+  * build_unit, assemble one validated, grounded, dual-track (explicit|implicit) opinion
                          unit into the canonical shape the pool/score layers consume.
 
 Nothing here ever sees raw PII: callers pass the already-redacted text (run.py redacts first).
@@ -27,7 +27,7 @@ import sys
 from lib import (INTENT_LABELS, DEMAND_LABELS, canonical_key, extract_entities,
                  load_config, slug)
 
-# JTBD four forces — Push (struggle with status quo) + Pull (attraction to new) decide "is there a
+# JTBD four forces, Push (struggle with status quo) + Pull (attraction to new) decide "is there a
 # real demand"; Anxiety (switching fear) + Habit (old habit to drop) are the IMPLICIT goldmine the
 # user did not say out loud. We carry all four so the implicit pool is never dropped.
 JTBD_FORCES = ("push", "pull", "anxiety", "habit")
@@ -56,7 +56,7 @@ def is_demand(intents: list[str]) -> bool:
 def _norm_for_match(s: str) -> str:
     """Normalize for grounding: lowercase, fold every non-word char (punctuation, commas, em-dashes,
     smart quotes) to a single space. This is punctuation-INSENSITIVE so a genuine quote is not
-    rejected over a stray comma (omission ~2x fabrication = the bigger sin) — but it stays a
+    rejected over a stray comma (omission ~2x fabrication = the bigger sin), but it stays a
     contiguous CONTENT-WORD substring check, so fabricated/paraphrased quotes are still rejected.
     \\w keeps CJK and the redaction placeholders' underscores (e.g. person_1), so [PERSON_1] in the
     quote and source fold identically."""
@@ -87,7 +87,7 @@ def verbatim_grounding(quote: str, redacted_source: str, min_len: int = 6) -> bo
         fewer chars; omission ~2x fabrication = the bigger sin, so do not over-reject real quotes), or
       * quote is not found in the source (LLM fabricated/paraphrased it).
     This is the fail-closed anti-hallucination gate: an ungrounded demand is dropped, not trusted.
-    A placeholder like [PERSON_1] in the quote is fine — it is part of the redacted source too. The
+    A placeholder like [PERSON_1] in the quote is fine, it is part of the redacted source too. The
     contiguous content-word substring check is unchanged, so fabrication/paraphrase is still rejected."""
     q = _norm_for_match(quote)
     if _meaning_len(q) < int(min_len):
@@ -117,7 +117,7 @@ def build_unit(proposal: dict, redacted_source: str, author_pseudo: str,
         inferred_job, kano(optional), urgency(optional), segment(optional), message_id}
     Returns {ok, unit?, reject_reason?}. A unit is REJECTED (fail-closed) when it is not a demand,
     or its quote is not verbatim-grounded in the redacted source. The returned unit NEVER contains
-    raw text — only the (already redacted) grounded quote + distilled job/aspect."""
+    raw text, only the (already redacted) grounded quote + distilled job/aspect."""
     cfg = cfg or load_config()
     intents = normalize_intents(proposal.get("intents"))
     if not is_demand(intents):
@@ -164,7 +164,7 @@ def _kw_hit(kw: str, hay: str) -> bool:
     Naive `kw in hay` produced false positives: 'important' contains the 'import' keyword and
     'therapist' contains 'api', mis-tagging both as 'integrations'. An ASCII keyword must match on a
     word boundary, BUT to keep morphological recall it also accepts a common English inflectional
-    suffix (s/es/ed/ing/d) — so 'crashing'/'imports'/'crashed' still match 'crash'/'import' while
+    suffix (s/es/ed/ing/d), so 'crashing'/'imports'/'crashed' still match 'crash'/'import' while
     'important' (the trap: 'import'+'ant', not an allowed suffix) and 'therapist' (no boundary before
     'api') do NOT. A CJK keyword has no word boundaries, so it keeps plain substring matching."""
     kw = (kw or "").lower()

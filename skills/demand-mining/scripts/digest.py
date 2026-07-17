@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """EOD digest + brainstorm + idempotent registration (Acceptance Gate T4/T7). Stdlib, PURE build.
 
-The EOD five-stage pipeline's deterministic tail: ④ 2D tiering done in score.py, this builds ⑤ —
+The EOD five-stage pipeline's deterministic tail: ④ 2D tiering done in score.py, this builds ⑤ ,
 the structured brainstorm + iteration-direction queue + the human-readable digest. Structure (not
 free-form): demands are split into two pools and ordered deterministically:
 
-  * Quick-win  — high demand / low effort (Kano performance|must_be): ship-now bang-for-buck.
-  * Big-bet    — high impact / lower confidence (Kano delighter): strategic differentiators.
+  * Quick-win, high demand / low effort (Kano performance|must_be): ship-now bang-for-buck.
+  * Big-bet, high impact / lower confidence (Kano delighter): strategic differentiators.
 
 Each iteration direction shows all THREE orthogonal axes (RICE detail · Opportunity+intensity ·
 WSJF urgency), Kano band, velocity trend, linked competitor/hotspot signal, evidence count, and a
 suggested horizon (this week / this month / quarter / backlog) + an order number. On an empty day
-it writes an honest "今日无合格新需求" — never filler.
+it writes an honest "今日无合格新需求", never filler.
 
 The digest is a schedule-reminder idempotent item (key=demand-mining:digest:<date>) so a re-run /
 catch-up never double-sends. Catch-up backfill is bounded (an overslept laptop never floods).
@@ -41,7 +41,7 @@ def resolve_archive_dir(explicit: str | None = None) -> Path:
 # --------------------------------------------------------------------------- brainstorm structure
 
 def _is_cut(c: dict) -> bool:
-    """A Kano indifferent/reverse demand (or one already tiered 'cut') is noise — never an iteration
+    """A Kano indifferent/reverse demand (or one already tiered 'cut') is noise, never an iteration
     direction. Mirrors iteration_queue's filter so cut noise leaks into NO surface (queue OR pools)."""
     return c.get("tier") == "cut" or (c.get("kano") or "").lower() in ("indifferent", "reverse")
 
@@ -121,7 +121,7 @@ def build_markdown(cards: list[dict], coverage: dict | None = None,
     date = date or now_utc().date().isoformat()
     coverage = coverage or {}
     # Count conservation: 合格 (qualified/actionable) must match the rendered body. Kano cut/noise is
-    # dropped from the queue AND every pool, so it must NOT be counted as 合格 — surface it as 剔噪
+    # dropped from the queue AND every pool, so it must NOT be counted as 合格, surface it as 剔噪
     # instead, so 合格 + 剔噪 == total reconciles (no over-reporting of the actionable count).
     actionable = [c for c in cards if not _is_cut(c)]
     n_cut = len(cards) - len(actionable)
@@ -129,7 +129,7 @@ def build_markdown(cards: list[dict], coverage: dict | None = None,
            f" · 候选 {coverage.get('candidates',0)} · 合格 {len(actionable)} · 剔噪 {n_cut}"
            f" · 推送 {coverage.get('pushed',0)} · 候审合并 {coverage.get('candidate_merge',0)}"
            f" · gen {iso(now_utc())}")
-    lines = [f"# Demand Mining EOD — {date}", "", cov, ""]
+    lines = [f"# Demand Mining EOD, {date}", "", cov, ""]
     # An empty card list OR a day whose every card is Kano cut/noise has ZERO actionable demands:
     # emit the honest empty-day message, never a dangling empty iteration-queue header (filler).
     queue = iteration_queue(cards, cfg)
@@ -144,7 +144,7 @@ def build_markdown(cards: list[dict], coverage: dict | None = None,
     for q in queue:
         rc = q["rice"]
         lines.append(
-            f"{q['order']}. **[{q['tier']}/{q['horizon']}] {q['demand']}** — "
+            f"{q['order']}. **[{q['tier']}/{q['horizon']}] {q['demand']}**, "
             f"final {rc['final_score']} · RICE(R={rc['reach']},I={rc['impact']},"
             f"C={rc['confidence']},E={rc['effort']})={rc['rice_raw']} · "
             f"Opp={q['opportunity_score']}(intensity {q['intensity']},"
@@ -160,7 +160,7 @@ def build_markdown(cards: list[dict], coverage: dict | None = None,
             continue
         lines.append(f"## {label}")
         for c in pool:
-            lines.append(f"- {c.get('grade','?')} {c.get('final_score')} — "
+            lines.append(f"- {c.get('grade','?')} {c.get('final_score')}, "
                          f"{c.get('title') or c.get('inferred_job','?')} "
                          f"(`{c.get('taxonomy_track', c.get('track','?'))}`, Kano={c.get('kano')})")
         lines.append("")
@@ -175,7 +175,9 @@ _MD_INLINE_NEUTRALIZE = {ord("`"): "'", ord("|"): "/"}
 def _inline(s) -> str:
     """Flatten an (already-redacted) string to one injection-safe inline markdown span: collapse all
     whitespace and neutralize the two chars that could break out of an inline context (`` ` `` / |)."""
-    return re.sub(r"\s+", " ", str(s if s is not None else "")).strip().translate(_MD_INLINE_NEUTRALIZE)
+    s = re.sub(r"\s+", " ", str(s if s is not None else "")).strip()
+    s = re.sub(r"\s*[\u2013\u2014\u2015]+\s*", ", ", s)  # en/em/bar dash -> comma (house rule: no dash in pushed prose)
+    return s.translate(_MD_INLINE_NEUTRALIZE)
 
 
 def _truncate_prose(s: str, cap: int) -> str:
@@ -189,7 +191,7 @@ def _truncate_prose(s: str, cap: int) -> str:
     return cut[:max(ends)].strip() if ends else cut.rstrip() + "…"
 
 
-# A demand's defining axis is "how soon + what kind of need" — that is the 【】 domain tag here
+# A demand's defining axis is "how soon + what kind of need", that is the 【】 domain tag here
 # (e.g. 【立即·刚需】), the thing that makes a headline actionable. Cut / indifferent / reverse noise
 # never reaches build_headlines (filtered by _is_cut), so only these buildable bands appear.
 _HORIZON_CN = {"tier0": "立即", "tier1": "本周", "tier2": "本月", "backlog": "储备"}
@@ -218,14 +220,14 @@ def build_headlines(cards: list[dict], coverage: dict | None = None, date: str |
 
     Layout per item (bold headline line so the parts are easy to tell apart):
         **N.【立即·刚需】需求标题**
-        <一段人话摘要 — why it is a real demand + what to do, sentence-boundary trimmed>
+        <一段人话摘要, why it is a real demand + what to do, sentence-boundary trimmed>
         grade final_score · RICE=rice_raw · N证据
-    The 【】 tag is the demand's urgency·need-type (立即/本周/本月 · 刚需/期望/惊喜) — the axis that
+    The 【】 tag is the demand's urgency·need-type (立即/本周/本月 · 刚需/期望/惊喜), the axis that
     makes a demand actionable, mirroring daily-hotspots' 领域 tag.
 
     DELIBERATE DIVERGENCE from daily-hotspots: there is NO per-headline link and NO url anywhere.
     demand-mining mines PRIVATE conversations, redacts at ingest, and its egress gate
-    (push_card.deliver's has_pii) aborts on ANY url/handle — so evidence stays private and the pushed
+    (push_card.deliver's has_pii) aborts on ANY url/handle, so evidence stays private and the pushed
     message carries none. `digest_hint` is a PLAIN-TEXT pointer (never a url) to the full digest in
     the private companion archive. Every copied field is already redacted and is _inline-flattened
     (injection-safe). Kano cut/indifferent noise is excluded; an all-noise day yields the honest

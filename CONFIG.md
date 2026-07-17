@@ -1,32 +1,32 @@
-# demand-mining — Config
+# demand-mining, Config
 
 `demand-mining` is **config-bearing**: every tunable (RICE weights, score thresholds, Kano map,
 taxonomy, push limits, retention) and every secret (pseudonym HMAC salt, Discord bot credentials)
-lives in a **separate, private companion config repo** you create — never in this public skill repo.
+lives in a **separate, private companion config repo** you create, never in this public skill repo.
 This file is the authoritative config contract (config-spec E1). It is the canonical source the code
 (`skills/demand-mining/scripts/lib.py`) and the doctor (`scripts/verify_config.py`) agree on.
 
 > **Domain variant note (E1).** The reference config-spec registry shape is `tools[]`/`entries[]`.
-> demand-mining is product-centric, so its companion repo uses a **`products[]`** registry instead —
+> demand-mining is product-centric, so its companion repo uses a **`products[]`** registry instead ,
 > one tunable profile per tracked product. This is a deliberate, documented variant; `verify_config.py`
 > accepts `products[]` (and also `tools[]`/`entries[]` for forward-compat). Everything else matches the
 > spec (Mode B secrets, env-var discovery, deterministic init).
 
-## Discovery convention (how the skill finds your config) — E2
+## Discovery convention (how the skill finds your config), E2
 
 `lib.py:find_config_dir()` resolves the config dir in this exact order; the first that exists wins:
 
-1. `$DEMAND_MINING_CONFIG` — environment variable (recommended; location-independent).
-2. `~/.demand-mining-config/` — dotfile-in-home fallback.
-3. `~/.config/demand-mining-config/` — XDG-style fallback (Linux/macOS).
+1. `$DEMAND_MINING_CONFIG`, environment variable (recommended; location-independent).
+2. `~/.demand-mining-config/`, dotfile-in-home fallback.
+3. `~/.config/demand-mining-config/`, XDG-style fallback (Linux/macOS).
 
-If none resolves, the skill runs on the built-in `lib.py:DEFAULT_CONFIG` and says so — config is
+If none resolves, the skill runs on the built-in `lib.py:DEFAULT_CONFIG` and says so, config is
 optional, never a hard crash. Loaded config is **deep-merged over** `DEFAULT_CONFIG`, so you only need
 to write the keys you want to override.
 
 ## Layouts (two supported)
 
-**(A) Per-product** — repo root holds `registry.json`; each product gets its own dir:
+**(A) Per-product**, repo root holds `registry.json`; each product gets its own dir:
 
 ```
 <config-dir>/
@@ -39,7 +39,7 @@ to write the keys you want to override.
 
 `load_config()` reads the FIRST product in `registry.json` whose `products/<slug>/` dir exists.
 
-**(B) Flat** — point `$DEMAND_MINING_CONFIG` straight at a single-product dir (no registry):
+**(B) Flat**, point `$DEMAND_MINING_CONFIG` straight at a single-product dir (no registry):
 
 ```
 <config-dir>/
@@ -47,7 +47,7 @@ to write the keys you want to override.
   taxonomy.json        # optional
 ```
 
-## Schema — `registry.json` (per-product layout) — E1
+## Schema, `registry.json` (per-product layout), E1
 
 | Field            | Type            | Required | Example                              |
 | ---------------- | --------------- | -------- | ------------------------------------ |
@@ -56,7 +56,7 @@ to write the keys you want to override.
 | `products`       | array of object | yes      | `[{ "slug": "acme-app" }]`           |
 | `products[].slug`| str (kebab)     | yes      | `"acme-app"` → `products/acme-app/`  |
 
-## Schema — `products/<slug>/priority.json` (tunable surface) — E1
+## Schema, `products/<slug>/priority.json` (tunable surface), E1
 
 Every key is **optional** (deep-merged over `DEFAULT_CONFIG`). Types/examples below mirror
 `lib.py:DEFAULT_CONFIG`.
@@ -99,7 +99,7 @@ Every key is **optional** (deep-merged over `DEFAULT_CONFIG`). Types/examples be
 | `delegation`                     | object                | `{market-intel:{enabled,scale,daily_cap}, daily-hotspots:{enabled,consume_archive}}` |
 | `privacy`                        | object of int         | `{raw_retention_days:14, pseudo_map_retention_days:7}`       |
 
-`taxonomy[]` (also valid as a standalone `taxonomy.json`) — each track:
+`taxonomy[]` (also valid as a standalone `taxonomy.json`), each track:
 
 | Field      | Type         | Required | Example                                  |
 | ---------- | ------------ | -------- | ---------------------------------------- |
@@ -109,12 +109,12 @@ Every key is **optional** (deep-merged over `DEFAULT_CONFIG`). Types/examples be
 | `keywords` | array of str | yes      | `["slow","crash","timeout","卡","崩"]`   |
 | `enabled`  | bool         | yes      | `true`                                   |
 
-`competitors.json` (optional) — competitor watchlist consumed by delegation lane 3; free-form list of
+`competitors.json` (optional), competitor watchlist consumed by delegation lane 3; free-form list of
 competitor records (slug/name/url) the SKILL's deep-dive layer reads.
 
-## Secrets — Mode B (E6)
+## Secrets, Mode B (E6)
 
-The companion config repo is **separate and private**. `secrets/*` is **gitignored** — real values
+The companion config repo is **separate and private**. `secrets/*` is **gitignored**, real values
 never enter git; back them up out-of-band (cloud sync / encrypted drive). Neither this skill repo nor
 the config repo ever echoes a secret value. Secrets used by demand-mining:
 
@@ -127,9 +127,9 @@ the config repo ever echoes a secret value. Secrets used by demand-mining:
 ## Clock seam (deterministic replay)
 
 `lib.py:now_utc()` honours `$DEMAND_MINING_NOW` / `$SCHEDULE_NOW` (ISO-8601) so tests and replays are
-deterministic. Not a config field — an env override for reproducibility.
+deterministic. Not a config field, an env override for reproducibility.
 
-## First-time setup (E3) — succeeds on the first try
+## First-time setup (E3), succeeds on the first try
 
 ```bash
 # 1. Stamp a conformant config skeleton (deterministic — E4):
@@ -144,10 +144,10 @@ export DEMAND_MINING_CONFIG=~/.demand-mining-config
 python scripts/verify_config.py          # doctor: PASS/FAIL per check
 ```
 
-## Switching between two configs (hot-swap) — E5
+## Switching between two configs (hot-swap), E5
 
 A config dir is self-contained (no hardcoded absolute paths). Keep as many as you like and switch by
-repointing the env var — no other change:
+repointing the env var, no other change:
 
 ```bash
 export DEMAND_MINING_CONFIG=~/configs/work       # config A
@@ -155,4 +155,4 @@ export DEMAND_MINING_CONFIG=~/configs/personal   # config B — same skill, diff
 ```
 
 Verify the swap: `init_config.py --out ~/configs/work` and `--out ~/configs/personal`, run
-`verify_config.py --config-dir <each>`, then flip `$DEMAND_MINING_CONFIG` — both must verify READY.
+`verify_config.py --config-dir <each>`, then flip `$DEMAND_MINING_CONFIG`, both must verify READY.

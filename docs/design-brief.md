@@ -1,4 +1,4 @@
-# Design Brief — demand-mining
+# Design Brief, demand-mining
 
 > Produced by skill-smith Step 0 (research-first). Full architecture lives in the build workspace
 > `CodesResearch/_skill-builds/06-demand-mining/ARCHITECTURE.md` (7-lane research synthesis,
@@ -6,13 +6,13 @@
 
 ## Best references (match-or-beat)
 
-- **daily-hotspots** — the structural twin (thin orchestration over the schedule-reminder base +
+- **daily-hotspots**, the structural twin (thin orchestration over the schedule-reminder base +
   LLM-proposes/gate-disposes + tiered Discord push). demand-mining forks its skeleton.
-- **JTBD four-forces** (Push/Pull/Anxiety/Habit) — the demand lens; Anxiety/Habit = implicit prize.
-- **RICE** (Intercom), **Opportunity/ODI** (Ulwick), **WSJF** (SAFe), **Kano** — the four
+- **JTBD four-forces** (Push/Pull/Anxiety/Habit), the demand lens; Anxiety/Habit = implicit prize.
+- **RICE** (Intercom), **Opportunity/ODI** (Ulwick), **WSJF** (SAFe), **Kano**, the four
   prioritization frameworks, kept orthogonal.
-- **ABSA / opinion-unit** extraction + **verbatim grounding** (DeTAILS) — the anti-hallucination frame.
-- **Microsoft Presidio** — local-only PII redaction (Tier3, v0.2).
+- **ABSA / opinion-unit** extraction + **verbatim grounding** (DeTAILS), the anti-hallucination frame.
+- **Microsoft Presidio**, local-only PII redaction (Tier3, v0.2).
 
 ## Frontier ideas incorporated
 

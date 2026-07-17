@@ -1,4 +1,4 @@
-"""T4 — verify gate (schema + >=1 internal evidence + egress DLP, fail-closed) and EOD digest
+"""T4, verify gate (schema + >=1 internal evidence + egress DLP, fail-closed) and EOD digest
 (quick-win/big-bet split, iteration queue order, catch-up dates, empty-day honesty)."""
 from lib import load_config
 from verify_gate import validate_card, gate_batch
@@ -164,7 +164,7 @@ def test_all_cut_day_is_honest_empty():
 
 # ---------------------------------------------------------------- batch-3 R2 (T4 count conservation):
 # batches 1-2 correctly dropped Kano cut/noise from the iteration queue AND every brainstorm pool,
-# but the EOD coverage header still printed "合格 {len(cards)}" counting the cut noise — so the
+# but the EOD coverage header still printed "合格 {len(cards)}" counting the cut noise, so the
 # header OVER-reported the qualified/actionable count vs the rendered body (a reader sees 合格 2 but
 # only 1 queue item). Conservation: the 合格 header must equal the actionable queue, and the cut
 # count must be surfaced so actionable + cut == total reconciles.
@@ -187,7 +187,7 @@ def test_eod_coverage_count_excludes_cut_noise():
 
 # ---------------------------------------------------------------- batch-4 R1 (T6 egress DLP): the
 # fail-closed PII scan only covered top-level user-visible fields (title/summary/...), but
-# evidence[].redacted_snippet is ALSO rendered into the pushed card and archived to the pool — a
+# evidence[].redacted_snippet is ALSO rendered into the pushed card and archived to the pool, a
 # residual email/phone hiding in a snippet rode straight through validate_card (ok=True) and leaked.
 # Architecture §4 / T6: nothing with leftover PII may ever be pushed/archived (落池后无邮箱/电话).
 def test_blocks_residual_pii_in_evidence_snippet():
@@ -279,3 +279,12 @@ def test_headlines_injection_neutralized():
     h = build_headlines([c], date="2026-07-15")
     line = [ln for ln in h.splitlines() if "evil" in ln][0]
     assert "`" not in line and "|" not in line and "\n" not in line.rstrip()
+
+
+def test_inline_normalizes_en_em_dashes_at_runtime():
+    # runtime injection: an LLM-supplied demand field must never carry an en/em dash into the push.
+    import digest as _dg
+    em, en, bar = chr(0x2014), chr(0x2013), chr(0x2015)
+    assert _dg._inline("batch" + em + "export") == "batch, export"
+    for d in (em, en, bar):
+        assert d not in _dg._inline("p " + d + " q")

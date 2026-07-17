@@ -1,6 +1,6 @@
-"""T5 — schedule-reminder base round-trip (real subprocess) + full offline pipeline.
+"""T5, schedule-reminder base round-trip (real subprocess) + full offline pipeline.
 
-The ledger tests use the REAL reminder.py contract (subprocess, temp DB) — if it is not present
+The ledger tests use the REAL reminder.py contract (subprocess, temp DB), if it is not present
 they skip (the offline pipeline tests still run). Asserts: canonical_key UPSERT is idempotent
 (no double item across re-runs), ext.x_demand_mining_* round-trips (MUST-PRESERVE), source
 isolation, and that PII in the raw input never reaches the pushed/archived card.
@@ -116,7 +116,7 @@ def test_ledger_source_isolation(tmp_path):
 # ---------------------------------------------------------------- T6 batch-5: entities PII leak
 def test_raw_pii_in_entities_scrubbed_from_canonical_key():
     """Defense-in-depth (T6): even if the upstream slips raw PII into the proposed `entities`, it must
-    NOT survive into canonical_key — which becomes the schedule-reminder idempotency_key persisted
+    NOT survive into canonical_key, which becomes the schedule-reminder idempotency_key persisted
     LONG-TERM in the need pool. build_card redacts only text fields/evidence/authors; the entities ->
     canonical_key path was trusted verbatim, leaking an email/handle into the pool key. has_pii over
     the canonical_key must be False, while a clean entity list stays byte-identical (no over-scrub)."""

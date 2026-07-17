@@ -1,4 +1,4 @@
-"""T3 — reproducible three-axis scoring: RICE/Opp/WSJF math, Kano tier floor, effort clamp,
+"""T3, reproducible three-axis scoring: RICE/Opp/WSJF math, Kano tier floor, effort clamp,
 monotone confidence, byte-identical reruns, weight-regression gate."""
 import json
 from lib import load_config, rice, opportunity, wsjf, confidence_from_evidence, impact_anchor
@@ -130,8 +130,8 @@ def test_rice_explicit_zero_effort_clamps_to_floor_not_tbd():
 
 
 # ---------------------------------------------------------------- batch-4 R2 (T3 WSJF): the
-# architecture's headline cross-skill differentiator — "a competitor JUST shipped this = highest
-# time-criticality (13)" — was NOT enforced. score_demand took the upstream TimeCriticality verbatim,
+# architecture's headline cross-skill differentiator, "a competitor JUST shipped this = highest
+# time-criticality (13)", was NOT enforced. score_demand took the upstream TimeCriticality verbatim,
 # so a competitor-shipped demand whose LLM-proposed TC was low got the SAME urgency as a demand with
 # no competitor pressure (the external->internal urgency fusion silently lost). Deterministic floor:
 # competitor_status containing "shipped" floors TimeCriticality at the competitor_shipped anchor.

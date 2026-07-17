@@ -1,6 +1,6 @@
-# scoring — three orthogonal axes (Step 4)
+# scoring, three orthogonal axes (Step 4)
 
-Three indicators, three frameworks, **kept orthogonal** (never merged into one opaque number —
+Three indicators, three frameworks, **kept orthogonal** (never merged into one opaque number ,
 that hides the trade-off). The LLM proposes each axis's inputs at **temperature 0** with anchored
 1/3/5 rubric samples + a one-line `because` + bound evidence; `scripts/score.py` (pure) disposes them
 into a reproducible ordering. No hand-math, no LLM ranking.
@@ -21,7 +21,7 @@ how well the current product/competitor already solves it. High importance + low
 - **Confidence** = **mechanical** function of source-tier × cross-validation (`lib.confidence_from_evidence`):
   internal explicit + ≥2 independent = 1.0; single internal cluster ≥3 mentions = 0.8; single
   implicit / single external = 0.5; unverified frontier = 0.3. ≥2-independent-sources gate maps
-  straight to the high band — never a guess.
+  straight to the high band, never a guess.
 - **Effort** = person-weeks; **clamped to a floor** (`effort_min`), TBD → neutral default
   (`effort_tbd_default`). Never a small divisor (anti-pattern: score explosion).
 `final_score` = bounded saturating map `100·r/(r+k)` of `rice_raw` (ordering metric + push threshold).
