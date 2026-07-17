@@ -2,6 +2,41 @@
 
 All notable changes to this project are documented here (Keep a Changelog style).
 
+## [0.2.0] - 2026-07-16
+Consolidated 'headlines' delivery (ported from `daily-hotspots`, privacy-adapted).
+
+### Changed
+- **Delivery model: ONE ranked headlines digest/day, not a Discord embed per demand.** The old
+  per-card push (`push_card.push_card` in a loop) plus a second full-markdown push was noisy and
+  duplicative. `run.py` now marks the pushable demands as shown (no per-card network call) and
+  delivers a single `digest.build_headlines` message: the top `push.max_per_day` (5) archivable
+  demands ranked by tier+score, each `**N.【立即·刚需】标题**` (领域 tag = urgency·need-type) + a
+  human prose summary (`why` + 建议 `recommendation`, sentence-boundary trimmed) + a
+  `grade final_score · RICE=rice_raw · N证据` meta line. Thin days honestly show fewer; an all-cut day
+  prints the honest 空日 line. The full markdown (every field + evidence) remains the archived digest.
+
+### Privacy
+- **The headline carries NO url and NO @handle — a deliberate divergence from daily-hotspots.** This
+  skill mines PRIVATE conversation and redacts at ingest; `push_card.deliver`'s `has_pii` gate is
+  fail-closed and aborts on any url/handle. So evidence links stay private and the digest is pointed
+  at by a **plain-text** hint (`私有归档 <year>/<file>.md`), never a clickable link.
+- **Phone matcher no longer flags calendar dates or year ranges** (shared privacy-core fix, kept
+  byte-synced with the `daily-hotspots` sibling): `2026-07-15`, `2020-2026`, `2019 2020 2021` are
+  never contact numbers, so `redact()`/`has_pii()` skip them. This ALSO fixes a latent bug where the
+  EOD digest's own `YYYY-MM-DD` header tripped `has_pii` and would abort the push on a real run. A
+  real phone in the same text is still redacted. Guards: `_ISO_DATE` + `_is_year_run`.
+
+### Ops
+- `wrapper.ps1` now commits + pushes `pool/` (demand pool + digests) to the private companion repo
+  via the `git@daizedong:` ssh-alias remote after a successful run (best-effort; a push failure never
+  fails the run; `secrets/` is `.gitignore`d). Also applies the `$ErrorActionPreference='Continue'`
+  fix around the native `claude -p` call so a stderr line can no longer masquerade as a FALSE abort.
+
+### Tests
+- `test_gate_digest.py`: +7 headlines tests (tier ranking, 领域 tag, cap + overflow note, cut-noise
+  exclusion, honest empty day, why+建议 prose join, injection neutralization, and — critically — that
+  the message carries no url and passes the fail-closed `has_pii` egress gate).
+
 ## [0.1.2] - 2026-07-06
 ### Security / privacy
 - **Redactor: NFKC hardening.** Full-width / ideographic-dot obfuscated emails (e.g. bob@host。com,

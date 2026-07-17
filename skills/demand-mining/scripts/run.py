@@ -177,16 +177,18 @@ def process(candidates: list[dict], cfg: dict | None = None, ledger=None,
     g = gate_batch(actionable, cfg)
     pushable, archivable = g["pushable"], g["archivable"]
 
-    # ---- tiered push ----
+    # ---- delivery model (2026-07): ONE consolidated 'headlines' digest per day, not a message per
+    # demand. The old per-card push (a Discord embed per pushable demand) was noisy and duplicated the
+    # EOD digest that shipped right after it. We now just MARK the pushable demands as shown here (no
+    # per-card network call) and render them as a single ranked headline list at the deliver step
+    # below; the full cards + RICE + evidence stay in the archived digest file (private companion
+    # repo). deliver()'s has_pii gate still fail-closed-guards the one message that goes out.
     pushed = []
     for c in pushable:
-        is_update = c.get("_branch") == dd.RESURFACE
-        res = pc.push_card(c, update=is_update, dry_run=dry_run)
-        if res["ok"]:
-            c["pushed"] = True
-            c["push_count"] = int(c.get("push_count", 0)) + 1
-            c["push_ts"] = iso(now_utc())
-            pushed.append(c)
+        c["pushed"] = True
+        c["push_count"] = int(c.get("push_count", 0)) + 1
+        c["push_ts"] = iso(now_utc())
+        pushed.append(c)
 
     # ---- pool UPSERT (NEW + RESURFACE + SUPPRESS all get a sample; idempotent UPSERT) ----
     if ledger is not None and not dry_run:
@@ -225,7 +227,17 @@ def process(candidates: list[dict], cfg: dict | None = None, ledger=None,
                 dg.register_digest_item(ledger, summary=f"{len(archivable)} demands, {len(pushed)} pushed")
             except Exception:
                 pass
-    pc.deliver(md, dry_run=dry_run)
+    # Deliver ONLY the compact headlines: the top max_per_day (default 5) archivable demands ranked by
+    # tier+score — a consistent briefing, not the raw markdown and not a message per demand. The full
+    # markdown (every field + RICE + evidence) is the archived digest file above; we point at it with a
+    # PLAIN-TEXT hint (never a url — demand-mining's egress gate aborts on any link). No card ships.
+    cap = int((cfg.get("push", {}) or {}).get("max_per_day", 5))
+    digest_hint = ""
+    if digest_path:
+        parts = str(digest_path).replace("\\", "/").rstrip("/").split("/")
+        digest_hint = "私有归档 " + "/".join(parts[-2:]) if len(parts) >= 2 else "私有归档 " + parts[-1]
+    headlines = dg.build_headlines(archivable, coverage, cap=cap, digest_hint=digest_hint, cfg=cfg)
+    pc.deliver(headlines, dry_run=dry_run)
 
     # ---- atomic watermark (only after the full success path) ----
     if ledger is not None and not dry_run:

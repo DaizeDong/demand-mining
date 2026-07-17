@@ -19,6 +19,7 @@ catch-up never double-sends. Catch-up backfill is bounded (an overslept laptop n
 from __future__ import annotations
 
 import json
+import re
 import sys
 from datetime import timedelta
 from pathlib import Path
@@ -163,6 +164,122 @@ def build_markdown(cards: list[dict], coverage: dict | None = None,
                          f"{c.get('title') or c.get('inferred_job','?')} "
                          f"(`{c.get('taxonomy_track', c.get('track','?'))}`, Kano={c.get('kano')})")
         lines.append("")
+    return "\n".join(lines)
+
+
+# --------------------------------------------------------------------------- headlines (pushed msg)
+
+_MD_INLINE_NEUTRALIZE = {ord("`"): "'", ord("|"): "/"}
+
+
+def _inline(s) -> str:
+    """Flatten an (already-redacted) string to one injection-safe inline markdown span: collapse all
+    whitespace and neutralize the two chars that could break out of an inline context (`` ` `` / |)."""
+    return re.sub(r"\s+", " ", str(s if s is not None else "")).strip().translate(_MD_INLINE_NEUTRALIZE)
+
+
+def _truncate_prose(s: str, cap: int) -> str:
+    """Trim to <=cap chars at a SENTENCE boundary so a prose summary never ends mid-sentence."""
+    s = (s or "").strip()
+    if len(s) <= cap:
+        return s
+    cut = s[:cap]
+    ends = [cut.rfind(p) + len(p) for p in ("。", "！", "？", "；", ". ", "! ", "? ") if p in cut]
+    ends = [j for j in ends if j >= cap * 0.5]
+    return cut[:max(ends)].strip() if ends else cut.rstrip() + "…"
+
+
+# A demand's defining axis is "how soon + what kind of need" — that is the 【】 domain tag here
+# (e.g. 【立即·刚需】), the thing that makes a headline actionable. Cut / indifferent / reverse noise
+# never reaches build_headlines (filtered by _is_cut), so only these buildable bands appear.
+_HORIZON_CN = {"tier0": "立即", "tier1": "本周", "tier2": "本月", "backlog": "储备"}
+_KANO_CN = {"must_be": "刚需", "performance": "期望", "delighter": "惊喜"}
+
+
+def _demand_tag(card: dict) -> str:
+    hz = _HORIZON_CN.get(card.get("tier") or "backlog", "储备")
+    kano = _KANO_CN.get((card.get("kano") or "").lower())
+    return f"{hz}·{kano}" if kano else hz
+
+
+def _num(v, default: float = 0.0) -> float:
+    """Coerce a score to float for ranking; a missing/None/non-numeric value sorts as ``default``
+    rather than raising. score.py always emits a numeric final_score, but a hand-built or malformed
+    card must never crash the headlines build."""
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return default
+
+
+def build_headlines(cards: list[dict], coverage: dict | None = None, date: str | None = None,
+                    cap: int = 5, digest_hint: str | None = None, cfg: dict | None = None) -> str:
+    """The PUSHED daily message: ONE ranked 'headlines' digest, not a message per demand.
+
+    Layout per item (bold headline line so the parts are easy to tell apart):
+        **N.【立即·刚需】需求标题**
+        <一段人话摘要 — why it is a real demand + what to do, sentence-boundary trimmed>
+        grade final_score · RICE=rice_raw · N证据
+    The 【】 tag is the demand's urgency·need-type (立即/本周/本月 · 刚需/期望/惊喜) — the axis that
+    makes a demand actionable, mirroring daily-hotspots' 领域 tag.
+
+    DELIBERATE DIVERGENCE from daily-hotspots: there is NO per-headline link and NO url anywhere.
+    demand-mining mines PRIVATE conversations, redacts at ingest, and its egress gate
+    (push_card.deliver's has_pii) aborts on ANY url/handle — so evidence stays private and the pushed
+    message carries none. `digest_hint` is a PLAIN-TEXT pointer (never a url) to the full digest in
+    the private companion archive. Every copied field is already redacted and is _inline-flattened
+    (injection-safe). Kano cut/indifferent noise is excluded; an all-noise day yields the honest
+    empty-day line (never filler)."""
+    cfg = cfg or load_config()
+    date = date or now_utc().date().isoformat()
+    coverage = coverage or {}
+    all_cards = cards or []
+    actionable = [c for c in all_cards if not _is_cut(c)]
+    n_cut = len(all_cards) - len(actionable)
+    tier_rank = {"tier0": 0, "tier1": 1, "tier2": 2, "backlog": 3, "cut": 9}
+    ranked = sorted(actionable, key=lambda c: (tier_rank.get(c.get("tier", "backlog"), 5),
+                                               -_num(c.get("final_score")),
+                                               str(c.get("canonical_key", ""))))
+    top = ranked[:max(1, int(cap))]
+    header = (f"📊 **需求头条** · {date}\n"
+              f"合格 {len(actionable)} · 精选 {len(top)} · 剔噪 {n_cut}"
+              f" · 候选 {coverage.get('candidates', '?')}")
+    if not actionable:
+        return header + "\n\n今日无合格新需求（诚实空日，非灌水；完整记录见私有归档）。"
+    lines = [header, ""]
+    for i, c in enumerate(top, 1):
+        title = _inline(c.get("title")) or _inline(c.get("inferred_job")) or "?"
+        tag = _demand_tag(c)
+        why, rec = _inline(c.get("why")), _inline(c.get("recommendation"))
+        if why and rec:
+            sep = "" if why[-1] in "。！？.!?；;，, " else "。"
+            prose = f"{why}{sep}建议：{rec}"
+        elif why:
+            prose = why
+        elif rec:
+            prose = f"建议：{rec}"
+        else:
+            prose = _inline(c.get("inferred_job"))
+        summ = _truncate_prose(prose, 280)
+        rc = c.get("rice") or {}
+        fs = c.get("final_score")
+        rr = rc.get("rice_raw")
+        meta = (f"{c.get('grade') or '?'} {fs if isinstance(fs, (int, float)) else '?'}"
+                f" · RICE={rr if rr is not None else '?'}"
+                f" · {len(c.get('evidence') or [])}证据")
+        lines.append(f"**{i}.【{tag}】{title}**")
+        if summ:
+            lines.append(summ)
+        lines.append(meta)
+        lines.append("")
+    extra = len(actionable) - len(top)
+    hint = _inline(digest_hint) if digest_hint else ""
+    if hint:
+        note = f"；另有 {extra} 条见完整版" if extra > 0 else ""
+        lines.append(f"📄 完整版（全部字段 + RICE + 证据）: {hint}{note}")
+    else:
+        lines.append(f"另有 {extra} 条合格需求；完整卡片见当日私有归档。" if extra > 0
+                     else "完整卡片见当日私有归档。")
     return "\n".join(lines)
 
 

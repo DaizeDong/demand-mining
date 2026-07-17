@@ -61,10 +61,17 @@ and **delegates every deep job** to its sister skills. It never re-implements an
    canonical_key UPSERT, distinct-author intensity (anti-stuffing, no time decay), NEW/SUPPRESS/
    RESURFACE.
 6. **EOD digest + brainstorm** — `reference/eod-brainstorm.md`. `verify_gate.py` (≥1 internal
-   evidence + egress DLP, fail-closed) → `digest.py` Quick-win/Big-bet split + iteration queue;
-   tiered push (Tier0 / final≥70 now, ≤5/day; rest to digest). Honest empty day.
+   evidence + egress DLP, fail-closed) → `digest.py` Quick-win/Big-bet split + iteration queue.
+   Delivery is **one ranked 'headlines' message/day** (`digest.build_headlines`: top ≤5 archivable
+   demands, each `**N.【立即·刚需】标题**` + 人话摘要(why+建议) + `grade final_score · RICE · N证据`),
+   NOT a Discord embed per demand. The full markdown (every field + evidence) is the archived digest
+   file, pointed at by a **plain-text** hint. Unlike daily-hotspots the headline carries **no url**:
+   this skill mines private conversation and `push_card.deliver`'s `has_pii` gate aborts on any
+   url/handle, so evidence stays private. Honest empty day.
 7. **Schedule** — `reference/cron-setup.md`. OS Task Scheduler (off-:00) → `wrapper.ps1` → headless
-   `claude -p EOD`. Idempotent digest item; catch-up bounded. **Never CronCreate.**
+   `claude -p EOD`; the wrapper then commits + pushes `pool/` to the private companion repo via the
+   `git@daizedong:` ssh-alias remote (best-effort backup). Idempotent digest item; catch-up bounded.
+   **Never CronCreate.**
 
 **Fast path** — prepare candidate demand clusters as JSON, then let the gate run the deterministic tail:
 
