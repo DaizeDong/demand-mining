@@ -65,7 +65,8 @@ def _wiring(d):
     chans = {c["id"]: c.get("name", c["id"]) for c in (prod.get("discord_channels") or [])}
     guild = prod.get("discord_guild")
     display = prod.get("demand_display_channel") or os.environ.get("DEMAND_DISPLAY_CHANNEL")
-    return token, chans, guild, display, prod.get("slug", "product")
+    product = prod.get("display_name") or prod.get("slug", "this product")
+    return token, chans, guild, display, product
 
 
 # --- background LLM (cost chain: cc cheap gateway -> claude full price) ---------------------------
@@ -93,36 +94,40 @@ def _json_block(text: str):
         return None
 
 
-_CLASSIFY_SYS = (
-    "You triage messages from the LoreStage (AI roleplay/chat product) community for PRODUCT DEMAND "
-    "(bugs, feature requests, unmet needs, pain). Ignore pure social chatter, memes, greetings, "
-    "moderation. For EACH numbered message return an object; reply ONLY a JSON array, same order:\n"
-    '{"i":<index>,"is_demand":true|false,"confidence":0.0-1.0,"title":"<short canonical demand name '
-    'or empty>","track":"<one word category>","kano":"must_be|performance|delighter|indifferent|reverse",'
-    '"why":"<one clause>"}\nBe strict: confidence>=0.7 only when it is clearly a real product demand.'
-)
+def _classify_sys(product):
+    return (
+        f"You triage messages from the {product} community for PRODUCT DEMAND "
+        "(bugs, feature requests, unmet needs, pain). Ignore pure social chatter, memes, greetings, "
+        "moderation. For EACH numbered message return an object; reply ONLY a JSON array, same order:\n"
+        '{"i":<index>,"is_demand":true|false,"confidence":0.0-1.0,"title":"<short canonical demand name '
+        'or empty>","track":"<one word category>","kano":"must_be|performance|delighter|indifferent|reverse",'
+        '"why":"<one clause>"}\nBe strict: confidence>=0.7 only when it is clearly a real product demand.'
+    )
 
 
-def classify_batch(items):
+def classify_batch(items, sys=None):
     """items: [{'i','channel','text'}]. Returns list of dicts (LLM verdicts). Empty on failure."""
     if not items:
         return []
+    sys = sys or _classify_sys("this product")
     lines = "\n".join(f'{it["i"]}. [{it["channel"]}] {it["text"][:280]}' for it in items)
-    out = _llm(_CLASSIFY_SYS + "\n\nMESSAGES:\n" + lines)
+    out = _llm(sys + "\n\nMESSAGES:\n" + lines)
     v = _json_block(out)
     return v if isinstance(v, list) else []
 
 
-_REPLY_SYS = (
-    "You are 'Token Radar', a friendly LoreStage community listener bot. A user just @-mentioned you "
-    "or DMed you. Reply in ONE short, warm sentence: acknowledge what they said and that you have "
-    "logged it for the team. No markdown, no emoji spam (one is fine), never promise a fix or a date. "
-    "If it is not product feedback, reply one friendly line and note you mainly track product ideas."
-)
+def _reply_sys(product):
+    return (
+        f"You are the friendly community listener bot for {product}. A user just @-mentioned you "
+        "or DMed you. Reply in ONE short, warm sentence: acknowledge what they said and that you have "
+        "logged it for the team. No markdown, no emoji spam (one is fine), never promise a fix or a date. "
+        "If it is not product feedback, reply one friendly line and note you mainly track product ideas."
+    )
 
 
-def gen_reply(text: str) -> str:
-    out = _llm(_REPLY_SYS + f'\n\nUSER MESSAGE:\n{text[:400]}\n\nYour one-line reply:')
+def gen_reply(text: str, sys=None) -> str:
+    sys = sys or _reply_sys("this product")
+    out = _llm(sys + f'\n\nUSER MESSAGE:\n{text[:400]}\n\nYour one-line reply:')
     out = (out or "").strip().splitlines()[0] if out else ""
     out = re.sub(r"\s*[\u2013\u2014\u2015]+\s*", ", ", out)  # house rule: no en/em dash in output
     return out[:280] or "Thanks, I have logged this for the team. 📝"
@@ -160,14 +165,26 @@ def _rescorer(cfg):
 
 
 class DemandBot(discord.Client):
-    def __init__(self, cfg, chans, guild, display, dry_run, interval, display_interval, poolp):
+    def __init__(self, cfg, chans, guild, display, mode, interval, display_interval, poolp,
+                 product="this product"):
         intents = discord.Intents.default()
         intents.message_content = True
         intents.dm_messages = True
         super().__init__(intents=intents)
         self.cfg, self.chans, self.guild_id = cfg, chans, guild
+        self.product = product
+        self.classify_sys = _classify_sys(product)
+        self.reply_sys = _reply_sys(product)
         self.display_id = int(display) if display else None
-        self.dry_run, self.interval, self.display_interval = dry_run, interval, display_interval
+        # three modes decouple "talk in the community" from "update the admin dashboard":
+        #   dry   = pure test, nothing external (log only); pool still captures.
+        #   shadow= community-SILENT but dashboard-ACTIVE: captures to pool + refreshes the admin
+        #           display channel, but never replies/reacts in monitored channels. 24/7 review mode.
+        #   live  = everything.
+        self.mode = mode
+        self.post_community = mode == "live"          # replies + reactions in monitored channels
+        self.post_display = mode in ("live", "shadow")  # the admin dashboard channel
+        self.interval, self.display_interval = interval, display_interval
         self.poolp = poolp
         self.rescore = _rescorer(cfg)
         self.buffer = []
@@ -180,7 +197,8 @@ class DemandBot(discord.Client):
 
     async def on_ready(self):
         self.log(f"connected as {self.user} | monitoring {len(self.chans)} channels | "
-                 f"dry_run={self.dry_run} | display={self.display_id}")
+                 f"mode={self.mode} (community={'on' if self.post_community else 'SILENT'}, "
+                 f"dashboard={'on' if self.post_display else 'off'}) | display={self.display_id}")
         self.loop.create_task(self._classify_loop())
         if self.display_id:
             self.loop.create_task(self._display_loop())
@@ -200,16 +218,16 @@ class DemandBot(discord.Client):
                                 "channel": self.chans[str(m.channel.id)]})
 
     async def _direct_reply(self, m, clean, ah):
-        reply = await asyncio.to_thread(gen_reply, clean)
+        reply = await asyncio.to_thread(gen_reply, clean, self.reply_sys)
         self.log(f"@/DM from {ah}: {clean[:60]!r} -> reply {reply[:60]!r}")
         # a mention/DM that reads like a demand also enters the pool
         if _SIGNAL.search(clean):
             v = (await asyncio.to_thread(classify_batch,
-                 [{"i": 0, "channel": "dm/mention", "text": clean}]) or [{}])
+                 [{"i": 0, "channel": "dm/mention", "text": clean}], self.classify_sys) or [{}])
             if v and v[0].get("is_demand"):
                 await asyncio.to_thread(pool.upsert, self.poolp,
                     _demand_from_verdict(v[0], clean, ah, "dm/mention"), self.rescore)
-        if not self.dry_run:
+        if self.post_community:
             try:
                 await m.reply(reply, mention_author=True)
             except Exception as e:
@@ -224,7 +242,7 @@ class DemandBot(discord.Client):
                 continue
             self.log(f"classify batch: {len(cand)}/{len(batch)} passed pre-filter")
             items = [{"i": i, "channel": b["channel"], "text": b["text"]} for i, b in enumerate(cand)]
-            verdicts = await asyncio.to_thread(classify_batch, items)
+            verdicts = await asyncio.to_thread(classify_batch, items, self.classify_sys)
             vmap = {v.get("i"): v for v in verdicts if isinstance(v, dict)}
             for i, b in enumerate(cand):
                 v = vmap.get(i)
@@ -240,7 +258,7 @@ class DemandBot(discord.Client):
                 await self._ack(b["m"], conf)
 
     async def _ack(self, m, conf):
-        if self.dry_run:
+        if not self.post_community:
             return
         try:
             await m.add_reaction("📝")
@@ -272,10 +290,11 @@ class DemandBot(discord.Client):
         ch = self.get_channel(self.display_id)
         if not ch:
             return
-        body = self._render()
-        if self.dry_run:
-            self.log(f"[dry-run] would refresh display ({len(body)} chars)")
+        body = self._render()  # <= 3900 chars, fits an embed description (limit 4096)
+        if not self.post_display:
+            self.log(f"[{self.mode}] would refresh display ({len(body)} chars)")
             return
+        embed = discord.Embed(description=body, color=0x5865F2)
         # keep ONE bot message, edit it in place (find last own message, else send)
         target = None
         async for msg in ch.history(limit=20):
@@ -283,9 +302,9 @@ class DemandBot(discord.Client):
                 target = msg
                 break
         if target:
-            await target.edit(content=body)
+            await target.edit(content=None, embed=embed)
         else:
-            sent = await ch.send(body)
+            sent = await ch.send(embed=embed)
             try:
                 await sent.pin()
             except Exception:
@@ -294,16 +313,21 @@ class DemandBot(discord.Client):
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="demand-mining live gateway daemon")
-    ap.add_argument("--dry-run", action="store_true", help="log actions, never post/react")
+    ap.add_argument("--mode", choices=("dry", "shadow", "live"), default="shadow",
+                    help="dry=log only; shadow=capture+dashboard but community-silent (default, 24/7 review); "
+                         "live=reply/react in the community too")
+    ap.add_argument("--dry-run", action="store_true", help="alias for --mode dry")
     ap.add_argument("--interval", type=float, default=90.0, help="classify buffer flush seconds")
     ap.add_argument("--display-interval", type=float, default=300.0)
     ap.add_argument("--run-seconds", type=float, default=0, help="stop after N seconds (0=forever; test)")
     args = ap.parse_args()
+    mode = "dry" if args.dry_run else args.mode
     d = _config_dir()
     cfg = load_config()
-    token, chans, guild, display, slug = _wiring(d)
+    token, chans, guild, display, product = _wiring(d)
     poolp = pool.pool_path(d)
-    bot = DemandBot(cfg, chans, guild, display, args.dry_run, args.interval, args.display_interval, poolp)
+    bot = DemandBot(cfg, chans, guild, display, mode, args.interval, args.display_interval, poolp,
+                    product=product)
     if args.run_seconds:
         async def _timed():
             await asyncio.sleep(args.run_seconds)
