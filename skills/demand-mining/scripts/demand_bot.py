@@ -303,8 +303,10 @@ class DemandBot(discord.Client):
                 break
         if target:
             await target.edit(content=None, embed=embed)
+            self.log(f"dashboard refreshed ({len(body)} chars)")
         else:
             sent = await ch.send(embed=embed)
+            self.log(f"dashboard posted ({len(body)} chars)")
             try:
                 await sent.pin()
             except Exception:
@@ -320,7 +322,15 @@ def main() -> int:
     ap.add_argument("--interval", type=float, default=90.0, help="classify buffer flush seconds")
     ap.add_argument("--display-interval", type=float, default=300.0)
     ap.add_argument("--run-seconds", type=float, default=0, help="stop after N seconds (0=forever; test)")
+    ap.add_argument("--log-file", default=None,
+                    help="redirect stdout+stderr here (required under pythonw, where stdout is None)")
     args = ap.parse_args()
+    if args.log_file:
+        # one redirect fixes three things at once: no console window under pythonw, a durable log,
+        # and (critically) sys.stdout is a real file so log() and discord tracebacks never hit None.
+        f = open(args.log_file, "a", encoding="utf-8", buffering=1)
+        sys.stdout = f
+        sys.stderr = f
     mode = "dry" if args.dry_run else args.mode
     d = _config_dir()
     cfg = load_config()

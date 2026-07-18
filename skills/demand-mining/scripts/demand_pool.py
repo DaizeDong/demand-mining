@@ -14,11 +14,22 @@ data (the daemon redacts before it ever calls this). Pure file IO, no network.
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import threading
+import time
 
 from lib import iso, now_utc
+
+try:
+    import msvcrt  # Windows
+except ImportError:
+    msvcrt = None
+try:
+    import fcntl  # POSIX
+except ImportError:
+    fcntl = None
 
 _LOCK = threading.Lock()
 _MAX_EVIDENCE = 8
@@ -27,6 +38,40 @@ _STATUSES = ("new", "ack", "planned", "shipped", "wontfix", "duplicate")
 
 def pool_path(config_dir) -> str:
     return os.path.join(str(config_dir), "pool", "demands.jsonl")
+
+
+@contextlib.contextmanager
+def _file_lock(path: str):
+    """Cross-PROCESS exclusive lock on a sidecar .lock, so the live daemon and the daily deep pass
+    (two separate processes writing the same pool) serialize their read-modify-write instead of one
+    clobbering the other. The in-process threading.Lock cannot see another process; this can. Best
+    effort: if the lock cannot be taken within ~30s we proceed anyway rather than wedge the daemon."""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    f = open(path + ".lock", "a+")
+    acquired = False
+    try:
+        if msvcrt:
+            for _ in range(600):  # ~30s at 0.05s, non-blocking probes
+                try:
+                    f.seek(0)
+                    msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
+                    acquired = True
+                    break
+                except OSError:
+                    time.sleep(0.05)
+        elif fcntl:
+            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+            acquired = True
+        yield
+    finally:
+        try:
+            if acquired and msvcrt:
+                f.seek(0)
+                msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
+            elif acquired and fcntl:
+                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+        finally:
+            f.close()
 
 
 def load(path: str) -> list:
@@ -69,7 +114,7 @@ def upsert(path: str, demand: dict, rescore=None) -> tuple[str, dict]:
     reach after the merge. Thread + process safe via a lock + atomic replace."""
     ck = demand.get("canonical_key")
     now = iso(now_utc())
-    with _LOCK:
+    with _LOCK, _file_lock(path):
         rows = load(path)
         idx = next((i for i, r in enumerate(rows) if r.get("canonical_key") == ck), None)
         if idx is None:
@@ -110,7 +155,7 @@ def upsert(path: str, demand: dict, rescore=None) -> tuple[str, dict]:
 def set_status(path: str, canonical_key: str, status: str) -> bool:
     if status not in _STATUSES:
         raise ValueError(f"bad status {status}")
-    with _LOCK:
+    with _LOCK, _file_lock(path):
         rows = load(path)
         for r in rows:
             if r.get("canonical_key") == canonical_key:
