@@ -2,6 +2,24 @@
 
 All notable changes to this project are documented here (Keep a Changelog style).
 
+## [0.3.0] - 2026-07-17
+Live Discord tap: deterministic, config-driven collection from a product's community.
+
+### Added
+- **`scripts/pull_discord.py`** the collection path (SKILL.md step 0). It reads the wired product's
+  Discord channels via the bot token (REST history, Message Content Intent required; channels +
+  `discord_token_ref` come from the companion `registry.json`), and emits a REDACTED corpus:
+  every message is scrubbed by `redact.py` and the author id is HMAC-pseudonymized BEFORE it is
+  written, so raw PII never leaves this step. Bots/webhooks/empty are skipped; 403/404 channels are
+  skipped with a note. Daily run pulls the last `--since-hours` (72); `--full` backfills once. The
+  token is never printed, and an unwired tap exits with an init hint (never silently reads nothing).
+
+### Changed
+- SKILL.md documents the deterministic collection step; the model no longer reads Discord directly.
+- Scoring floors are now a per-product calibration surface: a small community where `reach` equals
+  the real distinct-author count needs lower `min_score_to_archive` / `min_score_to_push` than the
+  defaults, tuned in the companion config, not here.
+
 ## [0.2.1] - 2026-07-16
 House style: no en/em dash in published prose, enforced by design.
 
