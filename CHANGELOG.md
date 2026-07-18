@@ -2,6 +2,28 @@
 
 All notable changes to this project are documented here (Keep a Changelog style).
 
+## [0.4.0] - 2026-07-17
+Live demand-tap daemon: a persistent gateway service for the interactive half.
+
+### Added
+- **`scripts/demand_bot.py`** a discord.py gateway daemon that stays connected (Message Content
+  Intent) and, in real time: replies to @-mentions and DMs; buffers monitored-channel messages and
+  every `--interval` s runs a cheap regex pre-filter then a background LLM (cc, claude cost chain)
+  batch-classifier over the survivors. A high-confidence demand gets a short "logged for the team"
+  reply + a bookmark reaction; a low-confidence one gets the reaction only; both upsert into the
+  demand pool. Every body is redacted and the author pseudonymized BEFORE the pool or an LLM sees it.
+  `--dry-run` logs every action without posting (safe first run against a live server). Bot output is
+  dash-normalized (house rule). Requires `discord.py`; uninstall `aiodns` if the gateway cannot
+  resolve DNS (this environment needs the threaded resolver).
+- **`scripts/demand_pool.py`** the persistent demand pool (`pool/demands.jsonl`): upsert with
+  dedup-on-canonical-key (a recurrence bumps last_seen, unions authors so reach = distinct users, and
+  merges evidence, then re-scores), plus status (new/ack/planned/shipped/wontfix) and a ranked view
+  the daemon renders to an admin display channel. Pure file IO, lock + atomic replace.
+
+### Changed
+- The interactive half moves from the daily batch to a continuous service; the daily `DemandMiningEOD`
+  becomes the periodic deep re-rank/dedup pass over what the daemon captured live.
+
 ## [0.3.0] - 2026-07-17
 Live Discord tap: deterministic, config-driven collection from a product's community.
 
