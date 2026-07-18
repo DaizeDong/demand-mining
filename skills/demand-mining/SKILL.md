@@ -33,8 +33,14 @@ and **delegates every deep job** to its sister skills. It never re-implements an
 
 ## Workflow (load one `reference/<shard>.md` per step)
 
-1. **Redact-on-ingest (FIRST, always)**, `reference/privacy.md`. Every raw message goes through
-   `redact.py` (NFKC-normalized, so full-width/homoglyph obfuscation can't smuggle PII past it)
+0. **Collect the live tap (deterministic)**, `scripts/pull_discord.py`. It reads the wired product's
+   Discord channels via the bot token (config: `registry.json` `discord_channels` + `discord_token_ref`;
+   Message Content Intent required) and emits a REDACTED corpus. Daily run pulls the last ~72h
+   (`--since-hours`); `--full` backfills once. Bots/webhooks/empty are skipped. The token is never
+   printed. If the tap is not wired it exits with an init hint (never silently reads nothing). This is
+   the ONLY collection path, the model does not read Discord directly.
+1. **Redact-on-ingest (FIRST, always)**, `reference/privacy.md`. `pull_discord.py` already ran every
+   raw message through `redact.py` (NFKC-normalized, so full-width/homoglyph obfuscation can't smuggle PII past it)
    BEFORE any LLM/embedding sees it: Tier1 regex+Luhn (email/phone/card/URL/IP/discord-id/handle),
    Tier2 entropy (secrets), unique placeholders (`[EMAIL_1]`/`[PHONE_2]`, never collapsed), HMAC
    author pseudonym. **Names & street addresses are NOT stripped yet**, that is the Tier3 NER hook
