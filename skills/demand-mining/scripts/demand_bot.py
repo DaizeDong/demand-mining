@@ -306,6 +306,9 @@ class DemandBot(discord.Client):
         # adaptive self-refine depth for classification (1 = single pass, no audit). Replies stay
         # one-shot on purpose: a warm ack is low-stakes and latency-sensitive.
         self.classify_rounds = int(cfg.get("live", {}).get("classify_rounds", 2))
+        # the admin channel gets APPENDED activity notes in real time (never an edited-in-place summary,
+        # which used to clobber a reply), plus ONE full summary per day at summary_hour_utc.
+        self.summary_hour = int(cfg.get("live", {}).get("summary_hour_utc", 3))
 
     def log(self, m):
         sys.stdout.write(f"[{time.strftime('%H:%M:%S')}] {m}\n")
@@ -318,7 +321,7 @@ class DemandBot(discord.Client):
                  f"dashboard={'on' if self.post_display else 'off'}) | display={self.display_id}")
         self.loop.create_task(self._classify_loop())
         if self.display_id:
-            self.loop.create_task(self._display_loop())
+            self.loop.create_task(self._summary_loop())
 
     async def on_message(self, m: discord.Message):
         if m.author.bot or (self.user and m.author.id == self.user.id):
@@ -347,13 +350,20 @@ class DemandBot(discord.Client):
         else:
             self.log(f"[{self.mode}] direct reply suppressed")
         # THEN, as a background side-effect, a mention/DM that reads like a demand also enters the pool
+        mined = None
         if _SIGNAL.search(clean):
             v = (await asyncio.to_thread(classify_batch,
                  [{"i": 0, "channel": "dm/mention", "text": clean}], self.classify_sys,
                  self.product, self.classify_rounds) or [{}])
             if v and v[0].get("is_demand"):
-                await asyncio.to_thread(pool.upsert, self.poolp,
+                _act, row = await asyncio.to_thread(pool.upsert, self.poolp,
                     _demand_from_verdict(v[0], clean, ah, "dm/mention"), self.rescore)
+                mined = row.get("title")
+        # brief activity note to the admin channel (English): who we answered, and any demand mined
+        note = f"\U0001f4dd Replied to user `{ah[:10]}`"
+        if mined:
+            note += f' · logged demand: "{mined[:80]}"'
+        await self._note(note)
 
     async def _classify_loop(self):
         while not self.is_closed():
@@ -379,6 +389,11 @@ class DemandBot(discord.Client):
                 self.log(f"demand({conf:.2f}) {action}: {row.get('title','')[:48]!r} "
                          f"reach={row.get('reach')} score={row.get('final_score')}")
                 await self._ack(b["m"], conf)
+                if action == "new":  # note only genuinely new demands, not every recurrence
+                    await self._note(
+                        f'\U0001f50d New demand from #{b["channel"]}: "{row.get("title", "?")[:80]}" '
+                        f'({row.get("grade", "?")} {row.get("final_score", "?")}, '
+                        f'reach {row.get("reach", 0)}, {row.get("taxonomy_track", "?")})')
 
     async def _ack(self, m, conf):
         if not self.post_community:
@@ -390,50 +405,82 @@ class DemandBot(discord.Client):
         except Exception as e:
             self.log(f"ack failed: {e!r}")
 
-    async def _display_loop(self):
-        while not self.is_closed():
-            try:
-                await self._sync_display()
-            except Exception as e:
-                self.log(f"display sync failed: {e!r}")
-            await asyncio.sleep(self.display_interval)
-
-    def _render(self):
-        rows = pool.ranked(self.poolp)[:20]
-        _TRK = {"tier0": "立即", "tier1": "本周", "tier2": "本月", "backlog": "储备"}
-        lines = [f"📊 **产品需求 backlog** (live) · 更新 {iso(now_utc())[:16]}Z · 共 {len(pool.load(self.poolp))} 条", ""]
-        for i, r in enumerate(rows, 1):
-            hz = _TRK.get(r.get("tier"), "")
-            lines.append(f"**{i}. [{hz}·{r.get('kano','')}] {r.get('title','?')[:70]}**")
-            lines.append(f"    {r.get('grade','?')} {r.get('final_score','?')} · reach {r.get('reach',0)} "
-                         f"· {len(r.get('evidence',[]))}证据 · {r.get('status','new')} · 末见 {(r.get('last_seen') or '')[:10]}")
-        return "\n".join(lines)[:3900]
-
-    async def _sync_display(self):
+    async def _note(self, text):
+        """APPEND one short line to the admin channel (never edit-in-place -- editing a prior message
+        is what used to overwrite a user reply with the backlog). All channel text is English."""
+        if not self.post_display or not self.display_id:
+            self.log(f"[note] {text}")
+            return
         ch = self.get_channel(self.display_id)
         if not ch:
             return
-        body = self._render()  # <= 3900 chars, fits an embed description (limit 4096)
-        if not self.post_display:
-            self.log(f"[{self.mode}] would refresh display ({len(body)} chars)")
-            return
-        embed = discord.Embed(description=body, color=0x5865F2)
-        # keep ONE bot message, edit it in place (find last own message, else send)
-        target = None
-        async for msg in ch.history(limit=20):
-            if msg.author.id == self.user.id:
-                target = msg
-                break
-        if target:
-            await target.edit(content=None, embed=embed)
-            self.log(f"dashboard refreshed ({len(body)} chars)")
-        else:
-            sent = await ch.send(embed=embed)
-            self.log(f"dashboard posted ({len(body)} chars)")
+        try:
+            await ch.send(text[:1900])
+        except Exception as e:
+            self.log(f"note failed: {e!r}")
+
+    async def _summary_loop(self):
+        """Post ONE full summary per day at summary_hour_utc: today's demands + the all-time backlog.
+        Date-gated by a marker file so daemon restarts never double-post or skip."""
+        while not self.is_closed():
             try:
-                await sent.pin()
-            except Exception:
-                pass
+                await self._maybe_daily_summary()
+            except Exception as e:
+                self.log(f"summary loop failed: {e!r}")
+            await asyncio.sleep(1800)  # re-check every 30 min
+
+    def _summary_marker(self):
+        return os.path.join(os.path.dirname(self.poolp), ".last_summary")
+
+    async def _maybe_daily_summary(self):
+        now = now_utc()
+        today = iso(now)[:10]
+        if now.hour < self.summary_hour:
+            return
+        try:
+            if open(self._summary_marker(), encoding="utf-8").read().strip() == today:
+                return
+        except OSError:
+            pass
+        await self._post_daily_summary(today)
+        try:
+            with open(self._summary_marker(), "w", encoding="utf-8") as f:
+                f.write(today)
+        except OSError:
+            pass
+
+    def _render_summary(self, today):
+        rows = pool.load(self.poolp)
+        todays = [r for r in rows
+                  if (r.get("last_seen") or "")[:10] == today or (r.get("first_seen") or "")[:10] == today]
+        ranked = pool.ranked(self.poolp)
+        lines = [f"\U0001f4ca **Daily Demand Summary, {today}**",
+                 f"Touched today: {len(todays)} | Total backlog: {len(rows)}", ""]
+        if todays:
+            lines.append("__Today__")
+            for r in sorted(todays, key=lambda r: -float(r.get("final_score", 0) or 0))[:15]:
+                lines.append(f'- "{r.get("title", "?")[:70]}" ({r.get("grade", "?")} '
+                             f'{r.get("final_score", "?")}, reach {r.get("reach", 0)})')
+            lines.append("")
+        lines.append(f"__All-time top {min(15, len(ranked))}__")
+        for i, r in enumerate(ranked[:15], 1):
+            lines.append(f'{i}. "{r.get("title", "?")[:70]}" ({r.get("grade", "?")} '
+                         f'{r.get("final_score", "?")}, reach {r.get("reach", 0)}, {r.get("status", "new")})')
+        return "\n".join(lines)[:3900]
+
+    async def _post_daily_summary(self, today):
+        body = self._render_summary(today)
+        if not self.post_display or not self.display_id:
+            self.log(f"[{self.mode}] daily summary suppressed ({len(body)} chars)")
+            return
+        ch = self.get_channel(self.display_id)
+        if not ch:
+            return
+        try:
+            await ch.send(embed=discord.Embed(description=body, color=0x57F287))
+            self.log(f"daily summary posted ({len(body)} chars)")
+        except Exception as e:
+            self.log(f"summary post failed: {e!r}")
 
 
 def main() -> int:
