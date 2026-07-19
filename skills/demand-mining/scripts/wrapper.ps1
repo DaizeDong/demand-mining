@@ -55,7 +55,7 @@ try {
   # (claude.ai subscription, gateway env unset, independent of the gateway) + retry (the gateway 530s recover) +
   # notify. A single dead transport no longer fails the run. The runner owns the native-stderr
   # ErrorActionPreference dance internally, so it is NOT needed here.
-  $prompt = "Run the demand-mining skill EOD now: redact + read today's Discord demand signals, recover intent + JTBD, dedup into the need pool, score the three axes, brainstorm Quick-win/Big-bet iteration directions, deliver the ranked headlines digest to Discord, and archive."
+  $prompt = "Run the demand-mining skill EOD now: redact + read today's Discord demand signals, recover intent + JTBD, dedup into the need pool, score the three axes, brainstorm Quick-win/Big-bet iteration directions, deliver the ranked headlines digest to Discord, and archive. Write ALL delivered output (digest, headlines, demand titles and summaries) in ENGLISH; this product's community is English-speaking."
   & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\.local\agent-runner.ps1" -Prompt $prompt -Log $log -Stream "demand-mining"
   $rc = $LASTEXITCODE
   "[$(Get-Date -Format o)] demand-mining EOD end rc=$rc" | Tee-Object -FilePath $log -Append
