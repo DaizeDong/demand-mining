@@ -76,17 +76,20 @@ def _wiring(d):
 # for unattended background judgment), and `codex exec` makes that reachable from this headless
 # daemon. cc (cheap gateway) then claude (full price) are the fallbacks if codex is absent/errors.
 def _codex(prompt: str, timeout: float) -> str:
-    exe = shutil.which("codex")
-    if not exe:
+    # Absolute-path fallback: under the scheduled task's minimal PATH, `which('codex')` can miss and
+    # the chain would silently slide to the pricier cc/claude. The npm global shim is the fixed home.
+    exe = shutil.which("codex") or os.path.expanduser("~/AppData/Roaming/npm/codex.cmd")
+    if not (shutil.which("codex") or os.path.isfile(exe)):
         return ""
     fd, outpath = tempfile.mkstemp(suffix=".txt")
     os.close(fd)
     try:
-        # read-only sandbox (never writes), MCP servers off (no external-tool latency/noise); the
-        # model default (gpt-5.6-sol, reasoning=max) comes from ~/.codex/config.toml. -o writes ONLY
-        # the final message, so we skip the header/transcript.
-        subprocess.run([exe, "exec", "--sandbox", "read-only", "-c", "mcp_servers={}",
-                        "-o", outpath, "-"],
+        # read-only sandbox (never writes), skip the git-repo check (daemon cwd is arbitrary),
+        # --ephemeral (do NOT persist a session -- this runs 24/7, sessions would pile up), MCP off
+        # (no external-tool latency/noise). Model default (gpt-5.6-sol, reasoning=max) is in
+        # ~/.codex/config.toml. -o writes ONLY the final message, so we skip the header/transcript.
+        subprocess.run([exe, "exec", "--sandbox", "read-only", "--skip-git-repo-check", "--ephemeral",
+                        "-c", "mcp_servers={}", "-o", outpath, "-"],
                        input=prompt, capture_output=True, text=True,
                        encoding="utf-8", errors="replace", timeout=timeout)
         try:
