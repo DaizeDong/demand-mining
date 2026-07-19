@@ -51,16 +51,15 @@ try {
   }
 
   "[$(Get-Date -Format o)] demand-mining EOD start (py=$script:py)" | Tee-Object -FilePath $log -Append
-  # PowerShell footgun (2026-07): under $ErrorActionPreference='Stop', `*>> $log` on a NATIVE command
-  # turns any stderr line into a terminating NativeCommandError -> the wrapper throws -> catch fires a
-  # FALSE ABORT and skips the "end rc=" marker EVEN when claude -p succeeded. Drop to 'Continue' around
-  # the native call so stderr is merely captured and $LASTEXITCODE is the single source of truth.
-  $ErrorActionPreference = 'Continue'
-  & $claude.Source -p "Run the demand-mining skill EOD now: redact + read today's Discord demand signals, recover intent + JTBD, dedup into the need pool, score the three axes, brainstorm Quick-win/Big-bet iteration directions, deliver the ranked headlines digest to Discord, and archive." --dangerously-skip-permissions *>> $log
+  # Skill orchestration goes through the resilient runner: cc (hosted gateway) -> claude-direct
+  # (claude.ai subscription, gateway env unset, independent of the gateway) + retry (the gateway 530s recover) +
+  # notify. A single dead transport no longer fails the run. The runner owns the native-stderr
+  # ErrorActionPreference dance internally, so it is NOT needed here.
+  $prompt = "Run the demand-mining skill EOD now: redact + read today's Discord demand signals, recover intent + JTBD, dedup into the need pool, score the three axes, brainstorm Quick-win/Big-bet iteration directions, deliver the ranked headlines digest to Discord, and archive."
+  & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\.local\agent-runner.ps1" -Prompt $prompt -Log $log -Stream "demand-mining"
   $rc = $LASTEXITCODE
-  $ErrorActionPreference = 'Stop'
   "[$(Get-Date -Format o)] demand-mining EOD end rc=$rc" | Tee-Object -FilePath $log -Append
-  if ($rc -ne 0) { Notify-Abort "claude -p exited rc=$rc (see $log)" }
+  if ($rc -ne 0) { Notify-Abort "EOD agent failed rc=$rc (cc + claude-direct both; see $log)" }
 
   # ---- commit + push the day's demand pool + digest to the PRIVATE companion repo ----
   # Best-effort durability/sync of the private archive (the demand pool is DATA, it lives ONLY in the
