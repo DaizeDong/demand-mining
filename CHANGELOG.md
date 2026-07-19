@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented here (Keep a Changelog style).
 
+## [0.5.0] - 2026-07-18
+### Added
+- **Adaptive self-refine classification chain.** A single headless judgment cannot be course-corrected
+  by a human, so classification now iterates: codex drafts the verdicts, then a DIFFERENT model (cc,
+  cross-model for independence, not self-critique) audits and revises. The loop runs ONLY while a
+  verdict sits in the ambiguous confidence band and stops the instant the audit stops changing
+  substance, capped at `live.classify_rounds` (default 2). Depth is data-driven: a clear batch costs
+  one pass, an ambiguous one earns extra scrutiny. Replies stay one-shot on purpose (low-stakes ack,
+  latency-sensitive). `tests/test_classify_refine.py` covers the band logic, convergence, and cap.
+### Fixed
+- **@/DM reply is sent BEFORE the demand analysis**, not after. The pooling classification can now
+  take a couple of rounds; sending the reply first means the user is never left waiting on it.
+
 ## [0.4.2] - 2026-07-18
 ### Changed
 - **Daemon LLM chain is now codex -> cc -> claude** (was cc -> claude). `codex exec` makes the house

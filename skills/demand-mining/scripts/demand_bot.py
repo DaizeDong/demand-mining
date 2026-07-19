@@ -105,20 +105,31 @@ def _codex(prompt: str, timeout: float) -> str:
             pass
 
 
-def _llm(prompt: str, timeout=90) -> str:
-    out = _codex(prompt, timeout)
-    if out:
-        return out
-    for cli in ("cc", "claude"):
-        exe = os.path.expanduser(f"~/.local/bin/{cli}")
-        exe = exe if os.path.isfile(exe) else cli
-        try:
-            p = subprocess.run([exe, "-p", prompt], capture_output=True, text=True,
-                               encoding="utf-8", errors="replace", timeout=timeout)
-            if p.returncode == 0 and (p.stdout or "").strip():
-                return p.stdout.strip()
-        except Exception:
-            continue
+_DEFAULT_CHAIN = ("codex", "cc", "claude")
+
+
+def _run_backend(name: str, prompt: str, timeout: float) -> str:
+    if name == "codex":
+        return _codex(prompt, timeout)
+    exe = os.path.expanduser(f"~/.local/bin/{name}")
+    exe = exe if os.path.isfile(exe) else name
+    try:
+        p = subprocess.run([exe, "-p", prompt], capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=timeout)
+        if p.returncode == 0 and (p.stdout or "").strip():
+            return p.stdout.strip()
+    except Exception:
+        pass
+    return ""
+
+
+def _llm(prompt: str, timeout=90, chain=_DEFAULT_CHAIN) -> str:
+    """First backend in `chain` that returns non-empty wins. Pass a reordered chain to run a step on
+    a DIFFERENT model than generated it (cross-model audit is more independent than self-critique)."""
+    for name in chain:
+        out = _run_backend(name, prompt, timeout)
+        if out:
+            return out
     return ""
 
 
@@ -143,15 +154,73 @@ def _classify_sys(product):
     )
 
 
-def classify_batch(items, sys=None):
-    """items: [{'i','channel','text'}]. Returns list of dicts (LLM verdicts). Empty on failure."""
+def _audit_sys(product):
+    return (
+        f"You independently AUDIT another model's product-demand classifications for the {product} "
+        "community. Each numbered message is shown WITH a draft verdict. Judge each on your own and "
+        "return ONLY a corrected JSON array (same schema and order): flip is_demand if the draft is "
+        "wrong, recalibrate confidence, fix title/track/kano. Keep a verdict as-is if already correct. "
+        'Schema per item: {"i","is_demand","confidence","title","track","kano","why"}.'
+    )
+
+
+def _uncertain(v):
+    """A verdict is worth a second look only if its confidence sits in the ambiguous band. Confidently
+    clear verdicts (very high or very low) do not, so a clean batch converges in one pass."""
+    try:
+        c = float(v.get("confidence", 0) or 0)
+    except (TypeError, ValueError):
+        return False
+    return 0.3 <= c <= 0.85
+
+
+def _verdicts_stable(a, b):
+    """Converged when the auditor changed nothing that matters: same is_demand + same confidence band
+    per index. Ignores prose (title/why) churn so we do not loop forever on cosmetic rewording."""
+    ka = {x.get("i"): x for x in a if isinstance(x, dict)}
+    kb = {x.get("i"): x for x in b if isinstance(x, dict)}
+    if ka.keys() != kb.keys():
+        return False
+    for i, x in ka.items():
+        y = kb[i]
+        if bool(x.get("is_demand")) != bool(y.get("is_demand")):
+            return False
+        if round(float(x.get("confidence", 0) or 0), 1) != round(float(y.get("confidence", 0) or 0), 1):
+            return False
+    return True
+
+
+def classify_batch(items, sys=None, product="this product", max_rounds=2):
+    """items: [{'i','channel','text'}] -> list of verdict dicts. Adaptive self-refine chain: codex
+    drafts, then (only while some verdict is borderline) a DIFFERENT model audits and revises, up to
+    max_rounds passes, stopping as soon as the audit stops changing anything. Clear batches cost one
+    pass; genuinely ambiguous ones earn extra scrutiny. Empty on failure."""
     if not items:
         return []
-    sys = sys or _classify_sys("this product")
+    sys = sys or _classify_sys(product)
     lines = "\n".join(f'{it["i"]}. [{it["channel"]}] {it["text"][:280]}' for it in items)
-    out = _llm(sys + "\n\nMESSAGES:\n" + lines)
-    v = _json_block(out)
-    return v if isinstance(v, list) else []
+    draft = _json_block(_llm(sys + "\n\nMESSAGES:\n" + lines))          # round 1: codex generates
+    draft = [v for v in draft if isinstance(v, dict)] if isinstance(draft, list) else []
+    if not draft:
+        return []
+    audit_sys = _audit_sys(product)
+    by_i = {it["i"]: it for it in items}
+    for _ in range(max(0, max_rounds - 1)):
+        if not any(_uncertain(v) for v in draft):
+            break  # every verdict is confidently clear -> converged
+        shown = "\n".join(
+            f'{v.get("i")}. [{by_i.get(v.get("i"), {}).get("channel", "?")}] '
+            f'{(by_i.get(v.get("i"), {}).get("text", "") or "")[:280]}\n   draft: '
+            f'{json.dumps({k: v.get(k) for k in ("is_demand", "confidence", "title", "track", "kano")}, ensure_ascii=False)}'
+            for v in draft)
+        # audit on a DIFFERENT model (cc first) for independence; codex is the last resort here
+        revised = _json_block(_llm(audit_sys + "\n\nMESSAGES + DRAFTS:\n" + shown,
+                                   chain=("cc", "claude", "codex")))
+        revised = [v for v in revised if isinstance(v, dict)] if isinstance(revised, list) else []
+        if not revised or _verdicts_stable(draft, revised):
+            break  # auditor agrees -> converged, stop early
+        draft = revised
+    return draft
 
 
 def _reply_sys(product):
@@ -234,6 +303,9 @@ class DemandBot(discord.Client):
         self.buffer = []
         self.hi = float(cfg.get("live", {}).get("high_confidence", 0.7))
         self.lo = float(cfg.get("live", {}).get("low_confidence", 0.4))
+        # adaptive self-refine depth for classification (1 = single pass, no audit). Replies stay
+        # one-shot on purpose: a warm ack is low-stakes and latency-sensitive.
+        self.classify_rounds = int(cfg.get("live", {}).get("classify_rounds", 2))
 
     def log(self, m):
         sys.stdout.write(f"[{time.strftime('%H:%M:%S')}] {m}\n")
@@ -265,13 +337,8 @@ class DemandBot(discord.Client):
     async def _direct_reply(self, m, clean, ah):
         reply = await asyncio.to_thread(gen_reply, clean, self.reply_sys)
         self.log(f"@/DM from {ah}: {clean[:60]!r} -> reply {reply[:60]!r}")
-        # a mention/DM that reads like a demand also enters the pool
-        if _SIGNAL.search(clean):
-            v = (await asyncio.to_thread(classify_batch,
-                 [{"i": 0, "channel": "dm/mention", "text": clean}], self.classify_sys) or [{}])
-            if v and v[0].get("is_demand"):
-                await asyncio.to_thread(pool.upsert, self.poolp,
-                    _demand_from_verdict(v[0], clean, ah, "dm/mention"), self.rescore)
+        # send the reply FIRST: it is one-shot and fast, and must not wait on the (slower, possibly
+        # multi-round) demand analysis below. The user gets answered promptly either way.
         if self.post_direct:
             try:
                 await m.reply(reply, mention_author=True)
@@ -279,6 +346,14 @@ class DemandBot(discord.Client):
                 self.log(f"reply failed: {e!r}")
         else:
             self.log(f"[{self.mode}] direct reply suppressed")
+        # THEN, as a background side-effect, a mention/DM that reads like a demand also enters the pool
+        if _SIGNAL.search(clean):
+            v = (await asyncio.to_thread(classify_batch,
+                 [{"i": 0, "channel": "dm/mention", "text": clean}], self.classify_sys,
+                 self.product, self.classify_rounds) or [{}])
+            if v and v[0].get("is_demand"):
+                await asyncio.to_thread(pool.upsert, self.poolp,
+                    _demand_from_verdict(v[0], clean, ah, "dm/mention"), self.rescore)
 
     async def _classify_loop(self):
         while not self.is_closed():
@@ -289,7 +364,8 @@ class DemandBot(discord.Client):
                 continue
             self.log(f"classify batch: {len(cand)}/{len(batch)} passed pre-filter")
             items = [{"i": i, "channel": b["channel"], "text": b["text"]} for i, b in enumerate(cand)]
-            verdicts = await asyncio.to_thread(classify_batch, items, self.classify_sys)
+            verdicts = await asyncio.to_thread(classify_batch, items, self.classify_sys,
+                                               self.product, self.classify_rounds)
             vmap = {v.get("i"): v for v in verdicts if isinstance(v, dict)}
             for i, b in enumerate(cand):
                 v = vmap.get(i)
