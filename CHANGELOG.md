@@ -6,9 +6,11 @@ All notable changes to this project are documented here (Keep a Changelog style)
 ### Changed
 - **Daemon LLM chain is now codex -> cc -> claude** (was cc -> claude). `codex exec` makes the house
   top model (gpt-5.6-sol at max reasoning, near-unlimited quota) reachable from this headless daemon
-  for both demand classification and @/DM replies, with cc then claude as fallbacks. Runs read-only
-  with MCP off; the final message is read from `-o` so no transcript leaks in. Falls back cleanly if
-  codex is absent, errors, or times out. Reply quality visibly improves (on-brand, user-language).
+  for both demand classification and @/DM replies, with cc then claude as fallbacks. Runs read-only,
+  `--skip-git-repo-check`, `--ephemeral` (no session files pile up under 24/7 use), MCP off; the final
+  message is read from `-o` so no transcript leaks in. Resolves codex by PATH then an absolute npm
+  fallback (the scheduled task's minimal PATH would otherwise silently slide to the pricier fallback).
+  Falls back cleanly if codex is absent, errors, or times out. Reply quality visibly improves.
 
 ## [0.4.1] - 2026-07-18
 ### Fixed
