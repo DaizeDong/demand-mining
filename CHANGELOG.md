@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented here (Keep a Changelog style).
 
+## [0.4.2] - 2026-07-18
+### Changed
+- **Daemon LLM chain is now codex -> cc -> claude** (was cc -> claude). `codex exec` makes the house
+  top model (gpt-5.6-sol at max reasoning, near-unlimited quota) reachable from this headless daemon
+  for both demand classification and @/DM replies, with cc then claude as fallbacks. Runs read-only
+  with MCP off; the final message is read from `-o` so no transcript leaks in. Falls back cleanly if
+  codex is absent, errors, or times out. Reply quality visibly improves (on-brand, user-language).
+
 ## [0.4.1] - 2026-07-18
 ### Fixed
 - **Shadow mode no longer silences direct @/DM replies.** The daemon had one gate for all community

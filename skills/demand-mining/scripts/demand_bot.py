@@ -23,8 +23,10 @@ import asyncio
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 
 from lib import canonical_key, find_config_dir, iso, load_config, now_utc
@@ -69,8 +71,41 @@ def _wiring(d):
     return token, chans, guild, display, product
 
 
-# --- background LLM (cost chain: cc cheap gateway -> claude full price) ---------------------------
+# --- background LLM, house cost/quality chain: codex -> cc -> claude ------------------------------
+# codex first: it runs the top model at max reasoning on a near-unlimited quota (the house standard
+# for unattended background judgment), and `codex exec` makes that reachable from this headless
+# daemon. cc (cheap gateway) then claude (full price) are the fallbacks if codex is absent/errors.
+def _codex(prompt: str, timeout: float) -> str:
+    exe = shutil.which("codex")
+    if not exe:
+        return ""
+    fd, outpath = tempfile.mkstemp(suffix=".txt")
+    os.close(fd)
+    try:
+        # read-only sandbox (never writes), MCP servers off (no external-tool latency/noise); the
+        # model default (gpt-5.6-sol, reasoning=max) comes from ~/.codex/config.toml. -o writes ONLY
+        # the final message, so we skip the header/transcript.
+        subprocess.run([exe, "exec", "--sandbox", "read-only", "-c", "mcp_servers={}",
+                        "-o", outpath, "-"],
+                       input=prompt, capture_output=True, text=True,
+                       encoding="utf-8", errors="replace", timeout=timeout)
+        try:
+            return open(outpath, encoding="utf-8").read().strip()
+        except OSError:
+            return ""
+    except Exception:
+        return ""
+    finally:
+        try:
+            os.remove(outpath)
+        except OSError:
+            pass
+
+
 def _llm(prompt: str, timeout=90) -> str:
+    out = _codex(prompt, timeout)
+    if out:
+        return out
     for cli in ("cc", "claude"):
         exe = os.path.expanduser(f"~/.local/bin/{cli}")
         exe = exe if os.path.isfile(exe) else cli
