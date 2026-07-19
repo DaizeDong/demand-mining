@@ -19,3 +19,6 @@ secrets/
 *.env
 *.pseudo-map
 pseudonym_hmac_salt
+
+# real-run corpus/pool DATA lives in the PRIVATE config repo, never here
+skills/demand-mining/pool/

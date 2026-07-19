@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented here (Keep a Changelog style).
 
+## [0.7.0] - 2026-07-19
+### Added
+- **Context-aware @/DM handling.** A bare "check this" used to get a generic reply because the bot
+  only saw the single message. Now `_gather_context` reads the surrounding subject, the thread/forum
+  post title + opening message, the replied-to message (`m.reference`), and recent human chat, and
+  feeds it to BOTH the reply and the demand classifier. Every piece is redacted + author-pseudonymized
+  BEFORE it reaches an LLM or the pool. Best-effort per source (any API error is skipped, never breaks
+  the reply). `tests/test_context.py` covers thread/reply/history reading, PII redaction, and error
+  survival. Verified against a real forum scenario: reply went from "I'm missing the surrounding
+  message" to naming the exact issue (lorebook retrieval failing after 20 messages in SillyTavern).
+### Fixed
+- **Privacy: the channel label is now redacted too.** A forum/thread `.name` is a user-authored title
+  that can hold an email or handle; it flowed unredacted into the classifier prompt and the pool
+  evidence source (an adversarial review caught it, the identical value was already redacted in
+  `_gather_context`). Guarded by a regression test.
+
 ## [0.6.0] - 2026-07-19
 ### Changed
 - **Admin channel is now an append-only activity log + one daily summary, not a constantly edited

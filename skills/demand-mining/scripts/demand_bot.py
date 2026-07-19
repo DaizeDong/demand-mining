@@ -225,17 +225,21 @@ def classify_batch(items, sys=None, product="this product", max_rounds=2):
 
 def _reply_sys(product):
     return (
-        f"You are the friendly community listener bot for {product}. A user just @-mentioned you "
-        "or DMed you. Reply in ONE short, warm sentence: acknowledge what they said and that you have "
-        "logged it for the team. No markdown, no emoji spam (one is fine), never promise a fix or a date. "
-        "If it is not product feedback, reply one friendly line and note you mainly track product ideas. "
-        "IMPORTANT: reply in the SAME language the user wrote in; if unsure, use English."
+        f"You are the friendly community listener bot for {product}. A user just @-mentioned you or "
+        "DMed you, and you are ALSO given the surrounding CONVERSATION CONTEXT (the thread or forum "
+        "post they are in, the message they replied to, recent chat). USE the context: if they say "
+        "'check this' or point at something, your reply MUST reflect the ACTUAL topic from the context, "
+        "never a generic 'thanks for sharing'. Reply in ONE short, warm sentence that names the specific "
+        "thing and says you have logged it for the team. No markdown, no emoji spam (one is fine), never "
+        "promise a fix or a date. If it is genuinely not product feedback, reply one friendly line. "
+        "Reply in the SAME language the user wrote in; if unsure, use English."
     )
 
 
-def gen_reply(text: str, sys=None) -> str:
+def gen_reply(text: str, sys=None, context: str = "") -> str:
     sys = sys or _reply_sys("this product")
-    out = _llm(sys + f'\n\nUSER MESSAGE:\n{text[:400]}\n\nYour one-line reply:')
+    ctx = f"\n\nCONVERSATION CONTEXT:\n{context[:1200]}" if context else ""
+    out = _llm(sys + ctx + f'\n\nUSER MESSAGE:\n{text[:400]}\n\nYour one-line reply:')
     out = (out or "").strip().splitlines()[0] if out else ""
     out = re.sub(r"\s*[\u2013\u2014\u2015]+\s*", ", ", out)  # house rule: no en/em dash in output
     return out[:280] or "Thanks, I have logged this for the team. 📝"
@@ -337,9 +341,54 @@ class DemandBot(discord.Client):
             self.buffer.append({"m": m, "text": clean, "ah": ah,
                                 "channel": self.chans[str(m.channel.id)]})
 
+    async def _gather_context(self, m, history_limit=6):
+        """Assemble the surrounding context so a reply to a bare 'check this' is about the real subject:
+        the thread/forum opening post + title, the replied-to message, and recent human chat. Every
+        piece is redacted + author-pseudonymized BEFORE it is returned (it will reach an LLM). Best
+        effort: any source that errors is simply skipped, so gathering never breaks the reply."""
+        parts = []
+        ch = m.channel
+        # 1) a forum post / thread: title + opening message is usually the real subject of "this"
+        if isinstance(ch, discord.Thread):
+            if (ch.name or "").strip():
+                parts.append(f"[thread title] {redact(ch.name)['redacted'][:150]}")
+            try:
+                opener = ch.starter_message or await ch.fetch_message(ch.id)
+                if opener is not None and opener.id != m.id and (opener.content or "").strip():
+                    parts.append(f"[opening post] {redact(opener.content)['redacted'][:400]}")
+            except Exception:
+                pass
+        # 2) the specific message this one is a reply to
+        ref_id = m.reference.message_id if (m.reference and m.reference.message_id) else None
+        if ref_id:
+            try:
+                ref = m.reference.resolved
+                if not isinstance(ref, discord.Message):
+                    ref = await ch.fetch_message(ref_id)
+                if ref is not None and (ref.content or "").strip():
+                    who = "the bot" if (self.user and ref.author.id == self.user.id) \
+                        else pseudonymize(str(ref.author.id))[:8]
+                    parts.append(f"[replying to {who}] {redact(ref.content)['redacted'][:300]}")
+            except Exception:
+                pass
+        # 3) recent channel history (the conversation leading up), humans only, oldest-first
+        try:
+            hist = []
+            async for prev in ch.history(limit=history_limit, before=m):
+                if prev.author.bot or not (prev.content or "").strip():
+                    continue
+                hist.append(f"{pseudonymize(str(prev.author.id))[:8]}: {redact(prev.content)['redacted'][:160]}")
+            if hist:
+                hist.reverse()
+                parts.append("[recent] " + " | ".join(hist))
+        except Exception:
+            pass
+        return "\n".join(parts)[:1500]
+
     async def _direct_reply(self, m, clean, ah):
-        reply = await asyncio.to_thread(gen_reply, clean, self.reply_sys)
-        self.log(f"@/DM from {ah}: {clean[:60]!r} -> reply {reply[:60]!r}")
+        context = await self._gather_context(m)
+        reply = await asyncio.to_thread(gen_reply, clean, self.reply_sys, context)
+        self.log(f"@/DM from {ah}: {clean[:50]!r} ctx={len(context)}c -> reply {reply[:50]!r}")
         # send the reply FIRST: it is one-shot and fast, and must not wait on the (slower, possibly
         # multi-round) demand analysis below. The user gets answered promptly either way.
         if self.post_direct:
@@ -349,15 +398,21 @@ class DemandBot(discord.Client):
                 self.log(f"reply failed: {e!r}")
         else:
             self.log(f"[{self.mode}] direct reply suppressed")
-        # THEN, as a background side-effect, a mention/DM that reads like a demand also enters the pool
+        # THEN mine a demand from the FULL subject (context + message), so a bare "check this" still
+        # yields the real underlying need instead of an empty verdict.
         mined = None
-        if _SIGNAL.search(clean):
+        subject = f"{context}\n\n[user] {clean}".strip() if context else clean
+        # redact the channel label too: a forum/thread .name is a USER-authored title (can hold an
+        # email or handle), and it flows into both the classifier prompt and the pool evidence source.
+        # An admin-set text-channel name ("general") and "dm/mention" pass through redact unchanged.
+        chan_label = redact(getattr(m.channel, "name", None) or "dm/mention")["redacted"]
+        if _SIGNAL.search(subject):
             v = (await asyncio.to_thread(classify_batch,
-                 [{"i": 0, "channel": "dm/mention", "text": clean}], self.classify_sys,
+                 [{"i": 0, "channel": chan_label, "text": subject}], self.classify_sys,
                  self.product, self.classify_rounds) or [{}])
             if v and v[0].get("is_demand"):
                 _act, row = await asyncio.to_thread(pool.upsert, self.poolp,
-                    _demand_from_verdict(v[0], clean, ah, "dm/mention"), self.rescore)
+                    _demand_from_verdict(v[0], subject, ah, chan_label), self.rescore)
                 mined = row.get("title")
         # brief activity note to the admin channel (English): who we answered, and any demand mined
         note = f"\U0001f4dd Replied to user `{ah[:10]}`"
