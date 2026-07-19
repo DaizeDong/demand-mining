@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented here (Keep a Changelog style).
 
+## [0.4.1] - 2026-07-18
+### Fixed
+- **Shadow mode no longer silences direct @/DM replies.** The daemon had one gate for all community
+  output, so shadow (meant to hold back UNPROMPTED channel auto-replies while you review) also
+  swallowed replies to users who @-mentioned or DMed the bot, which just looks broken. Split into
+  three gates: `post_direct` (user-initiated @/DM reply; fires in shadow + live), `post_community`
+  (unprompted channel auto-reply + reaction on a detected demand; live only), `post_display` (admin
+  dashboard; any mode but dry). The reply was always generated fine (the cost chain worked); it was
+  only suppressed. `tests/test_bot_modes.py` guards the gate matrix.
+- **Reply language follows the user.** The reply prompt now answers in the user's own language
+  (English default), instead of occasionally answering an English message in Chinese.
+
 ## [0.4.0] - 2026-07-17
 Live demand-tap daemon: a persistent gateway service for the interactive half.
 
