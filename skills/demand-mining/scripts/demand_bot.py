@@ -121,7 +121,8 @@ def _reply_sys(product):
         f"You are the friendly community listener bot for {product}. A user just @-mentioned you "
         "or DMed you. Reply in ONE short, warm sentence: acknowledge what they said and that you have "
         "logged it for the team. No markdown, no emoji spam (one is fine), never promise a fix or a date. "
-        "If it is not product feedback, reply one friendly line and note you mainly track product ideas."
+        "If it is not product feedback, reply one friendly line and note you mainly track product ideas. "
+        "IMPORTANT: reply in the SAME language the user wrote in; if unsure, use English."
     )
 
 
@@ -176,13 +177,18 @@ class DemandBot(discord.Client):
         self.classify_sys = _classify_sys(product)
         self.reply_sys = _reply_sys(product)
         self.display_id = int(display) if display else None
-        # three modes decouple "talk in the community" from "update the admin dashboard":
-        #   dry   = pure test, nothing external (log only); pool still captures.
-        #   shadow= community-SILENT but dashboard-ACTIVE: captures to pool + refreshes the admin
-        #           display channel, but never replies/reacts in monitored channels. 24/7 review mode.
-        #   live  = everything.
+        # the modes gate THREE independent kinds of output, because they carry different risk:
+        #   post_direct    = replying when a user @-mentions or DMs the bot. The user initiated
+        #                    contact; a DM is private and an @-reply is a direct answer. Low risk, so
+        #                    it fires in shadow too (silencing it just looks broken to the user).
+        #   post_community = UNPROMPTED output into monitored channels: the passive "logged for the
+        #                    team" auto-reply + reaction when the bot detects a demand in the chat.
+        #                    This is what shadow exists to hold back until you have reviewed it.
+        #   post_display   = the admin dashboard channel (internal, always fine outside dry).
+        #   dry = nothing external (log only); shadow = direct + dashboard, community-silent; live = all.
         self.mode = mode
-        self.post_community = mode == "live"          # replies + reactions in monitored channels
+        self.post_direct = mode in ("shadow", "live")   # @/DM replies (user-initiated)
+        self.post_community = mode == "live"            # unprompted channel auto-replies + reactions
         self.post_display = mode in ("live", "shadow")  # the admin dashboard channel
         self.interval, self.display_interval = interval, display_interval
         self.poolp = poolp
@@ -197,7 +203,8 @@ class DemandBot(discord.Client):
 
     async def on_ready(self):
         self.log(f"connected as {self.user} | monitoring {len(self.chans)} channels | "
-                 f"mode={self.mode} (community={'on' if self.post_community else 'SILENT'}, "
+                 f"mode={self.mode} (direct={'on' if self.post_direct else 'off'}, "
+                 f"community={'on' if self.post_community else 'SILENT'}, "
                  f"dashboard={'on' if self.post_display else 'off'}) | display={self.display_id}")
         self.loop.create_task(self._classify_loop())
         if self.display_id:
@@ -227,11 +234,13 @@ class DemandBot(discord.Client):
             if v and v[0].get("is_demand"):
                 await asyncio.to_thread(pool.upsert, self.poolp,
                     _demand_from_verdict(v[0], clean, ah, "dm/mention"), self.rescore)
-        if self.post_community:
+        if self.post_direct:
             try:
                 await m.reply(reply, mention_author=True)
             except Exception as e:
                 self.log(f"reply failed: {e!r}")
+        else:
+            self.log(f"[{self.mode}] direct reply suppressed")
 
     async def _classify_loop(self):
         while not self.is_closed():
