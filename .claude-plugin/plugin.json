@@ -1,6 +1,6 @@
 {
   "name": "demand-mining",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "已发布产品每日用户需求挖掘+竞品/热点追踪+EOD 头脑风暴+RICE/Kano 量化迭代排序. Triggers: 需求挖掘, demand mining, 迭代建议, EOD 汇总.",
   "author": {
     "name": "DaizeDong"

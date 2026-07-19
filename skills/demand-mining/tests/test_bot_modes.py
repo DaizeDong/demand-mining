@@ -36,3 +36,21 @@ def test_shadow_answers_direct_but_stays_community_silent():
     b = _bot("shadow")
     assert b.post_direct is True        # @/DM reply fires
     assert b.post_community is False    # unprompted channel auto-reply does not
+
+
+def test_daily_summary_is_english_and_dash_free(tmp_path):
+    """The admin channel content must be English (community language) and carry no en/em dashes."""
+    import re
+    import json as _json
+    import demand_bot as _b
+    pool_file = tmp_path / "demands.jsonl"
+    pool_file.write_text(_json.dumps({
+        "canonical_key": "k", "title": "Fix reload button", "grade": "A", "final_score": 90,
+        "reach": 5, "status": "new", "first_seen": "2026-07-19T00:00:00Z",
+        "last_seen": "2026-07-19T00:00:00Z"}) + "\n", encoding="utf-8")
+    bot = _b.DemandBot.__new__(_b.DemandBot)
+    bot.poolp = str(pool_file)
+    out = bot._render_summary("2026-07-19")
+    assert "Daily Demand Summary" in out and "All-time top" in out and "Fix reload button" in out
+    assert not re.search(r"[一-鿿]", out)   # no Chinese
+    assert not re.search(r"[–—―]", out)  # no en/em/bar dash

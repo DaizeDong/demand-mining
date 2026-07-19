@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented here (Keep a Changelog style).
 
+## [0.6.0] - 2026-07-19
+### Changed
+- **Admin channel is now an append-only activity log + one daily summary, not a constantly edited
+  backlog embed.** The old model edited a single pinned embed every few minutes; when a user @/DMed
+  the bot in that channel, the next refresh edited the REPLY into the backlog and the reply vanished.
+  Now: the bot APPENDS a short line in real time (`Replied to user X`, `New demand: "..."`), never
+  editing a prior message, and posts ONE full summary per day at `live.summary_hour_utc` (today's
+  demands + the all-time backlog), date-gated by a marker file so restarts never double-post.
+- **All admin-channel text is English** (the community language), not Chinese.
+### Fixed
+- A user reply in the admin channel can no longer be clobbered by the summary (the edit-in-place path
+  is gone). `tests/test_bot_modes.py` guards that the summary is English and dash-free.
+
 ## [0.5.0] - 2026-07-18
 ### Added
 - **Adaptive self-refine classification chain.** A single headless judgment cannot be course-corrected
