@@ -22,3 +22,7 @@ pseudonym_hmac_salt
 
 # real-run corpus/pool DATA lives in the PRIVATE config repo, never here
 skills/demand-mining/pool/
+# ad-hoc corpus/dump artifacts from a manual `pull_discord.py --out ...` land in scripts/;
+# the default (stdout) is safe, but a relative --out writes here. Both are DATA, never committed.
+skills/demand-mining/scripts/corpus*.json
+skills/demand-mining/scripts/dump_*.txt
