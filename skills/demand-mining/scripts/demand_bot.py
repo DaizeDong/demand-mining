@@ -23,10 +23,7 @@ import asyncio
 import json
 import os
 import re
-import shutil
-import subprocess
 import sys
-import tempfile
 import time
 
 from lib import canonical_key, find_config_dir, iso, load_config, now_utc
@@ -71,66 +68,20 @@ def _wiring(d):
     return token, chans, guild, display, product
 
 
-# --- background LLM, house cost/quality chain: codex -> cc -> claude ------------------------------
-# codex first: it runs the top model at max reasoning on a near-unlimited quota (the house standard
-# for unattended background judgment), and `codex exec` makes that reachable from this headless
-# daemon. cc (cheap gateway) then claude (full price) are the fallbacks if codex is absent/errors.
-def _codex(prompt: str, timeout: float) -> str:
-    # Absolute-path fallback: under the scheduled task's minimal PATH, `which('codex')` can miss and
-    # the chain would silently slide to the pricier cc/claude. The npm global shim is the fixed home.
-    exe = shutil.which("codex") or os.path.expanduser("~/AppData/Roaming/npm/codex.cmd")
-    if not (shutil.which("codex") or os.path.isfile(exe)):
-        return ""
-    fd, outpath = tempfile.mkstemp(suffix=".txt")
-    os.close(fd)
-    try:
-        # read-only sandbox (never writes), skip the git-repo check (daemon cwd is arbitrary),
-        # --ephemeral (do NOT persist a session -- this runs 24/7, sessions would pile up), MCP off
-        # (no external-tool latency/noise). Model default (gpt-5.6-sol, reasoning=max) is in
-        # ~/.codex/config.toml. -o writes ONLY the final message, so we skip the header/transcript.
-        subprocess.run([exe, "exec", "--sandbox", "read-only", "--skip-git-repo-check", "--ephemeral",
-                        "-c", "mcp_servers={}", "-o", outpath, "-"],
-                       input=prompt, capture_output=True, text=True,
-                       encoding="utf-8", errors="replace", timeout=timeout)
-        try:
-            return open(outpath, encoding="utf-8").read().strip()
-        except OSError:
-            return ""
-    except Exception:
-        return ""
-    finally:
-        try:
-            os.remove(outpath)
-        except OSError:
-            pass
+# --- background LLM: delegate to the shared llmcall primitive (codex -> cc -> claude) -------------
+# The chain, every headless footgun (read-only codex, --ephemeral, absolute-path fallback, MCP off,
+# json-envelope unwrap) and the single model/effort source now live in ONE package. This wrapper only
+# keeps the local `_llm(prompt, chain=...)` signature so the callers (classify_batch, gen_reply) and
+# the per-round reorder (the audit round runs cc,claude,codex for cross-model independence) are
+# unchanged.
+from llmcall import DEFAULT_CHAIN as _DEFAULT_CHAIN  # noqa: E402
+from llmcall import call as _llmcall  # noqa: E402
 
 
-_DEFAULT_CHAIN = ("codex", "cc", "claude")
-
-
-def _run_backend(name: str, prompt: str, timeout: float) -> str:
-    if name == "codex":
-        return _codex(prompt, timeout)
-    exe = os.path.expanduser(f"~/.local/bin/{name}")
-    exe = exe if os.path.isfile(exe) else name
-    try:
-        p = subprocess.run([exe, "-p", prompt], capture_output=True, text=True,
-                           encoding="utf-8", errors="replace", timeout=timeout)
-        if p.returncode == 0 and (p.stdout or "").strip():
-            return p.stdout.strip()
-    except Exception:
-        pass
-    return ""
-
-
-def _llm(prompt: str, timeout=90, chain=_DEFAULT_CHAIN) -> str:
-    """First backend in `chain` that returns non-empty wins. Pass a reordered chain to run a step on
-    a DIFFERENT model than generated it (cross-model audit is more independent than self-critique)."""
-    for name in chain:
-        out = _run_backend(name, prompt, timeout)
-        if out:
-            return out
-    return ""
+def _llm(prompt: str, timeout=120, chain=_DEFAULT_CHAIN) -> str:
+    """First backend in `chain` that returns non-empty wins (str, "" on total failure). A reordered
+    chain runs a step on a DIFFERENT model than generated it (cross-model audit)."""
+    return _llmcall(prompt, chain=list(chain), timeout=timeout).text
 
 
 def _json_block(text: str):
