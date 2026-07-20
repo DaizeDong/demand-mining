@@ -78,20 +78,20 @@ from llmcall import DEFAULT_CHAIN as _DEFAULT_CHAIN  # noqa: E402
 from llmcall import call as _llmcall  # noqa: E402
 
 
-def _llm(prompt: str, timeout=120, chain=_DEFAULT_CHAIN) -> str:
-    """First backend in `chain` that returns non-empty wins (str, "" on total failure). A reordered
-    chain runs a step on a DIFFERENT model than generated it (cross-model audit)."""
-    return _llmcall(prompt, chain=list(chain), timeout=timeout).text
+# A batch classification must come back as a JSON array. Declaring just the array shape (not each
+# item's keys) hands llmcall the exact robustness this path needed: on a malformed/non-array reply it
+# retries the SAME provider once before falling through, instead of the old behavior where one bad
+# codex reply aborted the whole batch to []. Per-item handling is unchanged (the isinstance filter and
+# .get defaults downstream stay), so a well-formed batch behaves identically.
+_VERDICT_SCHEMA = {"type": "array"}
 
 
-def _json_block(text: str):
-    m = re.search(r"\[.*\]|\{.*\}", text, re.S)
-    if not m:
-        return None
-    try:
-        return json.loads(m.group(0))
-    except json.JSONDecodeError:
-        return None
+def _llm(prompt: str, timeout=120, chain=_DEFAULT_CHAIN, schema=None):
+    """First backend in `chain` that returns non-empty (and, with schema=, schema-valid) wins. Returns
+    str ("" on total failure) for a free-text call, or the parsed object (None on failure) when schema=
+    is given. A reordered chain runs a step on a DIFFERENT model than generated it (cross-model audit)."""
+    r = _llmcall(prompt, chain=list(chain), timeout=timeout, schema=schema)
+    return r.data if schema is not None else r.text
 
 
 def _classify_sys(product):
@@ -150,7 +150,7 @@ def classify_batch(items, sys=None, product="this product", max_rounds=2):
         return []
     sys = sys or _classify_sys(product)
     lines = "\n".join(f'{it["i"]}. [{it["channel"]}] {it["text"][:280]}' for it in items)
-    draft = _json_block(_llm(sys + "\n\nMESSAGES:\n" + lines))          # round 1: codex generates
+    draft = _llm(sys + "\n\nMESSAGES:\n" + lines, schema=_VERDICT_SCHEMA)   # round 1: codex generates
     draft = [v for v in draft if isinstance(v, dict)] if isinstance(draft, list) else []
     if not draft:
         return []
@@ -165,8 +165,8 @@ def classify_batch(items, sys=None, product="this product", max_rounds=2):
             f'{json.dumps({k: v.get(k) for k in ("is_demand", "confidence", "title", "track", "kano")}, ensure_ascii=False)}'
             for v in draft)
         # audit on a DIFFERENT model (cc first) for independence; codex is the last resort here
-        revised = _json_block(_llm(audit_sys + "\n\nMESSAGES + DRAFTS:\n" + shown,
-                                   chain=("cc", "claude", "codex")))
+        revised = _llm(audit_sys + "\n\nMESSAGES + DRAFTS:\n" + shown,
+                       chain=("cc", "claude", "codex"), schema=_VERDICT_SCHEMA)
         revised = [v for v in revised if isinstance(v, dict)] if isinstance(revised, list) else []
         if not revised or _verdicts_stable(draft, revised):
             break  # auditor agrees -> converged, stop early
