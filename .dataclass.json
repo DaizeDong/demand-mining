@@ -15,9 +15,13 @@
     "",
     "Enforced by tools/data_boundary.py in .githooks and in CI."
   ],
-  "_audited": "2026-07-13 -- swept for real-run output written back into this repo (every open(...,'a'), json.dump, write_text; every tracked *.jsonl / state / cache / report). This skill's writers all resolve OUTSIDE the repo, or it has no writers. No DATA-class path found. An empty list here is a CONCLUSION, not a default: it distinguishes 'audited, nothing to declare' from 'nobody has looked'.",
+  "_audited": "2026-07-20 (was 2026-07-13) -- re-swept. Programmatic writers still all resolve OUTSIDE the repo. BUT a fleet audit found three untracked real-run corpus artifacts in scripts/ from a manual `pull_discord.py --out corpus_today.json` (default output is stdout and safe; a relative --out lands in cwd=scripts/). They were undeclared and un-gitignored, so both structural gates were blind (pii_guard: redaction stripped every smellable token; data_boundary: undeclared path fires zero checks). Moved out to ~/.demand-mining-config/data/manual-corpus/, gitignored (scripts/corpus*.json + dump_*.txt), and the canonical output name sealed below so the gate hard-fails on any future `git add -f`. An empty data[] is still a CONCLUSION: this skill's programmatic writers write outside the repo; only manual --out could reintroduce DATA, now blocked on two layers.",
   "data": [],
-  "data_sealed": [],
+  "data_sealed": [
+    "skills/demand-mining/scripts/corpus_today.json",
+    "skills/demand-mining/scripts/dump_general.txt",
+    "skills/demand-mining/scripts/dump_lorestage-support.txt"
+  ],
   "fixture": [],
   "_data_home": "~/.demand-mining-config/data/   (override with $DEMAND_MINING_DATA_DIR). If this skill ever needs to record real-run output, it goes THERE -- never back into this repo."
 }
