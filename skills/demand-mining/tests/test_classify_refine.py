@@ -2,7 +2,6 @@
 iterates ONLY while a verdict is borderline, stopping the moment the audit stops changing anything.
 Depth is data-driven: a clear batch costs one pass, an ambiguous one earns extra scrutiny.
 """
-import json
 from unittest import mock
 
 import pytest
@@ -30,7 +29,7 @@ def _patch_llm(outputs):
     seq = iter(outputs)
     calls = []
 
-    def fake(prompt, timeout=90, chain=b._DEFAULT_CHAIN):
+    def fake(prompt, timeout=90, chain=b._DEFAULT_CHAIN, schema=None):
         calls.append(chain)
         return next(seq)
     return fake, calls
@@ -38,7 +37,7 @@ def _patch_llm(outputs):
 
 def test_clear_batch_is_single_pass():
     fake, calls = _patch_llm([
-        json.dumps([{"i": 0, "is_demand": True, "confidence": 0.99, "title": "t",
+        ([{"i": 0, "is_demand": True, "confidence": 0.99, "title": "t",
                      "track": "x", "kano": "performance", "why": "w"}]),
     ])
     with mock.patch.object(b, "_llm", fake):
@@ -49,9 +48,9 @@ def test_clear_batch_is_single_pass():
 
 def test_borderline_triggers_cross_model_audit_and_takes_revision():
     fake, calls = _patch_llm([
-        json.dumps([{"i": 0, "is_demand": True, "confidence": 0.6, "title": "maybe",
+        ([{"i": 0, "is_demand": True, "confidence": 0.6, "title": "maybe",
                      "track": "x", "kano": "performance", "why": "w"}]),   # codex draft (borderline)
-        json.dumps([{"i": 0, "is_demand": False, "confidence": 0.55, "title": "",
+        ([{"i": 0, "is_demand": False, "confidence": 0.55, "title": "",
                      "track": "x", "kano": "indifferent", "why": "not really"}]),  # audit flips it
     ])
     with mock.patch.object(b, "_llm", fake):
@@ -65,7 +64,7 @@ def test_audit_agreement_stops_early():
     draft = [{"i": 0, "is_demand": True, "confidence": 0.6, "title": "x",
               "track": "x", "kano": "performance", "why": "w"}]
     # three rounds allowed, but the auditor agrees on the first audit -> stop at 2 calls, not 3
-    fake, calls = _patch_llm([json.dumps(draft), json.dumps(draft), json.dumps(draft)])
+    fake, calls = _patch_llm([(draft), (draft), (draft)])
     with mock.patch.object(b, "_llm", fake):
         b.classify_batch([{"i": 0, "channel": "c", "text": "kinda wish"}], b._classify_sys("P"), "P", 3)
     assert len(calls) == 2
@@ -73,7 +72,7 @@ def test_audit_agreement_stops_early():
 
 def test_rounds_one_disables_audit():
     fake, calls = _patch_llm([
-        json.dumps([{"i": 0, "is_demand": True, "confidence": 0.6, "title": "x",
+        ([{"i": 0, "is_demand": True, "confidence": 0.6, "title": "x",
                      "track": "x", "kano": "performance", "why": "w"}]),
     ])
     with mock.patch.object(b, "_llm", fake):
