@@ -293,7 +293,7 @@ def build_ext(card: dict, prior_ext: dict | None = None, cfg: dict | None = None
 class LedgerClient:
     """Subprocess wrapper around reminder.py. Honors --db / SCHEDULE_DB_PATH; --now via env.
     reminder.py located via DEMAND_MINING_REMINDER_CMD (JSON list / shell string) or by probing
-    the reminder ledger (no machine path baked in)."""
+    a conventional schedule-reminder install path under the home skills dir (no machine path baked in)."""
 
     def __init__(self, cmd=None, db_path=None, actor=SOURCE):
         self.cmd = self._resolve_cmd(cmd)

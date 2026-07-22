@@ -49,7 +49,7 @@ GUARD = REPO_ROOT / "tools" / "pii_guard.py"
 def test_pii_guard_is_vendored() -> None:
     """The guard must exist. A repo that lost it is unguarded and does not know it."""
     assert GUARD.is_file(), (
-        "tools/pii_guard.py is missing. Re-vendor it: python the pii-guard installer"
+        "tools/pii_guard.py is missing. Re-vendor it from your pii-guard master install."
     )
 
 
