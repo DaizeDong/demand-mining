@@ -133,7 +133,8 @@ GENERIC_USERS = {"public", "default", "defaultuser", "administrator", "admin", "
 # mechanism), `.llmcall` / `.memory-doctor` (a tool's own runtime dir -- a self-reference in its repo).
 PRIVATE_DOTDIRS = ("claude", "agent-center", "secrets", "pw-auth")
 PRIVATE_PATH_RE = re.compile(
-    r"(?:~|\$HOME|%USERPROFILE%)[\\/](\.(?:" + "|".join(PRIVATE_DOTDIRS) + r")\b[\w./\\-]*)", re.I)
+    r"(?:~|\$HOME|\$env:USERPROFILE|\$env:HOME|%USERPROFILE%)[\\/](\.(?:"
+    + "|".join(PRIVATE_DOTDIRS) + r")\b[\w./\\-]*)", re.I)
 # Public Claude Code conventions sharing the .claude prefix that are NOT a private-dir reference: the
 # config file (~/.claude.json), the plugin manifest (.claude-plugin/), and the SHALLOW install dirs
 # `~/.claude/{skills,plugins,agents,commands}[/<name>]` (a repo naming its OWN install location). A
@@ -263,7 +264,10 @@ def load_cross_repo_tokens(root, vis_path=None):
         # on public research repos -- and a gate that cries wolf gets bypassed. So require a `-config`
         # companion (the fleet's private state repos) OR a multi-part slug (>=2 separators), which
         # ordinary prose almost never is. Everything else is left to the semantic gate (P2).
-        if (name and name != self_name and len(name) >= 5
+        # Self-exclude the current repo AND its own namespace companions (`<self>-config`, `<self>-data`):
+        # a repo referencing its OWN declared companion (a `.dataclass.json` pointing at `foo-config`)
+        # is a self-reference, not a cross-repo fleet link, and flagging it blocks the repo's own commits.
+        if (name and name != self_name and not name.startswith(self_name + "-") and len(name) >= 5
                 and (name.endswith("-config") or (name.count("-") + name.count("_")) >= 2)):
             toks.add(name)
     return sorted(toks)

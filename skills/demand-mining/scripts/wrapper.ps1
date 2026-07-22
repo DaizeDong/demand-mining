@@ -30,7 +30,7 @@ function Resolve-Python {
 
 function Notify-Abort {
   param([string]$msg)
-  $relay = "$env:USERPROFILE\.local\relay.py"
+  $relay = if ($env:DEMAND_MINING_RELAY) { $env:DEMAND_MINING_RELAY } else { "$env:USERPROFILE\.local\relay.py" }
   if (Test-Path $relay) {
     try { & $script:py $relay "[demand-mining] ABORT: $msg" | Out-Null } catch {}
   }
@@ -51,12 +51,13 @@ try {
   }
 
   "[$(Get-Date -Format o)] demand-mining EOD start (py=$script:py)" | Tee-Object -FilePath $log -Append
-  # Skill orchestration goes through the resilient runner: cc (hosted gateway) -> claude-direct
-  # (claude.ai subscription, gateway env unset, independent of the gateway) + retry (the gateway 530s recover) +
+  # Skill orchestration goes through the resilient runner: cc (a hosted gateway) -> claude-direct
+  # (claude.ai subscription, gateway env unset, independent of the gateway) + retry (gateway 530s recover) +
   # notify. A single dead transport no longer fails the run. The runner owns the native-stderr
   # ErrorActionPreference dance internally, so it is NOT needed here.
   $prompt = "Run the demand-mining skill EOD now: redact + read today's Discord demand signals, recover intent + JTBD, dedup into the need pool, score the three axes, brainstorm Quick-win/Big-bet iteration directions, deliver the ranked headlines digest to Discord, and archive. Write ALL delivered output (digest, headlines, demand titles and summaries) in ENGLISH; this product's community is English-speaking."
-  & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\.local\agent-runner.ps1" -Prompt $prompt -Log $log -Stream "demand-mining"
+  $runner = if ($env:DEMAND_MINING_AGENT_RUNNER) { $env:DEMAND_MINING_AGENT_RUNNER } else { "$env:USERPROFILE\.local\agent-runner.ps1" }
+  & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $runner -Prompt $prompt -Log $log -Stream "demand-mining"
   $rc = $LASTEXITCODE
   "[$(Get-Date -Format o)] demand-mining EOD end rc=$rc" | Tee-Object -FilePath $log -Append
   if ($rc -ne 0) { Notify-Abort "EOD agent failed rc=$rc (cc + claude-direct both; see $log)" }
