@@ -12,7 +12,7 @@ only relay). Two fail-closed guards run BEFORE anything leaves the machine:
 
 Delivery seam (clean bot switch, zero code change):
   DEMAND_MINING_RELAY_CMD, JSON list / shell string; receives the message on argv[1].
-  else fallback to the notifier (content-only relay).
+  else fallback to a conventional content-only relay under the home dir.
 The Discord token is NEVER read or echoed here, the relay owns the token; this script hands text.
 """
 from __future__ import annotations

@@ -17,7 +17,7 @@ powershell -ExecutionPolicy Bypass -File register-task.ps1 -Time 21:53
 `register-task.ps1` registers `DemandMiningEOD` at the chosen off-:00 time, pointing at
 `wrapper.ps1`. `wrapper.ps1` resolves absolute interpreter paths, preflights (config dir reachable?
 relay present? base DB writable?), runs the headless EOD, and on any non-zero exit pushes a Discord
-alert via `the notifier` so a silent failure is impossible.
+alert via the configured notifier so a silent failure is impossible.
 
 ## Idempotency + catch-up
 
