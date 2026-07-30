@@ -1,8 +1,16 @@
 # Roadmap
 
-Current: **v0.1.2**
+Current: **v0.7.0**
 
-## v0.1.2 (current), offline skeleton
+## v0.7.0 (current)
+
+- Releases v0.2.0 through v0.7.0 shipped and are written up in [CHANGELOG.md](CHANGELOG.md); this
+  file was last re-baselined at v0.1.2, so read the changelog as the record of what exists.
+- Known stale below: the "v0.2, real wiring" section is largely delivered (the live Discord tap with
+  a real bot token landed in v0.3.0), and the v0.3 / v0.4 sections have not been re-scoped against
+  the releases that followed.
+
+## v0.1.2, offline skeleton
 
 - Deterministic tail real + tested (56 tests): redact-on-ingest, demand extraction + verbatim
   grounding, need pool (two-gate dedup + distinct-author intensity + NEW/SUPPRESS/RESURFACE) over
