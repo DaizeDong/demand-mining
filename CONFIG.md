@@ -7,7 +7,7 @@ This file is the authoritative config contract (config-spec E1). It is the canon
 (`skills/demand-mining/scripts/lib.py`) and the doctor (`scripts/verify_config.py`) agree on.
 
 > **Domain variant note (E1).** The reference config-spec registry shape is `tools[]`/`entries[]`.
-> demand-mining is product-centric, so its companion repo uses a **`products[]`** registry instead ,
+> demand-mining is product-centric, so its companion repo uses a **`products[]`** registry instead,
 > one tunable profile per tracked product. This is a deliberate, documented variant; `verify_config.py`
 > accepts `products[]` (and also `tools[]`/`entries[]` for forward-compat). Everything else matches the
 > spec (Mode B secrets, env-var discovery, deterministic init).

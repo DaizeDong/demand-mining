@@ -12,7 +12,7 @@ allowed-tools: Read, Glob, Grep, Bash, Agent, Skill, WebSearch, WebFetch
 > final fail-closed ruling, and `redact.py` strips PII *before the model ever sees the text*.
 
 A daily **demand radar** for a *shipped* product. It owns the *seam*, Discord ingest → demand
-extraction → dedup/clustering → three-axis quantified ranking → EOD brainstorm → archive/push ,
+extraction → dedup/clustering → three-axis quantified ranking → EOD brainstorm → archive/push,
 and **delegates every deep job** to its sister skills. It never re-implements an engine.
 
 ## When to use / when to stop

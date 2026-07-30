@@ -1,6 +1,6 @@
 # scoring, three orthogonal axes (Step 4)
 
-Three indicators, three frameworks, **kept orthogonal** (never merged into one opaque number ,
+Three indicators, three frameworks, **kept orthogonal** (never merged into one opaque number,
 that hides the trade-off). The LLM proposes each axis's inputs at **temperature 0** with anchored
 1/3/5 rubric samples + a one-line `because` + bound evidence; `scripts/score.py` (pure) disposes them
 into a reproducible ordering. No hand-math, no LLM ranking.
