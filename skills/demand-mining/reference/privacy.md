@@ -17,7 +17,7 @@ model has seen PII, it has leaked. So run.py redacts every raw message first; on
 1. **Collapsed placeholders.** A unified `[PERSON]` for two people loses who-said-what. We mint
    **unique, co-reference-stable** placeholders: `[EMAIL_1]`/`[EMAIL_2]`; the same value twice in
    one message reuses one placeholder. (Tested: `test_redact.py::test_unique_placeholders_no_collapse`.)
-2. **Reversible / committed pseudonyms.** `pseudonymize(user_id) = HMAC-SHA256(salt, id)[:16]` ,
+2. **Reversible / committed pseudonyms.** `pseudonymize(user_id) = HMAC-SHA256(salt, id)[:16]`,
    same person → same token (a real clustering signal), not invertible. The salt is read from
    `DEMAND_MINING_PSEUDONYM_SALT` env or `secrets/pseudonym_hmac_salt` (gitignored, Mode B) at call
    time, **never hardcoded or echoed**. Salt-in-repo = pseudonym-in-clear.
@@ -37,5 +37,5 @@ encrypted. Right-to-erasure = forward-delete every evidence row by `author_hash`
 
 ## Delegation hygiene
 
-Queries handed to market-intel / web carry only non-private topics (feature/competitor name) ,
+Queries handed to market-intel / web carry only non-private topics (feature/competitor name),
 never a user's raw words. That is both a privacy rule and a prompt-injection defense.
