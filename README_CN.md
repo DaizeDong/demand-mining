@@ -4,7 +4,7 @@
 
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-orange?style=flat)](https://docs.anthropic.com/en/docs/claude-code)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/status-v0.1%20offline%20skeleton-green?style=flat)](ROADMAP.md)
+[![Status](https://img.shields.io/badge/status-v0.7.0%20live%20daemon%20%28shadow%29-green?style=flat)](ROADMAP.md)
 [![Languages](https://img.shields.io/badge/Languages-EN%20%2F%20CN-blue?style=flat)](#languages)
 [![Roadmap](https://img.shields.io/badge/Roadmap-v0.7.0-purple?style=flat)](ROADMAP.md)
 
@@ -93,14 +93,6 @@ A 78 · RICE=9 · 3证据
 
 加 Quick-win / Big-bet 双池。空日诚实打印 `今日无合格新需求`。
 
-## 局限
-
-- v0.1 为**离线骨架**:确定性尾链(脱敏/抽取/去重/打分/gate/汇总)真实且已测;实时 Discord tap +
-  真实 secrets + 竞品 changelog diff 在 v0.2(见 ROADMAP)。产品代码根与 Discord bot 接线 `@DEFERRED`,
-  待提供。
-- 隐性需求召回是死穴,靠持续扩充对抗 fixture 迭代提升。
-- Kano 为 LLM 代理(无问卷),上线后用真实社群样本校准。
-
 ## 配置
 
 `demand-mining` 是**带 config 的 skill**, 每产品的可调参数(RICE 权重、阈值、Kano 映射、taxonomy、
@@ -119,6 +111,19 @@ A 78 · RICE=9 · 3证据
   `export DEMAND_MINING_CONFIG=~/configs/work` ↔ `~/configs/personal`。
 - **密钥:** Mode B, `secrets/*` 已 gitignore,永不入库,请用库外备份。假名 salt 也可改由
   `$DEMAND_MINING_PSEUDONYM_SALT` 提供。
+
+## 局限
+
+- **跑在 shadow 模式。** 实时 Discord tap 已在 v0.3.0 落地(`scripts/pull_discord.py`),daemon 也已
+  对着真实产品论坛长跑,但模式是 `--mode shadow`:它会回复直接 @ 或 DM、会往管理频道追加活动日志,
+  但对无人召唤的社群闲聊保持沉默。升到 `--mode live` 是一个需要人来做的决定,先看过 dashboard 再升,
+  不要反过来。
+- **产品代码根仍是 `@DEFERRED`**(见 [CONFIG.md](CONFIG.md))。它是预留项,EOD 流水线不需要它,
+  所以没有东西被卡住;代价是排好序的需求暂时无法追溯到实现它的那段代码。
+- **竞品情报靠模型给,不是自动采集。** 打分会消费 `competitor_status` 字段(竞品刚发布该功能会抬高
+  时间紧迫度),但自动化的竞品 changelog diff 与 daily-hotspots / market-intel 闭环仍在 roadmap 上。
+- 隐性需求召回是死穴,靠持续扩充对抗 fixture 迭代提升。
+- Kano 为 LLM 代理(无问卷)。对着真实论坛的校准仍在进行,尚未完成。
 
 ## 语言
 
