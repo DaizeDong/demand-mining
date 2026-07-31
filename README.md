@@ -4,7 +4,7 @@ Daily user-demand mining + competitor/hotspot tracking + EOD brainstorm + RICE/K
 
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-orange?style=flat)](https://docs.anthropic.com/en/docs/claude-code)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/status-v0.1%20offline%20skeleton-green?style=flat)](ROADMAP.md)
+[![Status](https://img.shields.io/badge/status-v0.7.0%20live%20daemon%20%28shadow%29-green?style=flat)](ROADMAP.md)
 [![Languages](https://img.shields.io/badge/Languages-EN%20%2F%20CN-blue?style=flat)](#languages)
 [![Roadmap](https://img.shields.io/badge/Roadmap-v0.7.0-purple?style=flat)](ROADMAP.md)
 
@@ -123,11 +123,19 @@ private** companion config repo. Full contract: [CONFIG.md](CONFIG.md). Absent â
 
 ## Limitations
 
-- v0.1 is an **offline skeleton**: the deterministic tail (redact/extract/dedup/score/gate/digest)
-  is real and tested; the live Discord tap + real secrets + competitor changelog diff land in v0.2
-  (see ROADMAP). The product code root and Discord bot wiring are `@DEFERRED` until provided.
+- **It runs in shadow mode.** The live Discord tap shipped in v0.3.0 (`scripts/pull_discord.py`) and
+  the daemon runs against a real product forum, but at `--mode shadow`: it answers a direct
+  @-mention or DM and appends to the admin activity log, and it stays silent on unprompted community
+  chatter. Promoting it to `--mode live` is a deliberate human act, do it after reading the
+  dashboard, not before.
+- The **product code root is still `@DEFERRED`** (see [CONFIG.md](CONFIG.md)). It is reserved and the
+  EOD pipeline does not need it, so nothing is blocked; the cost is that a ranked demand cannot yet
+  be traced to the code that would implement it.
+- **Competitor tracking is model-supplied, not collected.** Scoring consumes a `competitor_status`
+  field (a competitor that just shipped the feature raises time-criticality), but the automated
+  competitor changelog diff and the daily-hotspots / market-intel closed loop are still roadmap.
 - Implicit-demand recall is the hard part; it improves by adding adversarial fixtures over time.
-- Kano is an LLM proxy (no survey), calibrated on real community samples after go-live.
+- Kano is an LLM proxy (no survey). Calibration against the live forum is ongoing, not finished.
 
 ## Languages
 
