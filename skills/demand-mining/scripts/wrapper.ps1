@@ -57,7 +57,14 @@ try {
   # ErrorActionPreference dance internally, so it is NOT needed here.
   $prompt = "Run the demand-mining skill EOD now: redact + read today's Discord demand signals, recover intent + JTBD, dedup into the need pool, score the three axes, brainstorm Quick-win/Big-bet iteration directions, deliver the ranked headlines digest to Discord, and archive. Write ALL delivered output (digest, headlines, demand titles and summaries) in ENGLISH; this product's community is English-speaking."
   $runner = if ($env:DEMAND_MINING_AGENT_RUNNER) { $env:DEMAND_MINING_AGENT_RUNNER } else { "$env:USERPROFILE\.local\agent-runner.ps1" }
-  & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $runner -Prompt $prompt -Log $log -Stream "demand-mining"
+  # -NoCodex is LOAD-BEARING (2026-08-06). This EOD is an AGENTIC run: it must reach Discord over the
+  # network and write OUTSIDE its own cwd (demand-mining-config/pool + the schedule-reminder sqlite).
+  # The runner's codex transport is a fixed `codex exec -s workspace-write`, whose sandbox denies both:
+  # the agent reported `WinError 10061` for Discord and `OperationalError` for the ledger, staged the
+  # digest into %TEMP%\demand-mining-staging instead of pool/digests, and still exited 0. rc=0 with no
+  # digest is invisible to the exit-code check; only the artifact-freshness gate caught it (48h stale).
+  # claude-direct runs unsandboxed under this wrapper's own permissions, which is what the skill needs.
+  & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $runner -Prompt $prompt -Log $log -Stream "demand-mining" -NoCodex
   $rc = $LASTEXITCODE
   "[$(Get-Date -Format o)] demand-mining EOD end rc=$rc" | Tee-Object -FilePath $log -Append
   if ($rc -ne 0) { Notify-Abort "EOD agent failed rc=$rc (cc + claude-direct both; see $log)" }

@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented here (Keep a Changelog style).
 
+## [0.7.1] - 2026-08-06
+### Fixed
+- **The scheduled EOD run silently produced nothing for two days while exiting 0.** `wrapper.ps1` now
+  passes `-NoCodex` to the agent runner. The runner had gained a codex transport at the head of its
+  chain, and codex runs as `codex exec -s workspace-write`, a sandbox that denies both outbound
+  network and writes outside the working directory. This EOD needs both: it reads Discord and writes
+  `demand-mining-config/pool` plus the schedule-reminder sqlite ledger. The agent correctly refused
+  to fake a delivery, reported `WinError 10061` for Discord and `OperationalError` for the ledger,
+  staged the digest into `%TEMP%\demand-mining-staging`, and returned 0. An exit code of 0 with no
+  digest is invisible to any exit-code check; only the task-health artifact-freshness gate caught it,
+  at 48h stale. claude-direct runs under the wrapper's own permissions, which is what the skill needs.
+  Note for anyone re-enabling codex here: the runner forwards `-ExtraArgs` only on its claude branch,
+  so tool-permission flags do not reach codex at all.
+
 ## [0.7.0] - 2026-07-19
 ### Added
 - **Context-aware @/DM handling.** A bare "check this" used to get a generic reply because the bot
