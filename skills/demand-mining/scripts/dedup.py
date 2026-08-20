@@ -75,7 +75,7 @@ def match_existing(candidate: dict, ledger_rows: list[dict], cfg: dict | None = 
     ctoks = _token_set(ctext)
 
     for row in ledger_rows:
-        if _row_key(row) == ckey:
+        if _row_ckey(row) == ckey:
             return row
 
     best, best_sim = None, 0.0
@@ -86,9 +86,9 @@ def match_existing(candidate: dict, ledger_rows: list[dict], cfg: dict | None = 
         rsh = int(_row_ext(row).get(EXT + "simhash", 0) or 0)
         ham_ok = bool(rsh) and hamming(csh, rsh) <= ham_thr
         cos = jaccard(ctoks, _token_set(rtext))
-        ent_overlap = len(set(_row_key(row).split("::")[0].split("|")) &
+        ent_overlap = len(set(_row_ckey(row).split("::")[0].split("|")) &
                           set(ckey.split("::")[0].split("|")))
-        rkey_track = _row_key(row).split("::")[-1]
+        rkey_track = _row_ckey(row).split("::")[-1]
         ckey_track = ckey.split("::")[-1]
         strong = (ent_overlap >= 2) or (ent_overlap >= 1 and rkey_track == ckey_track)
         subj = _subject_agree(ctext, rtext)
@@ -225,6 +225,21 @@ def merge_authors(prior_authors: list[dict], new_authors: list[dict]) -> list[di
 
 def _row_key(row: dict) -> str:
     return row.get("idempotency_key") or _row_ext(row).get(EXT + "canonical_key", "")
+
+
+def _row_ckey(row: dict) -> str:
+    """The row's canonical_key in CANDIDATE shape, i.e. WITHOUT `KEY_PREFIX`.
+
+    `_row_key` returns the base's idempotency_key, which is `KEY_PREFIX + canonical_key`. Comparing
+    that against a candidate's (unprefixed) canonical_key can never be equal, so the exact-key rung
+    in `match_existing` never fired and cross-day dedup silently degraded to the fuzzy rungs, a
+    re-captured demand whose wording drifted came back NEW and re-pushed (violating the
+    already-pushed-SUPPRESSes rule). The prefix also polluted the first entity token, weakening the
+    entity-overlap gate. Matching uses this; the ledger/watermark plumbing keeps `_row_key`."""
+    k = _row_ext(row).get(EXT + "canonical_key") or ""
+    if not k:
+        k = _row_key(row)
+    return k[len(KEY_PREFIX):] if k.startswith(KEY_PREFIX) else k
 
 
 def _row_ext(row: dict) -> dict:
