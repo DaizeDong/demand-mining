@@ -11,7 +11,7 @@ deterministic run.py disposes (score/dedup/gate/push/pool/digest/watermark).
 
 Env it sets for the run:
   DEMAND_MINING_CONFIG   (if a companion repo path is given; carries secrets/pseudonym_hmac_salt)
-  SCHEDULE_DB_PATH       (local NTFS ledger db; never OneDrive/network = WAL corruption)
+  (SCHEDULE_DB_PATH is NOT set here any more; store.py owns that default)
 #>
 param(
   [string]$Python = "",
@@ -46,9 +46,10 @@ try {
   if (-not $claude) { Notify-Abort "claude CLI not on PATH"; throw "claude CLI missing" }
 
   if ($ConfigDir) { $env:DEMAND_MINING_CONFIG = $ConfigDir }
-  if (-not $env:SCHEDULE_DB_PATH) {
-    $env:SCHEDULE_DB_PATH = "$env:USERPROFILE\.schedule-reminder\schedule.db"
-  }
+  # SCHEDULE_DB_PATH is deliberately NOT set here (removed 2026-08-20). See the matching note
+  # in daily-hotspots/scripts/wrapper.ps1: this override forked the reminder store into a second
+  # sqlite nobody reads. store.py default_db_path() already points at the main pool on local
+  # NTFS, so letting it decide keeps a single authority. Do not hardcode the main pool here.
 
   "[$(Get-Date -Format o)] demand-mining EOD start (py=$script:py)" | Tee-Object -FilePath $log -Append
   # Skill orchestration goes through the resilient runner: cc (a hosted gateway) -> claude-direct
