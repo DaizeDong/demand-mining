@@ -65,6 +65,9 @@ try {
   # digest into %TEMP%\demand-mining-staging instead of pool/digests, and still exited 0. rc=0 with no
   # digest is invisible to the exit-code check; only the artifact-freshness gate caught it (48h stale).
   # claude-direct runs unsandboxed under this wrapper's own permissions, which is what the skill needs.
+  # Run from the config dir before launching the agent, so any state the run scopes to the current
+  # directory is created alongside this skill's own config rather than under the launcher's default cwd.
+  if ($ConfigDir) { Set-Location -LiteralPath $ConfigDir }
   & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $runner -Prompt $prompt -Log $log -Stream "demand-mining" -NoCodex
   $rc = $LASTEXITCODE
   "[$(Get-Date -Format o)] demand-mining EOD end rc=$rc" | Tee-Object -FilePath $log -Append
