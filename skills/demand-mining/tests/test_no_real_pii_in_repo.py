@@ -43,13 +43,22 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-GUARD = REPO_ROOT / "tools" / "pii_guard.py"
+# The kit moved from a vendored copy in tools/ to the fleet-guards submodule at guards/. It was
+# carried in 21 repos with nothing keeping the copies in step, and they had begun to diverge: one
+# consumer's copy was 8 lines behind the source while its CI ran the stale one.
+GUARD = REPO_ROOT / "guards" / "tools" / "pii_guard.py"
 
 
-def test_pii_guard_is_vendored() -> None:
-    """The guard must exist. A repo that lost it is unguarded and does not know it."""
+def test_pii_guard_is_present() -> None:
+    """The guard must exist. A repo that lost it is unguarded and does not know it.
+
+    An EMPTY guards/ is the ordinary way this fails now: a plain `git clone` without --recursive,
+    or a CI checkout without `submodules: true`, leaves the directory there and empty. That state
+    must read as unguarded, never as nothing-to-check.
+    """
     assert GUARD.is_file(), (
-        "tools/pii_guard.py is missing. Re-vendor it from your pii-guard master install."
+        "guards/tools/pii_guard.py is missing, so nothing scanned this repo. The guards submodule "
+        "is not checked out: run `git submodule update --init`. Do not re-vendor a copy."
     )
 
 
