@@ -472,7 +472,10 @@ class DemandBot(discord.Client):
         for i, r in enumerate(ranked[:15], 1):
             lines.append(f'{i}. "{r.get("title", "?")[:70]}" ({r.get("grade", "?")} '
                          f'{r.get("final_score", "?")}, reach {r.get("reach", 0)}, {r.get("status", "new")})')
-        return "\n".join(lines)[:3900]
+        body = "\n".join(lines)
+        if len(body) > 3900:
+            body = body[:3840].rstrip() + f"\n... truncated to fit the embed ({len(body)} chars total)"
+        return body
 
     async def _post_daily_summary(self, today):
         body = self._render_summary(today)
