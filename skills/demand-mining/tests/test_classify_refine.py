@@ -29,9 +29,11 @@ def _patch_llm(outputs):
     seq = iter(outputs)
     calls = []
 
-    def fake(prompt, timeout=90, chain=b._DEFAULT_CHAIN, schema=None):
-        calls.append(chain)
-        return next(seq)
+    def fake(prompt, timeout=90, avoid=None, schema=None):
+        # `avoid` is what the audit pass now states instead of a chain: record it so the tests below
+        # can still assert the auditor was asked to be independent of whoever drafted.
+        calls.append(avoid)
+        return next(seq), ("codexg" if avoid is None else "cc")
     return fake, calls
 
 
@@ -56,7 +58,12 @@ def test_borderline_triggers_cross_model_audit_and_takes_revision():
     with mock.patch.object(b, "_llm", fake):
         v = b.classify_batch([{"i": 0, "channel": "c", "text": "kinda wish"}], b._classify_sys("P"), "P", 2)
     assert len(calls) == 2                 # generate + exactly one audit (max_rounds=2)
-    assert calls[1][0] == "cc"             # audit ran on a DIFFERENT model first (independence)
+    # INDEPENDENCE, stated rather than assumed. The draft names no chain (calls[0] is None) and the
+    # audit must ask llmcall to rule out whoever actually answered it, so the auditor cannot be the
+    # drafter. Asserting the ORDER here, as this once did, only ever checked that a literal had been
+    # typed; it could not notice the drafter answering the audit anyway from another rung.
+    assert calls[0] is None, calls
+    assert calls[1] == "codexg", calls    # == the provider the double reported for the draft
     assert v[0]["is_demand"] is False      # the audit's revision won
 
 

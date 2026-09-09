@@ -71,10 +71,9 @@ def _wiring(d):
 # --- background LLM: delegate to the shared llmcall primitive (codex -> cc -> claude) -------------
 # The chain, every headless footgun (read-only codex, --ephemeral, absolute-path fallback, MCP off,
 # json-envelope unwrap) and the single model/effort source now live in ONE package. This wrapper only
-# keeps the local `_llm(prompt, chain=...)` signature so the callers (classify_batch, gen_reply) and
+# keeps a thin local `_llm(prompt, avoid=...)` wrapper so the callers (classify_batch, gen_reply) and
 # the per-round reorder (the audit round runs cc,claude,codex for cross-model independence) are
 # unchanged.
-from llmcall import DEFAULT_CHAIN as _DEFAULT_CHAIN  # noqa: E402
 from llmcall import call as _llmcall  # noqa: E402
 
 
@@ -86,12 +85,17 @@ from llmcall import call as _llmcall  # noqa: E402
 _VERDICT_SCHEMA = {"type": "array"}
 
 
-def _llm(prompt: str, timeout=120, chain=_DEFAULT_CHAIN, schema=None):
-    """First backend in `chain` that returns non-empty (and, with schema=, schema-valid) wins. Returns
-    str ("" on total failure) for a free-text call, or the parsed object (None on failure) when schema=
-    is given. A reordered chain runs a step on a DIFFERENT model than generated it (cross-model audit)."""
-    r = _llmcall(prompt, chain=list(chain), timeout=timeout, schema=schema)
-    return r.data if schema is not None else r.text
+def _llm(prompt: str, timeout=120, avoid=None, schema=None):
+    """Returns (value, provider). value is str ("" on total failure) for a free-text call, or the
+    parsed object (None on failure) when schema= is given; provider is the rung that answered, or
+    None if the whole ladder missed.
+
+    NO CHAIN IS NAMED HERE. The ladder belongs to llmcall, so a rung added there arrives without an
+    edit. What this module needs is not an ORDER but an INDEPENDENCE requirement for the audit pass,
+    and that is what `avoid=` states: llmcall rules out the named rung and its whole model family, so
+    the auditor cannot turn out to be the drafter wearing a different billing path."""
+    r = _llmcall(prompt, timeout=timeout, schema=schema, avoid=avoid)
+    return (r.data if schema is not None else r.text), r.provider
 
 
 def _classify_sys(product):
@@ -150,7 +154,7 @@ def classify_batch(items, sys=None, product="this product", max_rounds=2):
         return []
     sys = sys or _classify_sys(product)
     lines = "\n".join(f'{it["i"]}. [{it["channel"]}] {it["text"][:280]}' for it in items)
-    draft = _llm(sys + "\n\nMESSAGES:\n" + lines, schema=_VERDICT_SCHEMA)   # round 1: codex generates
+    draft, drafted_by = _llm(sys + "\n\nMESSAGES:\n" + lines, schema=_VERDICT_SCHEMA)  # round 1
     draft = [v for v in draft if isinstance(v, dict)] if isinstance(draft, list) else []
     if not draft:
         return []
@@ -164,9 +168,12 @@ def classify_batch(items, sys=None, product="this product", max_rounds=2):
             f'{(by_i.get(v.get("i"), {}).get("text", "") or "")[:280]}\n   draft: '
             f'{json.dumps({k: v.get(k) for k in ("is_demand", "confidence", "title", "track", "kano")}, ensure_ascii=False)}'
             for v in draft)
-        # audit on a DIFFERENT model (cc first) for independence; codex is the last resort here
-        revised = _llm(audit_sys + "\n\nMESSAGES + DRAFTS:\n" + shown,
-                       chain=("cc", "claude", "codex"), schema=_VERDICT_SCHEMA)
+        # Audit on a DIFFERENT model for independence: name the rung that drafted and llmcall rules
+        # out its whole model family. Stating the REQUIREMENT rather than an order keeps working when
+        # the ladder changes, and avoids the model that ACTUALLY answered rather than the one a
+        # hardcoded order assumed would.
+        revised, _ = _llm(audit_sys + "\n\nMESSAGES + DRAFTS:\n" + shown,
+                          avoid=drafted_by, schema=_VERDICT_SCHEMA)
         revised = [v for v in revised if isinstance(v, dict)] if isinstance(revised, list) else []
         if not revised or _verdicts_stable(draft, revised):
             break  # auditor agrees -> converged, stop early
@@ -190,7 +197,7 @@ def _reply_sys(product):
 def gen_reply(text: str, sys=None, context: str = "") -> str:
     sys = sys or _reply_sys("this product")
     ctx = f"\n\nCONVERSATION CONTEXT:\n{context[:1200]}" if context else ""
-    out = _llm(sys + ctx + f'\n\nUSER MESSAGE:\n{text[:400]}\n\nYour one-line reply:')
+    out, _ = _llm(sys + ctx + f'\n\nUSER MESSAGE:\n{text[:400]}\n\nYour one-line reply:')
     out = (out or "").strip().splitlines()[0] if out else ""
     out = re.sub(r"\s*[\u2013\u2014\u2015]+\s*", ", ", out)  # house rule: no en/em dash in output
     return out[:280] or "Thanks, I have logged this for the team. 📝"
