@@ -37,9 +37,9 @@ def bot():
 def test_gen_reply_threads_context_into_the_prompt(monkeypatch):
     cap = {}
 
-    def fake(prompt, timeout=90, chain=b._DEFAULT_CHAIN):
+    def fake(prompt, timeout=90, avoid=None):
         cap["p"] = prompt
-        return "Logged the lorebook retrieval bug for the team."
+        return "Logged the lorebook retrieval bug for the team.", "codexg"
     monkeypatch.setattr(b, "_llm", fake)
     out = b.gen_reply("check this!", b._reply_sys("P"),
                       context="[opening post] lorebook retrieval fails after 20 messages")
@@ -49,7 +49,7 @@ def test_gen_reply_threads_context_into_the_prompt(monkeypatch):
 
 def test_gen_reply_without_context_is_unchanged(monkeypatch):
     cap = {}
-    monkeypatch.setattr(b, "_llm", lambda p, timeout=90, chain=b._DEFAULT_CHAIN: cap.setdefault("p", p) or "ok")
+    monkeypatch.setattr(b, "_llm", lambda p, timeout=90, avoid=None: (cap.setdefault("p", p) or "ok", "codexg"))
     b.gen_reply("hi", b._reply_sys("P"))
     # the block header "CONVERSATION CONTEXT:" only appears when context is supplied (the system prompt
     # mentions the phrase without a colon, as an instruction, so match on the colon form)
