@@ -118,6 +118,89 @@ def main():
         check("layout present (registry.json OR priority.json/watchlist.json)", flat_priority,
               "neither registry.json nor priority.json/watchlist.json found")
 
+    # Per-product payloads. Found by config_mutation_probe: every field mutation of
+    # products/<slug>/priority.json (131 of them) and taxonomy.json (11) was accepted,
+    # because the content checks below only ever looked at the FLAT paths <cfg>/priority.json
+    # and <cfg>/taxonomy.json. The deployed layout here is the per-product one, so those
+    # checks were reading files that do not exist and passing on absence.
+    prod_files = []
+    if has_reg and isinstance(locals().get("data"), dict):
+        for it in (data.get("products") or []):
+            slug = (it or {}).get("slug")
+            if not slug:
+                continue
+            for base in ("priority.json", "watchlist.json", "taxonomy.json"):
+                rel = os.path.join("products", slug, base)
+                p = os.path.join(cfg, rel)
+                if os.path.isfile(p):
+                    prod_files.append(rel)
+                    try:
+                        with open(p, "r", encoding="utf-8-sig") as f:
+                            doc = json.load(f)
+                        check("%s valid JSON" % rel, True)
+                    except Exception as e:
+                        check("%s valid JSON" % rel, False, str(e))
+                        continue
+                    check("%s is an object" % rel, isinstance(doc, dict),
+                          "top level is %s" % type(doc).__name__)
+                    if not isinstance(doc, dict):
+                        continue
+                    if base in ("priority.json", "watchlist.json"):
+                        check("%s schema_version == 1" % rel, doc.get("schema_version") == 1,
+                              "got %r" % doc.get("schema_version"))
+                        check("%s scoring is an object" % rel,
+                              isinstance(doc.get("scoring"), dict),
+                              "got %s" % type(doc.get("scoring")).__name__)
+                        check("%s privacy is an object" % rel,
+                              isinstance(doc.get("privacy"), dict),
+                              "got %s" % type(doc.get("privacy")).__name__)
+                    else:
+                        check("%s slug is a non-empty string" % rel,
+                              isinstance(doc.get("slug"), str) and bool(doc.get("slug")))
+                        # taxonomy is a LIST of category objects, not a mapping. The first
+                        # draft of this check asserted dict and went red on real data -- the
+                        # data is the fact here, so the assertion moved, not the file.
+                        tx = doc.get("taxonomy")
+                        check("%s taxonomy is a non-empty list" % rel,
+                              isinstance(tx, list) and len(tx) > 0,
+                              "got %s" % type(tx).__name__)
+                        if isinstance(tx, list) and tx:
+                            check("%s taxonomy entries have id+label+keywords" % rel,
+                                  all(isinstance(e, dict) and isinstance(e.get("id"), str)
+                                      and isinstance(e.get("label"), str)
+                                      and isinstance(e.get("keywords"), list) for e in tx),
+                                  "%d entr(ies)" % len(tx))
+            # A registered product with no priority/watchlist at all is not "ready":
+            # absence used to read exactly like a clean pass.
+            has_pri = any(r.endswith(("priority.json", "watchlist.json"))
+                          and ("products" + os.sep + slug + os.sep) in r
+                          for r in prod_files)
+            check("product '%s' has priority.json or watchlist.json" % slug, has_pri)
+
+    # tracking.json at the config root: never named in this script before, so deleting
+    # or emptying it left the doctor printing READY.
+    trk = os.path.join(cfg, "tracking.json")
+    if os.path.isfile(trk):
+        try:
+            with open(trk, "r", encoding="utf-8-sig") as f:
+                tdoc = json.load(f)
+            check("tracking.json valid JSON", True)
+        except Exception as e:
+            check("tracking.json valid JSON", False, str(e))
+            tdoc = None
+        if isinstance(tdoc, dict):
+            check("tracking.schema_version == 1", tdoc.get("schema_version") == 1,
+                  "got %r" % tdoc.get("schema_version"))
+            check("tracking.sources is a non-empty list",
+                  isinstance(tdoc.get("sources"), list) and len(tdoc.get("sources")) > 0,
+                  "got %s" % type(tdoc.get("sources")).__name__)
+            check("tracking.hard_disabled is a list",
+                  isinstance(tdoc.get("hard_disabled"), list),
+                  "got %s" % type(tdoc.get("hard_disabled")).__name__)
+        elif tdoc is not None:
+            check("tracking.json is an object", False,
+                  "top level is %s" % type(tdoc).__name__)
+
     check("secrets/ dir present", os.path.isdir(os.path.join(cfg, "secrets")))
 
     gi = os.path.join(cfg, ".gitignore")
@@ -130,8 +213,11 @@ def main():
 
     # self-contained check (E5): no absolute-path leakage in committed config files.
     leak = []
+    # The flat names stay for the flat layout; prod_files adds whatever the per-product
+    # layout actually deployed. Without it this scan examined zero product files on the
+    # only layout in use, and printed the same green as a real clean scan.
     scan = ["registry.json", ".gitignore", os.path.join("secrets", "README.md"),
-            "priority.json", "taxonomy.json"]
+            "priority.json", "taxonomy.json", "tracking.json"] + prod_files
     for rel in scan:
         p = os.path.join(cfg, rel)
         if os.path.isfile(p):
