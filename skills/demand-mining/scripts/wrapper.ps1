@@ -5,7 +5,7 @@ ABSOLUTE python/claude paths (Task Scheduler PATH is minimal, a bare `python` ha
 silently fails), fail-fast preflight, notify-on-abort. It does NOT use the in-session CronCreate
 tool (session-only = wrong primitive).
 
-Register once with register-task.ps1 (off-:00, e.g. 21:53). It invokes `claude -p` headless so the
+Register once with register-task.ps1 (off-:00, e.g. 21:53). It invokes the llmcall compatibility shell so the
 SKILL orchestration (redact -> read Discord sessions -> extract -> external lanes) runs, then the
 deterministic run.py disposes (score/dedup/gate/push/pool/digest/watermark).
 
@@ -15,10 +15,23 @@ Env it sets for the run:
 #>
 param(
   [string]$Python = "",
+  [ValidateRange(61, 2147483647)][int]$TimeoutSec = 14400,
+  [switch]$Scheduled,
+  [string]$TaskContextScript = $env:TASK_CONSOLE_CONTEXT_SCRIPT,
+  [string[]]$AgentDataRoots = @(),
+  [string[]]$RequiredMcp = @(),
+  [string]$RequiredArtifact = "",
   [string]$ConfigDir = "",
   [string]$LogDir = "$env:USERPROFILE\.demand-mining-logs"
 )
 $ErrorActionPreference = "Stop"
+$taskStartedAt = [datetimeoffset]::UtcNow
+if (-not $TaskContextScript -or -not [IO.Path]::IsPathRooted($TaskContextScript) -or
+    -not (Test-Path -LiteralPath $TaskContextScript -PathType Leaf)) {
+  throw 'task-context: bind TASK_CONSOLE_CONTEXT_SCRIPT to the installed task_console/task_context.ps1'
+}
+. $TaskContextScript
+$taskBudget = Initialize-TaskBudget -TaskName DemandMiningEOD -TimeoutSec $TimeoutSec -Scheduled:$Scheduled -StartedAt $taskStartedAt
 
 function Resolve-Python {
   param([string]$p)
@@ -42,9 +55,6 @@ try {
   $stamp = Get-Date -Format "yyyy-MM-dd"
   $log = Join-Path $LogDir "eod-$stamp.log"
 
-  $claude = (Get-Command claude -ErrorAction SilentlyContinue)
-  if (-not $claude) { Notify-Abort "claude CLI not on PATH"; throw "claude CLI missing" }
-
   if ($ConfigDir) { $env:DEMAND_MINING_CONFIG = $ConfigDir }
   # SCHEDULE_DB_PATH is deliberately NOT set here (removed 2026-08-20). See the matching note
   # in daily-hotspots/scripts/wrapper.ps1: this override forked the reminder store into a second
@@ -52,26 +62,22 @@ try {
   # NTFS, so letting it decide keeps a single authority. Do not hardcode the main pool here.
 
   "[$(Get-Date -Format o)] demand-mining EOD start (py=$script:py)" | Tee-Object -FilePath $log -Append
-  # Skill orchestration goes through the resilient runner: cc (a hosted gateway) -> claude-direct
-  # (claude.ai subscription, gateway env unset, independent of the gateway) + retry (gateway 530s recover) +
-  # notify. A single dead transport no longer fails the run. The runner owns the native-stderr
-  # ErrorActionPreference dance internally, so it is NOT needed here.
+  # One llmcall request; domain requirements replace the obsolete NoCodex workaround.
   $prompt = "Run the demand-mining skill EOD now: redact + read today's Discord demand signals, recover intent + JTBD, dedup into the need pool, score the three axes, brainstorm Quick-win/Big-bet iteration directions, deliver the ranked headlines digest to Discord, and archive. Write ALL delivered output (digest, headlines, demand titles and summaries) in ENGLISH; this product's community is English-speaking."
   $runner = if ($env:DEMAND_MINING_AGENT_RUNNER) { $env:DEMAND_MINING_AGENT_RUNNER } else { "$env:USERPROFILE\.local\agent-runner.ps1" }
-  # -NoCodex is LOAD-BEARING (2026-08-06). This EOD is an AGENTIC run: it must reach Discord over the
-  # network and write OUTSIDE its own cwd (demand-mining-config/pool + the schedule-reminder sqlite).
-  # The runner's codex transport is a fixed `codex exec -s workspace-write`, whose sandbox denies both:
-  # the agent reported `WinError 10061` for Discord and `OperationalError` for the ledger, staged the
-  # digest into %TEMP%\demand-mining-staging instead of pool/digests, and still exited 0. rc=0 with no
-  # digest is invisible to the exit-code check; only the artifact-freshness gate caught it (48h stale).
-  # claude-direct runs unsandboxed under this wrapper's own permissions, which is what the skill needs.
-  # Run from the config dir before launching the agent, so any state the run scopes to the current
-  # directory is created alongside this skill's own config rather than under the launcher's default cwd.
-  if ($ConfigDir) { Set-Location -LiteralPath $ConfigDir }
-  & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $runner -Prompt $prompt -Log $log -Stream "demand-mining" -NoCodex
+  if (-not $ConfigDir -or -not $RequiredMcp.Count -or -not $AgentDataRoots.Count -or -not $RequiredArtifact) {
+    throw 'capability_unavailable: EOD requires ConfigDir, RequiredMcp, AgentDataRoots (including shared ledger), and RequiredArtifact. Multiple writable roots are not yet supported by llmcall.'
+  }
+  # T06 transport begin
+  # Includes Scheduler start and external gate wait, setup, and finalization slack.
+  $remainingSec = Get-TaskRemainingSeconds $taskBudget
+  & $runner -Python $script:py -Prompt $prompt -Log $log -Stream 'demand-mining' `
+      -Workspace $ConfigDir -AdditionalRoots $AgentDataRoots -ToolNetwork required `
+      -RequiredTools @('Read','Glob','Grep','Bash','Agent','Skill','WebSearch','WebFetch') -RequiredMcp $RequiredMcp -RequiredArtifact $RequiredArtifact -TimeoutSec $remainingSec
+  # T06 transport end
   $rc = $LASTEXITCODE
   "[$(Get-Date -Format o)] demand-mining EOD end rc=$rc" | Tee-Object -FilePath $log -Append
-  if ($rc -ne 0) { Notify-Abort "EOD agent failed rc=$rc (cc + claude-direct both; see $log)" }
+  if ($rc -ne 0) { Notify-Abort "EOD agent failed rc=$rc (llmcall; no business retry; see $log)" }
 
   # ---- commit + push the day's demand pool + digest to the PRIVATE companion repo ----
   # Best-effort durability/sync of the private archive (the demand pool is DATA, it lives ONLY in the

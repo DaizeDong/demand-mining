@@ -127,19 +127,34 @@ def _relay_cmd():
     return [sys.executable, str(Path.home() / ".claude/discord_relay/send.py")]
 
 
-def deliver(message: str, dry_run: bool = False) -> tuple[bool, str]:
-    """Send a text message via the relay (chunks on newlines). Egress DLP on the raw message too;
-    length-only logging, never the content."""
+def _notification_client():
+    import importlib.util
+    from pathlib import Path
+    path = Path(os.environ.get('SCHEDULE_NOTIFICATION_CLIENT') or
+                Path.home() / '.claude/skills/schedule-reminder/scripts/notification_client.py')
+    if not path.is_file():
+        raise RuntimeError('shared notification client missing; bind SCHEDULE_NOTIFICATION_CLIENT')
+    spec = importlib.util.spec_from_file_location('_owner_notification_client', path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def deliver(message: str, dry_run: bool = False, *, run_id=None,
+            phase='digest', condition='ready', retry_failed=False) -> tuple[bool, str]:
+    """Owner-selected event; the shared producer alone owns delivery and retries."""
     if has_pii(message):
-        return (False, "egress blocked: residual PII in message")
-    if dry_run or os.environ.get("DEMAND_MINING_DRYRUN"):
-        return (True, f"[dry-run] would deliver {len(message)} chars")
+        return (False, 'egress blocked: residual PII in message')
+    if dry_run or os.environ.get('DEMAND_MINING_DRYRUN') or os.environ.get('AGENT_CENTER_RELAY_DRYRUN'):
+        return (True, f'[dry-run] would deliver {len(message)} chars')
     try:
-        proc = subprocess.run(_relay_cmd() + [message], capture_output=True, text=True,
-                              encoding="utf-8", errors="replace", timeout=30)
-        return (proc.returncode == 0, f"rc={proc.returncode} ({len(message)} chars)")
-    except Exception as e:
-        return (False, f"deliver error: {e!r}")
+        client = _notification_client()
+        receipt = client.submit('demand-mining', run_id, phase, condition, 'demand', message,
+            language='preserve', retry_failed=retry_failed,
+            **client.transport_options(_relay_cmd(), 'demand'))
+        return receipt['state'] == 'sent', client.detail(receipt)
+    except Exception as exc:
+        return False, 'notification refused: ' + type(exc).__name__
 
 
 def push_card(card: dict, update: bool = False, dry_run: bool = False) -> dict:
@@ -149,7 +164,11 @@ def push_card(card: dict, update: bool = False, dry_run: bool = False) -> dict:
                 "embed_errors": [], "embed": None}
     embed = build_embed(card, update)
     errs = validate_embed(embed)
-    ok, detail = deliver(render_text(card, update), dry_run=dry_run)
+    identity = card.get('demand_id') or card.get('canonical_key') or card.get('id')
+    if not identity and not (dry_run or os.environ.get('DEMAND_MINING_DRYRUN')):
+        return {'ok': False, 'detail': 'stable card identity required', 'embed_errors': errs, 'embed': embed}
+    ok, detail = deliver(render_text(card, update), dry_run=dry_run, run_id=card.get('run_id'), phase='card',
+                         condition=('update:' if update else 'new:') + str(identity))
     return {"ok": ok, "detail": detail, "embed_errors": errs, "embed": embed}
 
 

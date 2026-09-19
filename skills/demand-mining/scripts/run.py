@@ -237,7 +237,7 @@ def process(candidates: list[dict], cfg: dict | None = None, ledger=None,
         parts = str(digest_path).replace("\\", "/").rstrip("/").split("/")
         digest_hint = "私有归档 " + "/".join(parts[-2:]) if len(parts) >= 2 else "私有归档 " + parts[-1]
     headlines = dg.build_headlines(archivable, coverage, cap=cap, digest_hint=digest_hint, cfg=cfg)
-    pc.deliver(headlines, dry_run=dry_run)
+    notification_ok, notification_detail = pc.deliver(headlines, dry_run=dry_run, run_id=run_id)
 
     # ---- atomic watermark (only after the full success path) ----
     if ledger is not None and not dry_run:
@@ -247,6 +247,7 @@ def process(candidates: list[dict], cfg: dict | None = None, ledger=None,
             pass
 
     return {
+        "notification": {"ok": notification_ok, "detail": notification_detail},
         "run_id": run_id, "candidates": len(candidates), "built": len(cards),
         "new": len(new_cards), "resurface": len(resurface), "suppressed": len(suppressed),
         "candidate_merge": candidate_merge,

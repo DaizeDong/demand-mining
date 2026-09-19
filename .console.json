@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "component": "demand-mining",
+  "read": "task-console-status --configured",
+  "tasks": [
+    {
+      "id": "demandminingdaemon",
+      "kind": "daemon",
+      "entrypoint": "task:demandminingdaemon",
+      "timeout_seconds": 0,
+      "concurrency_key": "demand-mining/demandminingdaemon",
+      "checks": [
+        {
+          "id": "legacy-1",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "demandminingeod",
+      "kind": "oneshot",
+      "entrypoint": "task:demandminingeod",
+      "timeout_seconds": 3600,
+      "concurrency_key": "demand-mining/demandminingeod",
+      "checks": [
+        {
+          "id": "legacy-1",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

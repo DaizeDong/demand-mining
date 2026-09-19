@@ -9,15 +9,25 @@ Unregister:  Unregister-ScheduledTask -TaskName DemandMiningEOD -Confirm:$false
 param(
   [string]$ConfigDir = "",
   [string]$Time = "21:53",
-  [string]$Python = ""
+  [string]$Python = "",
+  [string]$TaskContextScript = $env:TASK_CONSOLE_CONTEXT_SCRIPT
 )
 $ErrorActionPreference = "Stop"
 $wrapper = Join-Path $PSScriptRoot "wrapper.ps1"
 if (-not (Test-Path $wrapper)) { throw "wrapper.ps1 not found next to this script" }
 
-$argline = "-ExecutionPolicy Bypass -NoProfile -File `"$wrapper`""
-if ($Python)    { $argline += " -Python `"$Python`"" }
-if ($ConfigDir) { $argline += " -ConfigDir `"$ConfigDir`"" }
+function ConvertTo-WindowsArgument([string]$Value) {
+  if ($Value -match '[\x00\r\n]') { throw 'Invalid process argument' }
+  # CommandLineToArgvW: double backslashes before quotes and the closing quote.
+  $escaped = [regex]::Replace($Value, '(\\*)"', '$1$1\"')
+  $escaped = [regex]::Replace($escaped, '(\\+)$', '$1$1')
+  return '"' + $escaped + '"'
+}
+$arguments = @('-ExecutionPolicy','Bypass','-NoProfile','-File',$wrapper,'-Scheduled')
+if ($Python)    { $arguments += @('-Python',$Python) }
+if ($ConfigDir) { $arguments += @('-ConfigDir',$ConfigDir) }
+if ($TaskContextScript) { $arguments += @('-TaskContextScript',$TaskContextScript) }
+$argline = ($arguments | ForEach-Object { ConvertTo-WindowsArgument $_ }) -join ' '
 
 $action  = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $argline
 $trigger = New-ScheduledTaskTrigger -Daily -At $Time
