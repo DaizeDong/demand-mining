@@ -234,7 +234,7 @@ def weight_regression_gate(items: list, old_weights: dict | None, new_weights: d
 
 
 def main() -> int:
-    data = json.loads(sys.stdin.read() or "{}")
+    data = json.loads(sys.stdin.buffer.read().decode("utf-8-sig", "replace") or "{}")
     print(json.dumps(score_demand(data), ensure_ascii=False))
     return 0
 

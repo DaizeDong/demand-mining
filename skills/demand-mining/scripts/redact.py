@@ -261,7 +261,7 @@ def has_pii(text: str) -> bool:
 
 def main() -> int:
     """CLI: stdin {text, user_id?} → {redacted, found, placeholders, author_pseudo?}."""
-    data = json.loads(sys.stdin.read() or "{}")
+    data = json.loads(sys.stdin.buffer.read().decode("utf-8-sig", "replace") or "{}")
     out = redact(data.get("text", ""))
     if data.get("user_id"):
         out["author_pseudo"] = pseudonymize(data["user_id"])

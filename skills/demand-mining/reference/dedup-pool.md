@@ -48,5 +48,8 @@ The base's events audit stream is the evolution history. `dedup.decide` → **NE
 score+create) / **SUPPRESS** (recurs, small delta, no new origin → count, don't re-push) /
 **RESURFACE** (new external corroboration / competitor shipped / urgency jump / new origin crossing
 ≥2 / score jump ≥ threshold → evolution UPDATE card). 1-origin candidates → explicit `below_sources`
-gap (never silent). 5-day silence → auto `doing`→`done`. Watermark written **only after** a full
+gap (never silent). Silence does not complete unresolved needs: `done` means shipped, and age
+alone must not close `pending`, `doing` or `blocked` work. Digest registrations are completed
+information events; that state does not establish successful external delivery.
+Watermark written **only after** a full
 successful run (atomic); next run `since=last_run-5min` + UPSERT = at-least-once + dedupe.

@@ -119,7 +119,7 @@ def gate_batch(cards: list[dict], cfg: dict | None = None) -> dict:
 
 
 def main() -> int:
-    data = json.loads(sys.stdin.read() or "{}")
+    data = json.loads(sys.stdin.buffer.read().decode("utf-8-sig", "replace") or "{}")
     if isinstance(data, list):
         print(json.dumps(gate_batch(data), ensure_ascii=False))
         return 0
