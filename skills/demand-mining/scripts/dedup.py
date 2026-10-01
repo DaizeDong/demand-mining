@@ -386,7 +386,7 @@ class LedgerClient:
 
 
 def main() -> int:
-    data = json.loads(sys.stdin.read() or "{}")
+    data = json.loads(sys.stdin.buffer.read().decode("utf-8-sig", "replace") or "{}")
     cand = data["candidate"]
     ledger = data.get("ledger", [])
     cfg = load_config()

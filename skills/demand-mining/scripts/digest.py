@@ -299,7 +299,7 @@ def register_digest_item(ledger, date: str | None = None, summary: str = "") -> 
     date = date or now_utc().date().isoformat()
     key = f"demand-mining:digest:{date}"
     ext = {"x_demand_mining_digest_date": date, "x_demand_mining_digest_summary": summary[:200]}
-    args = ["--title", f"demand-mining digest {date}", "--kind", "task",
+    args = ["--title", f"demand-mining digest {date}", "--kind", "event", "--state", "done",
             "--source", "demand-mining", "--idempotency-key", key,
             "--ext", json.dumps(ext, ensure_ascii=False)]
     return ledger._run("add", args)
@@ -343,7 +343,7 @@ def catch_up_digests(ledger, last_run, now=None, cap: int = CATCHUP_CAP,
 
 
 def main() -> int:
-    data = json.loads(sys.stdin.read() or "{}")
+    data = json.loads(sys.stdin.buffer.read().decode("utf-8-sig", "replace") or "{}")
     cards = data.get("cards", data if isinstance(data, list) else [])
     print(build_markdown(cards, data.get("coverage"), data.get("date")))
     return 0

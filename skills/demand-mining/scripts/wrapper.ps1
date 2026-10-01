@@ -1,4 +1,4 @@
-<#
+﻿<#
 demand-mining headless EOD wrapper for the Windows Task Scheduler.
 
 ABSOLUTE python/claude paths (Task Scheduler PATH is minimal, a bare `python` half-runs and
@@ -19,6 +19,9 @@ param(
   [string]$LogDir = "$env:USERPROFILE\.demand-mining-logs"
 )
 $ErrorActionPreference = "Stop"
+# PS 5.1 的 Tee-Object 和 *>> / 2>> 重定向默认写 UTF-16LE，日志因此变成 grep 搜不到的
+# 形态：不报错、不显示乱码，只是永远零命中。这一行同时把两者改成 UTF-8（实测有效）。
+$PSDefaultParameterValues["Out-File:Encoding"] = "utf8"
 
 function Resolve-Python {
   param([string]$p)

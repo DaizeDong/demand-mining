@@ -191,7 +191,7 @@ def _track_hint(text: str, cfg: dict) -> str:
 
 def main() -> int:
     """CLI: stdin {proposal, redacted_source, author_pseudo} → build_unit result."""
-    data = json.loads(sys.stdin.read() or "{}")
+    data = json.loads(sys.stdin.buffer.read().decode("utf-8-sig", "replace") or "{}")
     out = build_unit(data.get("proposal", {}), data.get("redacted_source", ""),
                      data.get("author_pseudo", "u_unknown"))
     print(json.dumps(out, ensure_ascii=False))

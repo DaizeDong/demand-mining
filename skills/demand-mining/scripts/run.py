@@ -272,7 +272,7 @@ def main() -> int:
 
     candidates = []
     if not a.catch_up:  # catch-up backfills digests from the ledger; it reads no candidate input
-        raw = open(a.infile, encoding="utf-8").read() if a.infile else sys.stdin.read()
+        raw = open(a.infile, encoding="utf-8").read() if a.infile else sys.stdin.buffer.read().decode("utf-8-sig", "replace")
         candidates = json.loads(raw or "[]")
         if isinstance(candidates, dict):
             candidates = candidates.get("candidates", [])
