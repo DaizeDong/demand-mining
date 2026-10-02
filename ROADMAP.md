@@ -1,10 +1,10 @@
 # Roadmap
 
-Current: **v0.7.0**
+Current: **v0.7.1**
 
-## v0.7.0 (current)
+## v0.7.1 (current)
 
-- Releases v0.2.0 through v0.7.0 shipped and are written up in [CHANGELOG.md](CHANGELOG.md); this
+- Releases v0.2.0 through v0.7.1 are recorded in [CHANGELOG.md](CHANGELOG.md); this
   file was last re-baselined at v0.1.2, so read the changelog as the record of what exists.
 - Known stale below: the "v0.2, real wiring" section is largely delivered (the live Discord tap with
   a real bot token landed in v0.3.0), and the v0.3 / v0.4 sections have not been re-scoped against

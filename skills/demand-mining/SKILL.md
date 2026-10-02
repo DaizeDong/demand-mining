@@ -43,8 +43,8 @@ and **delegates every deep job** to its sister skills. It never re-implements an
    raw message through `redact.py` (NFKC-normalized, so full-width/homoglyph obfuscation can't smuggle PII past it)
    BEFORE any LLM/embedding sees it: Tier1 regex+Luhn (email/phone/card/URL/IP/discord-id/handle),
    Tier2 entropy (secrets), unique placeholders (`[EMAIL_1]`/`[PHONE_2]`, never collapsed), HMAC
-   author pseudonym. **Names & street addresses are NOT stripped yet**, that is the Tier3 NER hook
-   (v0.2, `apply_ner`); until it is wired, keep raw personal names out of the pipeline. Only redacted
+   author pseudonym. Local person/address patterns supplement these rules; unsupported personal
+   context is visibly held for review. The doctor names remaining coverage gaps. Only redacted
    text flows downstream; the pool stores distilled items, never raw conversation.
 2. **Extract demand**, `reference/extract.md`. Stage A: 8-label mutually-exclusive intent (context
    LLM, NOT keyword chitchat filtering). Stage B: session disentanglement by thread/reference
@@ -74,9 +74,10 @@ and **delegates every deep job** to its sister skills. It never re-implements an
    file, pointed at by a **plain-text** hint. Unlike daily-hotspots the headline carries **no url**:
    this skill mines private conversation and `push_card.deliver`'s `has_pii` gate aborts on any
    url/handle, so evidence stays private. Honest empty day.
-7. **Schedule**, `reference/cron-setup.md`. OS Task Scheduler (off-:00) → `wrapper.ps1` → headless
-   `claude -p EOD`; the wrapper then commits + pushes `pool/` to the private companion repo via the
-   `git@daizedong:` ssh-alias remote (best-effort backup). Idempotent digest item; catch-up bounded.
+7. **Schedule**, `reference/cron-setup.md`. OS Task Scheduler → `wrapper.ps1` → `scheduled.py` →
+   installed `llmcall.call(prompt, mode="agent")` for candidates. The local finalizer owns current
+   artifacts, confirmed delivery receipts and watermark state. Backup is separate and checked.
+   See `../../docs/runtime-contract.md` for timezone, PRIVATE destinations and reconciliation.
    **Never CronCreate.**
 
 **Fast path**, prepare candidate demand clusters as JSON, then let the gate run the deterministic tail:
@@ -90,8 +91,8 @@ python scripts/run.py --in candidates.json --dry-run --no-ledger   # offline pre
 
 1. **Privacy first.** redact-on-ingest runs before any model call; the pool stores redacted,
    distilled demand items + HMAC pseudonyms, never raw chat. Structured PII (email/phone/card/
-   secret/id/url/ip/handle) is stripped fail-closed (NFKC-normalized against obfuscation); **names/
-   addresses need the Tier3 NER hook (v0.2) and are not yet redacted, keep them out of ingest.**
+   secret/id/url/ip/handle) is stripped fail-closed (NFKC-normalized against obfuscation). Local
+   person/address patterns redact supported forms; unsupported personal context is held for review.
    Unique placeholders, never collapsed. The HMAC salt lives in gitignored secrets (Mode B).
 2. **Never send user words to a third party.** Delegated queries to market-intel / web carry only
    non-private topics (feature name, competitor name), never a user's raw message (privacy + injection).

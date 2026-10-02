@@ -10,14 +10,13 @@ Layers (cost-ascending; Tier1/Tier2 are pure-stdlib and always on):
   * Tier1, deterministic regex + checksum: emails, phones, credit cards (Luhn-verified),
             Discord user-id / @handle / invite link, URLs, IPs.
   * Tier2, entropy: long high-entropy tokens (API keys / secrets) → [SECRET_n].
-  * Tier3, NER (Presidio, LOCAL-only, never a third-party PII API) for names/addresses: a hook
-            point (apply_ner) the skill can wire in v0.2; absent => Tier1/2 still redact.
+  * Local name/address patterns plus visible review holds. General NER remains unchecked;
+    privacy_coverage() names the covered forms and the remaining limitations.
 
 Two anti-patterns this file exists to kill:
   1. Unified placeholders that COLLAPSE distinct entities (one "[EMAIL]" for two addresses loses who
      said what). We mint UNIQUE, stable-within-a-message placeholders: [EMAIL_1], [PHONE_2]...
-     (NOTE: names/addresses are the Tier3 v0.2 NER hook and are NOT redacted yet, structured PII
-     only. Do not rely on this to strip a person's name; wire apply_ner or keep raw names out.)
+     Conservative name/address patterns use the same placeholder mechanism.
   2. A consistent author pseudonym that is reversible. `pseudonymize()` = HMAC-SHA256(salt, id):
      same person → same token across messages (a real clustering signal) but not invertible. The
      salt is read from secrets/env at call time and NEVER hardcoded or echoed; salt-in-repo would
@@ -85,6 +84,53 @@ _TOKEN = re.compile(r"\b[A-Za-z0-9_\-]{24,}\b")
 # fail-closed has_pii() gate abort an otherwise-clean digest. A real phone survives both guards.
 _ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 
+# Local, conservative coverage. These rules supplement the structural scanner;
+# unrecognized personal-context spans are held instead of sent to a model.
+_STREET = re.compile(
+    r"\b\d{1,6}\s+(?:[A-Za-z][\w'-]*\s+){1,5}"
+    r"(?:street|st|avenue|ave|road|rd|lane|ln|drive|dr|court|ct|way|boulevard|blvd)\b"
+    r"(?:[.,]?\s+(?:apt|apartment|suite|unit|#)\s*[\w-]+)?", re.I)
+_NAME = re.compile(r"\b[A-Z][a-z]+(?:[-'][A-Z]?[a-z]+)?(?:\s+[A-Z][a-z]+(?:[-'][A-Z]?[a-z]+)?){1,3}\b")
+_NAME_CONTEXT = re.compile(
+    r"(?i)(?:my name is|name\s*:|contact person\s*:|named)\s+"
+    r"([a-z][a-z'-]+(?:\s+[a-z][a-z'-]+){0,2})(?=\s*(?:[.!?;\n]|$))")
+_CJK_PERSON = re.compile(
+    r"(?:我叫|姓名[：:]|联系人[：:])\s*([\u3400-\u9fff]{2,4})(?=\s*(?:[。！？；\n]|$))")
+_CJK_ADDRESS = re.compile(
+    r"(?:地址[：:]|住址[：:]|住在)\s*[^。！？\n]{2,100}(?=\s*(?:[。！？\n]|$))")
+_PERSON_CUES = re.compile(
+    r"(?i)\b(?:"
+    r"(?:my|his|her|their|our|your)\s+(?:(?:full|legal|real|first|last|given|family)\s+)?name\b"
+    r"|(?:full|legal|real|given|family|contact)\s+name\s*(?:is\b|[:=])"
+    r"|name\s*[:=]"
+    r"|(?:home|street|mailing|postal|residential|delivery)\s+address\b"
+    r"|(?:my|his|her|their|our|your)\s+address\s*(?:is\b|[:=])"
+    r"|(?:lives?|resides?)\s+(?:at|in)\b"
+    r"|contact person\b|(?:person|user|contact)\s+named\b)"
+    r"|(?:我叫|(?:我的?)?名字(?:是|为|為|[：:])|姓名(?:是|为|為|[：:])"
+    r"|联系人[：:]|住址|(?:联系|联络|送货|收货|邮寄|家庭)?地址(?:是|为|為|[：:])|住在)")
+_PRODUCT_WORDS = set("api csv json sql ui ux oauth github discord acme acmecorp widget "
+                     "product export import dark light mode quick win big bet core workflow "
+                     "demand mining daily summary new update tier backlog performance "
+                     "please add retry support first last all time opportunity rice kano wsjf "
+                     "google drive microsoft teams error message project alpha beta "
+                     "keyboard shortcut shortcuts file files upload uploads download downloads batch "
+                     "native mobile desktop notifications notification account accounts login logout "
+                     "sign in out password reset search results filters filter sorting sort bulk "
+                     "data report reports dashboard settings preferences performance history sync "
+                     "billing payment invoice invoices support forum feedback channel thread "
+                     "save saved connection connections button buttons retry retries add edit delete "
+                     "create status progress view preview private public team workspace access "
+                     "control controls rate limit limits user users invite invitation concurrent workers".split())
+
+
+def privacy_coverage():
+    return {"covered": ["email", "phone", "payment_card", "url", "ip", "handle",
+                        "discord_id", "secret_token", "latin_name_spans", "street_address_patterns"],
+            "uncovered": ["arbitrary_person_names", "unrecognized_address_formats"],
+            "unchecked": ["general_local_NER"],
+            "policy": "local redaction; unsupported personal context is held for review"}
+
 
 def _is_year_run(v: str) -> bool:
     """True if v is nothing but 4-digit calendar years (1900-2099) joined by phone-ish separators ,
@@ -143,6 +189,43 @@ def redact(text: str, salt: bytes | None = None) -> dict:
 
     def bump(k):
         found[k] = found.get(k, 0) + 1
+
+    def local_match(kind, value):
+        bump(kind)
+        return mint.get(kind, value)
+
+    text = _STREET.sub(lambda m: local_match("ADDRESS", m.group()), text)
+    text = _CJK_ADDRESS.sub(lambda m: local_match("ADDRESS", m.group()), text)
+    text = _CJK_PERSON.sub(lambda m: local_match("PERSON", m.group()), text)
+    text = _NAME_CONTEXT.sub(lambda m: local_match("PERSON", m.group()), text)
+    cue_spans = [(match.start(), match.end()) for match in _PERSON_CUES.finditer(text)]
+
+    def named_span(match):
+        # Keep the cue visible when title casing joins it to an unsupported
+        # value. Redacting the cue alone would hide that value from the hold.
+        if any(start < match.end() and match.start() < end for start, end in cue_spans):
+            return match.group()
+        words = re.findall(r"[a-z]+", match.group().lower())
+        if all(word in _PRODUCT_WORDS for word in words):
+            return match.group()
+        return local_match("PERSON", match.group())
+
+    text = _NAME.sub(named_span, text)
+    review_required = False
+    generated = [placeholder for kind in ("PERSON", "ADDRESS")
+                 for placeholder in mint._by_type.get(kind, {}).values()]
+    for cue in _PERSON_CUES.finditer(text):
+        tail = re.split(r"[.!?;。！？；\n]", text[cue.end():], maxsplit=1)[0]
+        tail = re.sub(r"(?i)^\s*(?:is\b|at\b|in\b|:|=|是|为|為)\s*", "", tail)
+        for placeholder in generated:
+            tail = tail.replace(placeholder, "")
+        if re.search(r"\w", tail):
+            review_required = True
+            break
+    if review_required:
+        # The boundary sees an explicit hold marker, never the unchecked text.
+        text = "[PRIVACY_REVIEW_REQUIRED]"
+        bump("PRIVACY_REVIEW")
 
     # 1) invite links (before generic URL), 2) emails, 3) discord mentions/ids, 4) urls,
     # 5) credit cards (Luhn), 6) phones, 7) ipv4, 8) handles, 9) Tier2 secret tokens.
@@ -211,33 +294,94 @@ def redact(text: str, salt: bytes | None = None) -> dict:
     text = _TOKEN.sub(sub_token, text)
 
     placeholders = {ph: kind for kind, table in mint._by_type.items() for ph in table.values()}
-    return {"redacted": text, "placeholders": placeholders, "found": found}
+    return {"redacted": text, "placeholders": placeholders, "found": found,
+            "review_required": review_required}
+
+
+class PrivacyReviewRequired(ValueError):
+    """An unsupported personal-context span was held locally."""
+
+
+def safe_text(text):
+    result = redact(str(text or ""))
+    if result["review_required"]:
+        raise PrivacyReviewRequired("privacy review required: unsupported person/address text")
+    return result["redacted"]
+
+
+def safe_data(value):
+    """Scrub all content-bearing nested fields, including proposed metadata."""
+    if isinstance(value, str):
+        return safe_text(value)
+    if isinstance(value, list):
+        return [safe_data(item) for item in value]
+    if isinstance(value, dict):
+        result = {}
+        for key, item in value.items():
+            if key in {"user_id", "author", "author_hash"}:
+                if not isinstance(item, (str, int)) or isinstance(item, bool):
+                    raise ValueError("invalid author identity type")
+                identity = str(item)
+                author = identity if re.fullmatch(r"u_[0-9a-f]{16}", identity) else pseudonymize(identity)
+                if "author_hash" in result and result["author_hash"] != author:
+                    raise ValueError("conflicting author identity")
+                result["author_hash"] = author
+            elif key in {"observation_id", "source_id"} and isinstance(item, str) and re.fullmatch(
+                    r"(?:u_[0-9a-f]{16}|obs_[0-9a-f]{64})", item):
+                # Typed product identities survive repeated screening. Their spelling
+                # remains subject to ordinary redaction everywhere in free text.
+                result[key] = item
+            elif key in {"ts", "timestamp", "first_seen", "last_seen"} and isinstance(item, str):
+                from lib import parse_ts
+                parse_ts(item)
+                result[key] = item
+            else:
+                result[safe_text(str(key))] = safe_data(item)
+        return result
+    return value
 
 
 # --------------------------------------------------------------------------- pseudonyms
 
+def _stable_salt() -> bytes | None:
+    """Resolve the same configured source for preflight and pseudonymization."""
+    value = os.environ.get("DEMAND_MINING_PSEUDONYM_SALT")
+    if value is not None:
+        if not value.strip():
+            raise ValueError("configured pseudonym salt is empty")
+        return value.encode("utf-8")
+    from lib import find_config_dir
+    directory = find_config_dir()
+    if directory is None:
+        return None
+    path = directory / "secrets/pseudonym_hmac_salt"
+    if not path.is_file():
+        return None
+    value = path.read_bytes().strip()
+    if not value:
+        raise ValueError("configured pseudonym salt is empty")
+    return value
+
+
 def _load_salt() -> bytes:
-    """Salt discovery (NEVER hardcoded; salt-in-repo == pseudonym-in-clear). Order:
-      1) DEMAND_MINING_PSEUDONYM_SALT env (raw value),
-      2) the companion repo's secrets/pseudonym_hmac_salt file (gitignored, Mode B),
-      3) a process-ephemeral random salt (tests/offline; pseudonyms then NOT cross-run-stable).
-    The value is read but never logged/echoed."""
-    v = os.environ.get("DEMAND_MINING_PSEUDONYM_SALT")
-    if v:
-        return v.encode("utf-8")
-    d = os.environ.get("DEMAND_MINING_CONFIG")
-    if d:
-        p = os.path.join(os.path.expanduser(d), "secrets", "pseudonym_hmac_salt")
-        try:
-            if os.path.isfile(p):
-                return open(p, "rb").read().strip()
-        except Exception:
-            pass
-    # ephemeral: stable within ONE process run only (good enough for offline tests/--dry-run)
-    return os.urandom(32)
+    """Use configured stable bytes, or an explicit offline-only ephemeral salt."""
+    value = _stable_salt()
+    if value is not None:
+        return value
+    if os.environ.get("DEMAND_MINING_DRYRUN") == "1":
+        return os.urandom(32)
+    raise ValueError("real collection needs a configured stable pseudonym salt")
 
 
 _EPHEMERAL_SALT = None
+
+
+def ensure_stable_salt():
+    global _EPHEMERAL_SALT
+    value = _stable_salt()
+    if value is None:
+        raise ValueError("real collection needs a configured stable pseudonym salt")
+    _EPHEMERAL_SALT = value
 
 
 def pseudonymize(user_id: str, salt: bytes | None = None) -> str:

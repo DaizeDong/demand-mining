@@ -1,0 +1,708 @@
+{
+  "address": "123 Example Street",
+  "candidate": {
+    "authors": [
+      {
+        "author_hash": "u_fixture",
+        "segment": "pro",
+        "urgency": "need"
+      }
+    ],
+    "effort_weeks": 1,
+    "evidence": [
+      {
+        "channel": "feedback",
+        "origin_type": "internal",
+        "redacted_snippet": "Please add CSV export with retry support.",
+        "ts": "2026-01-15T12:00:00Z"
+      }
+    ],
+    "has_internal_explicit": true,
+    "impact_label": "high",
+    "importance": 9,
+    "independent_source_count": 2,
+    "inferred_job": "export reports reliably",
+    "job_size": 2,
+    "kano": "performance",
+    "reach": 8,
+    "recommendation": "add retries",
+    "risk_reduction": 5,
+    "satisfaction": 2,
+    "summary": "retry incomplete exports",
+    "time_criticality": 7,
+    "title": "reliable csv export",
+    "track": "integrations",
+    "user_business_value": 8,
+    "why": "exports fail"
+  },
+  "causal_review": {
+    "archive_card": {
+      "canonical_key": "retry-export-jobs",
+      "evidence": [
+        {
+          "channel": "feedback",
+          "origin_type": "internal",
+          "redacted_snippet": "exports stop after the first page",
+          "source": "synthetic export discussion",
+          "ts": "2026-01-15T12:00:00Z"
+        },
+        {
+          "channel": "support",
+          "origin_type": "internal",
+          "redacted_snippet": "retry button never restarts the job",
+          "source": "synthetic retry discussion",
+          "ts": "2026-01-16T13:00:00Z"
+        }
+      ],
+      "extension": {
+        "proposed_checks": [
+          "preserve row order",
+          "verify final page"
+        ]
+      },
+      "final_score": 82,
+      "inferred_job": "export every page without duplicate rows",
+      "kano": "performance",
+      "opportunity_score": 16,
+      "recommendation": "resume the job from its saved page",
+      "rice": {
+        "confidence": 0.8,
+        "effort": 2,
+        "impact": 2,
+        "reach": 8,
+        "rice_raw": 6.4
+      },
+      "tier": "tier1",
+      "title": "retry export jobs",
+      "urgency_wsjf": 7,
+      "why": "partial exports prevent the weekly report"
+    },
+    "markup_text": "</details>\n# synthetic injected heading\n````\n<script>synthetic</script>",
+    "personal_contexts": [
+      {
+        "marker": "ALEX_EXAMPLE",
+        "text": "my full name is ALEX_EXAMPLE"
+      },
+      {
+        "marker": "user1",
+        "text": "Full name: user1"
+      },
+      {
+        "marker": "example_user",
+        "text": "Contact name: example_user"
+      },
+      {
+        "marker": "\u0391\u03bb\u03c6\u03b1_\u03a0\u03b1\u03c1\u03ac\u03b4\u03b5\u03b9\u03b3\u03bc\u03b1",
+        "text": "my legal name is \u0391\u03bb\u03c6\u03b1_\u03a0\u03b1\u03c1\u03ac\u03b4\u03b5\u03b9\u03b3\u03bc\u03b1"
+      },
+      {
+        "marker": "box omega, sector beta",
+        "text": "my mailing address is box omega, sector beta"
+      },
+      {
+        "marker": "building omega",
+        "text": "I reside at building omega"
+      },
+      {
+        "marker": "unit omega",
+        "text": "I live in unit omega"
+      },
+      {
+        "marker": "block omega",
+        "text": "residential address: block omega"
+      },
+      {
+        "marker": "\u793a\u4f8b\u4e59\u4e19",
+        "text": "\u6211\u7684\u540d\u5b57\u662f\u793a\u4f8b\u4e59\u4e19"
+      },
+      {
+        "marker": "\u793a\u4f8b\u4e01\u620a",
+        "text": "\u59d3\u540d\u662f\u793a\u4f8b\u4e01\u620a"
+      },
+      {
+        "marker": "\u793a\u4f8b\u533a\u57df",
+        "text": "\u8054\u7cfb\u5730\u5740\u662f\u793a\u4f8b\u533a\u57df"
+      },
+      {
+        "marker": "\u793a\u4f8b\u5730\u70b9",
+        "text": "\u9001\u8d27\u5730\u5740: \u793a\u4f8b\u5730\u70b9"
+      }
+    ],
+    "product_texts": [
+      "Please add CSV export with retry support.",
+      "Full name fields should be optional.",
+      "The address field needs a reset button.",
+      "My export account needs faster search."
+    ],
+    "receipt_id": "synthetic-confirmed-message"
+  },
+  "message": {
+    "author": {
+      "id": "42"
+    },
+    "content": "Please add CSV export with retry support.",
+    "id": "1",
+    "timestamp": "2026-01-15T12:00:00Z"
+  },
+  "person": "Alice Example",
+  "private_text": "Alice Example needs CSV export delivered to 123 Example Street.",
+  "product_text": "Please add CSV export with retry support.",
+  "registry": {
+    "products": [
+      {
+        "discord_channels": [
+          {
+            "id": "1",
+            "name": "feedback"
+          }
+        ],
+        "discord_token_ref": "synthetic-first-token.txt",
+        "slug": "example-first"
+      },
+      {
+        "discord_channels": [
+          {
+            "id": "2",
+            "name": "feedback"
+          }
+        ],
+        "discord_token_ref": "synthetic-selected-token.txt",
+        "display_name": "CSV export",
+        "slug": "example-product"
+      }
+    ]
+  },
+  "review15": {
+    "backup_record": {
+      "synthetic": true
+    },
+    "permitted_transport": {
+      "scoped-https": {
+        "config": [
+          [
+            "http.https://github.com/.keepAliveIdle",
+            "1"
+          ],
+          [
+            "http.https://github.com/.sslVerify",
+            "yes"
+          ]
+        ],
+        "url": "https://github.com/example/demand-mining-config.git"
+      },
+      "ssh": {
+        "config": [
+          [
+            "http.proxy",
+            "http://proxy.example.com:8080"
+          ],
+          [
+            "http.sslVerify",
+            "false"
+          ]
+        ],
+        "url": "git@github.com:example/demand-mining-config.git"
+      }
+    },
+    "products": [
+      "example-first",
+      "example-second"
+    ],
+    "salt": "synthetic-stable-salt-for-regression",
+    "transport": [
+      {
+        "allowed": true,
+        "config": [],
+        "env": {},
+        "name": "https-default",
+        "url": "https://github.com/example/demand-mining-config.git"
+      },
+      {
+        "allowed": true,
+        "config": [
+          [
+            "http.sslVerify",
+            "true"
+          ]
+        ],
+        "env": {},
+        "name": "https-verified",
+        "url": "https://github.com/example/demand-mining-config.git"
+      },
+      {
+        "allowed": true,
+        "config": [
+          [
+            "http.version",
+            "1"
+          ]
+        ],
+        "env": {
+          "no_proxy": "github.com"
+        },
+        "name": "performance-version",
+        "url": "https://github.com/example/demand-mining-config.git"
+      },
+      {
+        "allowed": true,
+        "config": [
+          [
+            "http.maxRequests",
+            "1"
+          ]
+        ],
+        "env": {
+          "no_proxy": "github.com"
+        },
+        "name": "performance-maxRequests",
+        "url": "https://github.com/example/demand-mining-config.git"
+      },
+      {
+        "allowed": true,
+        "config": [
+          [
+            "http.minSessions",
+            "1"
+          ]
+        ],
+        "env": {
+          "no_proxy": "github.com"
+        },
+        "name": "performance-minSessions",
+        "url": "https://github.com/example/demand-mining-config.git"
+      },
+      {
+        "allowed": true,
+        "config": [
+          [
+            "http.postBuffer",
+            "1"
+          ]
+        ],
+        "env": {
+          "no_proxy": "github.com"
+        },
+        "name": "performance-postBuffer",
+        "url": "https://github.com/example/demand-mining-config.git"
+      },
+      {
+        "allowed": true,
+        "config": [
+          [
+            "http.lowSpeedLimit",
+            "1"
+          ]
+        ],
+        "env": {
+          "no_proxy": "github.com"
+        },
+        "name": "performance-lowSpeedLimit",
+        "url": "https://github.com/example/demand-mining-config.git"
+      },
+      {
+        "allowed": true,
+        "config": [
+          [
+            "http.lowSpeedTime",
+            "1"
+          ]
+        ],
+        "env": {
+          "no_proxy": "github.com"
+        },
+        "name": "performance-lowSpeedTime",
+        "url": "https://github.com/example/demand-mining-config.git"
+      },
+      {
+        "allowed": true,
+        "config": [
+          [
+            "http.keepAliveIdle",
+            "1"
+          ]
+        ],
+        "env": {
+          "no_proxy": "github.com"
+        },
+        "name": "performance-keepAliveIdle",
+        "url": "https://github.com/example/demand-mining-config.git"
+      },
+      {
+        "allowed": true,
+        "config": [
+          [
+            "http.keepAliveInterval",
+            "1"
+          ]
+        ],
+        "env": {
+          "no_proxy": "github.com"
+        },
+        "name": "performance-keepAliveInterval",
+        "url": "https://github.com/example/demand-mining-config.git"
+      },
+      {
+        "allowed": true,
+        "config": [
+          [
+            "http.keepAliveCount",
+            "1"
+          ]
+        ],
+        "env": {
+          "no_proxy": "github.com"
+        },
+        "name": "performance-keepAliveCount",
+        "url": "https://github.com/example/demand-mining-config.git"
+      },
+      {
+        "allowed": false,
+        "config": [
+          [
+            "http.sslVerify",
+            "false"
+          ]
+        ],
+        "env": {},
+        "name": "blocked-config-0",
+        "url": "https://github.com/example/demand-mining-config.git"
+      },
+      {
+        "allowed": false,
+        "config": [
+          [
+            "http.https://github.com/.sslVerify",
+            "false"
+          ]
+        ],
+        "env": {},
+        "name": "blocked-config-1",
+        "url": "https://github.com/example/demand-mining-config.git"
+      },
+      {
+        "allowed": false,
+        "config": [
+          [
+            "http.proxy",
+            "http://proxy.example.com:8080"
+          ],
+          [
+            "http.sslVerify",
+            "false"
+          ]
+        ],
+        "env": {},
+        "name": "blocked-config-2",
+        "url": "https://github.com/example/demand-mining-config.git"
+      },
+      {
+        "allowed": false,
+        "config": [
+          [
+            "http.curloptResolve",
+            "github.com:443:192.0.2.10"
+          ]
+        ],
+        "env": {},
+        "name": "blocked-config-3",
+        "url": "https://github.com/example/demand-mining-config.git"
+      },
+      {
+        "allowed": false,
+        "config": [
+          [
+            "http.extraHeader",
+            "X-Synthetic: value"
+          ]
+        ],
+        "env": {},
+        "name": "blocked-config-4",
+        "url": "https://github.com/example/demand-mining-config.git"
+      },
+      {
+        "allowed": false,
+        "config": [
+          [
+            "remote.origin.proxy",
+            ""
+          ]
+        ],
+        "env": {},
+        "name": "blocked-config-5",
+        "url": "https://github.com/example/demand-mining-config.git"
+      },
+      {
+        "allowed": false,
+        "config": [
+          [
+            "remote.origin.receivepack",
+            "synthetic-helper"
+          ]
+        ],
+        "env": {},
+        "name": "blocked-config-6",
+        "url": "https://github.com/example/demand-mining-config.git"
+      },
+      {
+        "allowed": false,
+        "config": [
+          [
+            "http.proxy",
+            "http://proxy.example.com:8080"
+          ],
+          [
+            "http.proxy",
+            ""
+          ]
+        ],
+        "env": {},
+        "name": "blocked-config-7",
+        "url": "https://github.com/example/demand-mining-config.git"
+      },
+      {
+        "allowed": false,
+        "config": [],
+        "env": {
+          "GIT_SSL_NO_VERIFY": "1"
+        },
+        "name": "blocked-env-GIT_SSL_NO_VERIFY",
+        "url": "https://github.com/example/demand-mining-config.git"
+      },
+      {
+        "allowed": false,
+        "config": [],
+        "env": {
+          "HTTPS_PROXY": "http://proxy.example.com:8080"
+        },
+        "name": "blocked-env-HTTPS_PROXY",
+        "url": "https://github.com/example/demand-mining-config.git"
+      },
+      {
+        "allowed": false,
+        "config": [],
+        "env": {
+          "GIT_DIR": ""
+        },
+        "name": "blocked-env-GIT_DIR",
+        "url": "https://github.com/example/demand-mining-config.git"
+      },
+      {
+        "allowed": false,
+        "config": [],
+        "env": {
+          "GIT_CONFIG_COUNT": "0"
+        },
+        "name": "blocked-env-GIT_CONFIG_COUNT",
+        "url": "https://github.com/example/demand-mining-config.git"
+      },
+      {
+        "allowed": false,
+        "config": [],
+        "env": {
+          "GIT_EXEC_PATH": "synthetic-helper"
+        },
+        "name": "blocked-env-GIT_EXEC_PATH",
+        "url": "https://github.com/example/demand-mining-config.git"
+      },
+      {
+        "allowed": false,
+        "config": [
+          [
+            "core.sshCommand",
+            "synthetic-ssh"
+          ]
+        ],
+        "env": {},
+        "name": "ssh-command",
+        "url": "git@github.com:example/demand-mining-config.git"
+      },
+      {
+        "allowed": false,
+        "config": [],
+        "env": {
+          "GIT_SSH_COMMAND": "synthetic-ssh"
+        },
+        "name": "ssh-environment",
+        "url": "git@github.com:example/demand-mining-config.git"
+      },
+      {
+        "allowed": false,
+        "config": [],
+        "env": {},
+        "name": "wrong-push",
+        "push": "https://github.com/example/other-config.git",
+        "url": "https://github.com/example/demand-mining-config.git"
+      }
+    ],
+    "users": [
+      "synthetic-user-one",
+      "synthetic-user-two"
+    ],
+    "worker": [
+      {
+        "ah": "u_0000000000000000",
+        "channel": "feedback",
+        "id": "0",
+        "text": "Please add CSV export option 0."
+      },
+      {
+        "ah": "u_1111111111111111",
+        "channel": "feedback",
+        "id": "1",
+        "text": "Please add CSV export option 1."
+      },
+      {
+        "ah": "u_2222222222222222",
+        "channel": "feedback",
+        "id": "2",
+        "text": "Please add CSV export option 2."
+      }
+    ]
+  },
+  "review16": {
+    "demand": {
+      "authors": [
+        {
+          "author_hash": "u_1111111111111111"
+        }
+      ],
+      "canonical_key": "export-retry",
+      "evidence": [
+        {
+          "redacted_snippet": "Please add CSV export retries.",
+          "source": "feedback"
+        }
+      ],
+      "final_score": 80,
+      "grade": "A",
+      "kano": "performance",
+      "reach": 1,
+      "taxonomy_track": "integrations",
+      "title": "CSV export retries"
+    },
+    "exclusive": {
+      "canonical_key": "theme-preview",
+      "title": "Theme preview"
+    },
+    "message": {
+      "ah": "u_1111111111111111",
+      "channel_id": "channel-synthetic",
+      "id": "direct-synthetic",
+      "text": "Please add CSV export retries."
+    },
+    "products": [
+      "example-first",
+      "example-second"
+    ],
+    "reply": "I have logged the CSV export feedback for the team.",
+    "second_author": "u_2222222222222222",
+    "verdict": {
+      "confidence": 0.9,
+      "i": 0,
+      "is_demand": true,
+      "kano": "performance",
+      "title": "CSV export retries",
+      "track": "integrations",
+      "why": "recover interrupted exports"
+    }
+  },
+  "review17": {
+    "candidates": [
+      {
+        "authors": [
+          {
+            "author_hash": "u_1111111111111111",
+            "segment": "pro",
+            "urgency": "need"
+          }
+        ],
+        "canonical_key": "csv|retry::integrations",
+        "effort_weeks": 0.5,
+        "evidence": [
+          {
+            "channel": "feedback",
+            "origin_type": "internal",
+            "redacted_snippet": "Please retry CSV export page 1.",
+            "ts": "2026-01-15T12:00:00Z"
+          }
+        ],
+        "has_internal_explicit": true,
+        "impact_label": "high",
+        "importance": 9,
+        "independent_source_count": 1,
+        "inferred_job": "resume CSV exports",
+        "job_size": 2,
+        "kano": "performance",
+        "reach": 1,
+        "recommendation": "resume exports",
+        "risk_reduction": 5,
+        "satisfaction": 2,
+        "summary": "resume incomplete exports",
+        "time_criticality": 7,
+        "title": "CSV export retries",
+        "track": "integrations",
+        "user_business_value": 8,
+        "why": "exports stop"
+      },
+      {
+        "authors": [
+          {
+            "author_hash": "u_2222222222222222",
+            "segment": "pro",
+            "urgency": "need"
+          }
+        ],
+        "canonical_key": "csv|retry::integrations",
+        "effort_weeks": 0.5,
+        "evidence": [
+          {
+            "channel": "support",
+            "origin_type": "internal",
+            "redacted_snippet": "Please retry CSV export page 2.",
+            "ts": "2026-01-15T12:00:00Z"
+          }
+        ],
+        "has_internal_explicit": true,
+        "impact_label": "high",
+        "importance": 9,
+        "independent_source_count": 1,
+        "inferred_job": "resume CSV exports",
+        "job_size": 2,
+        "kano": "performance",
+        "reach": 1,
+        "recommendation": "resume exports",
+        "risk_reduction": 5,
+        "satisfaction": 2,
+        "summary": "resume incomplete exports",
+        "time_criticality": 7,
+        "title": "CSV export retries",
+        "track": "integrations",
+        "user_business_value": 8,
+        "why": "exports stop"
+      }
+    ],
+    "context_sources": [
+      "opener",
+      "reference",
+      "history"
+    ],
+    "context_text": "CSV export fails before the final page.",
+    "date": "2026-01-15",
+    "direct_text": "check this",
+    "product_id": "example-product",
+    "receipt": "synthetic-review17-receipt",
+    "source_window": {
+      "end": "2026-01-15T12:00:00Z",
+      "start": "2026-01-15T00:00:00Z"
+    }
+  },
+  "verdict": {
+    "confidence": 0.6,
+    "i": 0,
+    "is_demand": true,
+    "kano": "performance",
+    "title": "csv export",
+    "track": "integrations",
+    "why": "retry incomplete exports"
+  }
+}

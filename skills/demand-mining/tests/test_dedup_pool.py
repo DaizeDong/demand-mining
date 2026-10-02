@@ -163,6 +163,8 @@ def test_decide_resurface_on_first_external_corroboration():
     row = _row_extcorr(internal=2, external=0)
     cand = _cand("dark mode", "reduce eye strain", "ui-ux", 70)   # same score/sources/competitor
     cand["external_corroboration"] = {"internal_count": 2, "external_origin_count": 1}
+    from test_review19_repairs import generator
+    cand["evidence"].append(generator.review22_cases()["external"])
     assert dd.decide(cand, dd.match_existing(cand, [row], CFG), CFG)["branch"] == dd.RESURFACE
 
 

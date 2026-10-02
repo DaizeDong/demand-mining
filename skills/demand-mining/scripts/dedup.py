@@ -5,7 +5,8 @@ Backed by the schedule-reminder base (frozen contract api_version 1.0.0): subpro
 read the .db / build SQL / put it on OneDrive. Each demand is a base item with kind=task (a demand
 is an executable iteration candidate, never an event), source=demand-mining, and the demand-only
 data namespaced under ext.x_demand_mining_* (MUST-PRESERVE round-trip). idempotency_key =
-'demand-mining:' + canonical_key, so re-capturing the same demand UPSERTs (same id, ext merged) ,
+'demand-mining:product:' + SHA256(product_id) + ':demand:' + canonical_key. Re-capturing
+the same product demand UPSERTs its item (same id, ext merged);
 that is the built-in cross-day idempotency.
 
 Two clean layers:
@@ -21,6 +22,7 @@ flagged candidate-merge for human review, never auto-merged.
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import shlex
 import subprocess
@@ -44,7 +46,7 @@ def _token_set(text: str) -> set:
 
 
 def _subject_agree(cand_text: str, row_text: str) -> bool:
-    """Subject-agreement guard: the weak soft-match rungs only fire when the two share a subject
+    """Subject-agreement guard: nonexact soft-match rungs only fire when the two share a subject
     (one entity set is a subset of the other = same demand evolving, OR same leading entity). A
     distinct demand that merely shares generic words ("slow", "add", "please") is vetoed."""
     ce = extract_entities(cand_text, max_n=64)
@@ -60,7 +62,7 @@ def _subject_agree(cand_text: str, row_text: str) -> bool:
 def match_existing(candidate: dict, ledger_rows: list[dict], cfg: dict | None = None):
     """Return the best matching existing row (NOT in the candidate-merge boundary band) or None.
     Double-gate: exact canonical key > (entity-overlap AND SimHash near-dup AND subject) >
-    (entity-overlap AND moderate cosine AND subject) > pure high-cosine near-dup. Pure."""
+    (entity-overlap AND moderate/high cosine AND subject). Pure."""
     cfg = cfg or load_config()
     sc = cfg["scoring"]
     ham_thr = int(sc.get("dedup_simhash_hamming", 3))
@@ -94,8 +96,9 @@ def match_existing(candidate: dict, ledger_rows: list[dict], cfg: dict | None = 
         subj = _subject_agree(ctext, rtext)
         # boundary band (lo..cos_thr) with only a weak signal => candidate-merge, do NOT auto-merge.
         in_band = lo <= cos < cos_thr
-        match_ok = (cos >= cos_thr) or (strong and ham_ok and subj and not in_band) or \
-                   (strong and 0.45 <= cos < lo and subj)
+        match_ok = strong and subj and not in_band and (
+            cos >= cos_thr or ham_ok or 0.45 <= cos < lo
+        )
         if match_ok and cos >= best_sim:
             best, best_sim = row, cos
     return best
@@ -160,8 +163,8 @@ def decide(candidate: dict, matched: dict | None, cfg: dict | None = None) -> di
     # (anti-spam) and an internal-only demand (count stays 0 / absent) never fires.
     prev_ext_origins = int((ext.get(EXT + "external_corroboration") or {})
                            .get("external_origin_count", 0) or 0)
-    cur_ext_origins = int((candidate.get("external_corroboration") or {})
-                          .get("external_origin_count", 0) or 0)
+    from lib import observed_corroboration
+    cur_ext_origins = observed_corroboration(candidate.get("evidence"))["external_origin_count"]
     external_corroboration_new = (prev_ext_origins == 0 and cur_ext_origins >= 1)
 
     # ESCALATION INTO Tier0 (ARCHITECTURE RESURFACE trigger "紧迫跳变" + Kano stop-the-bleed): a demand
@@ -305,15 +308,42 @@ def build_ext(card: dict, prior_ext: dict | None = None, cfg: dict | None = None
     }
 
 
+def product_id(identity):
+    value = identity.get("product_id") if isinstance(identity, dict) else None
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("ledger needs an explicit product identity")
+    return value
+
+
+def product_key(product, subject):
+    """Separate product and record kind without relying on delimiter escaping."""
+    value = product_id({"product_id": product})
+    return KEY_PREFIX + "product:" + hashlib.sha256(value.encode("utf-8")).hexdigest() + ":" + subject
+
+
+def product_rows(rows, product):
+    """Read attributed legacy rows; leave unassigned history for explicit review."""
+    product_id({"product_id": product})
+    selected = []
+    for row in rows:
+        identity = _row_ext(row).get(EXT + "identity")
+        if isinstance(identity, dict) and identity.get("product_id") == product:
+            selected.append(row)
+    # New scoped rows take precedence over preserved attributed legacy entries.
+    prefix = product_key(product, "")
+    return sorted(selected, key=lambda row: not _row_key(row).startswith(prefix))
+
+
 class LedgerClient:
     """Subprocess wrapper around reminder.py. Honors --db / SCHEDULE_DB_PATH; --now via env.
     reminder.py located via DEMAND_MINING_REMINDER_CMD (JSON list / shell string) or by probing
     a conventional schedule-reminder install path under the home skills dir (no machine path baked in)."""
 
-    def __init__(self, cmd=None, db_path=None, actor=SOURCE):
+    def __init__(self, cmd=None, db_path=None, actor=SOURCE, product_id=None):
         self.cmd = self._resolve_cmd(cmd)
         self.db_path = db_path or os.environ.get("SCHEDULE_DB_PATH")
         self.actor = actor
+        self.product_id = product_id
 
     @staticmethod
     def _resolve_cmd(cmd):
@@ -332,35 +362,66 @@ class LedgerClient:
 
     def _run(self, verb, args):
         base = list(self.cmd)
+        if verb not in {"list", "get", "show", "health", "doctor"}:
+            from data_safety import require_private
+            if not self.db_path:
+                raise ValueError("ledger DATA destination is unproven; set SCHEDULE_DB_PATH to the existing PRIVATE shared store")
+            require_private(self.db_path)
         if self.db_path:
             base += ["--db", self.db_path]
         base += ["--actor", self.actor, verb] + args
         proc = subprocess.run(base, capture_output=True, text=True, encoding="utf-8",
-                              errors="replace", timeout=60)
+                              errors="replace", timeout=60, env=dict(os.environ, GIT_OPTIONAL_LOCKS="0"))
         out = (proc.stdout or "").strip()
         if proc.returncode != 0:
             err = (proc.stderr or out).strip()
             raise RuntimeError(f"reminder.py {verb} failed rc={proc.returncode}: {err[:300]}")
-        return json.loads(out) if out else {}
+        if not out:
+            raise ValueError(f"reminder.py {verb} returned no response")
+        result = json.loads(out)
+        if not isinstance(result, dict) or result.get("ok") is False or result.get("error"):
+            raise ValueError(f"reminder.py {verb} did not report a successful object response")
+        return result
 
     def init(self):
         return self._run("init", [])
 
+    def _product(self):
+        identity = getattr(self, "run_identity", None)
+        selected = product_id(identity) if identity is not None else product_id({"product_id": self.product_id})
+        if self.product_id is not None and self.product_id != selected:
+            raise ValueError("ledger product binding changed")
+        return selected
+
     def list_active(self, limit=500):
-        rows, cursor = [], None
+        rows, cursor, seen = [], None, set()
         while True:
             args = ["--source", SOURCE, "--active", "--limit", str(limit)]
             if cursor:
                 args += ["--cursor", cursor]
             res = self._run("list", args)
-            rows += res.get("items", [])
+            items = res.get("items")
+            if not isinstance(items, list) or any(not isinstance(item, dict) for item in items):
+                raise ValueError("ledger list response requires an items array")
+            rows += items
             cursor = res.get("next_cursor")
             if not cursor:
                 break
-        return rows
+            if not isinstance(cursor, str) or cursor in seen:
+                raise ValueError("ledger pagination cursor did not advance")
+            seen.add(cursor)
+        return product_rows(rows, self._product())
 
     def upsert(self, card, ext, title=None, priority=0):
-        key = KEY_PREFIX + card["canonical_key"]
+        from redact import safe_data, safe_text
+        card, ext = safe_data(card), safe_data(ext)
+        title = safe_text(title) if title else None
+        product = self._product()
+        identity = ext.get(EXT + "identity") or getattr(self, "run_identity", None) or {"product_id": product}
+        if product_id(identity) != product:
+            raise ValueError("demand identity does not match the ledger product")
+        ext[EXT + "identity"] = identity
+        key = product_key(product, "demand:" + card["canonical_key"])
         args = ["--title", (title or card.get("title") or card["canonical_key"])[:120],
                 "--kind", "task", "--source", SOURCE,
                 "--priority", str(int(priority or 0)),
@@ -369,18 +430,20 @@ class LedgerClient:
 
     def add_watermark(self, last_run_at):
         ext = {EXT + "last_run_at": last_run_at}
+        identity = getattr(self, "run_identity", None) or {"product_id": self._product()}
+        if identity:
+            ext[EXT + "identity"] = identity
+            if "source_window" in identity:
+                ext[EXT + "source_window"] = identity["source_window"]
         args = ["--title", "demand-mining watermark", "--kind", "task", "--source", SOURCE,
-                "--idempotency-key", KEY_PREFIX + "watermark",
+                "--idempotency-key", product_key(self._product(), "watermark"),
                 "--ext", json.dumps(ext, ensure_ascii=False)]
         return self._run("add", args)
 
     def get_watermark(self):
-        try:
-            rows = self.list_active()
-        except Exception:
-            return None
+        rows = self.list_active()
         for r in rows:
-            if _row_key(r) == KEY_PREFIX + "watermark":
+            if _row_key(r) in {product_key(self._product(), "watermark"), KEY_PREFIX + "watermark"}:
                 return _row_ext(r).get(EXT + "last_run_at")
         return None
 

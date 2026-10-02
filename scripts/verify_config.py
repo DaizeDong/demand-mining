@@ -52,7 +52,7 @@ def discover(skill, override):
     if override:
         return os.path.abspath(os.path.expanduser(override)), "explicit (--config-dir)"
     val = os.environ.get(env_var(skill))
-    if val and os.path.isdir(os.path.expanduser(val)):
+    if val is not None:
         return os.path.abspath(os.path.expanduser(val)), "env:%s" % env_var(skill)
     for d in (os.path.expanduser("~/.%s-config" % skill),
               os.path.expanduser("~/.config/%s-config" % skill)):
@@ -86,6 +86,27 @@ def main():
         results.append((name, ok, detail))
 
     check("config dir exists", os.path.isdir(cfg))
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                  "skills", "demand-mining", "scripts"))
+    from data_safety import require_private, data_root
+    from finalize import logical_identity
+    from lib import load_config
+    from redact import privacy_coverage
+    os.environ[env_var(skill)] = cfg
+    for label, probe in (
+            ("config PRIVATE destination", lambda: require_private(cfg)),
+            ("DATA PRIVATE destination", data_root),
+            ("configured product and IANA timezone", lambda: logical_identity(load_config())),
+            ("working directory readable/writable", lambda: os.access(cfg, os.R_OK | os.W_OK))):
+        try:
+            value = probe()
+            check(label, bool(value))
+        except (OSError, ValueError, RuntimeError) as exc:
+            check(label, False, str(exc))
+    coverage = privacy_coverage()
+    for label in ("covered", "uncovered", "unchecked"):
+        print("Privacy %s: %s" % (label, ", ".join(coverage[label])))
+    print("Privacy policy: %s" % coverage["policy"])
 
     reg = os.path.join(cfg, "registry.json")
     has_reg = os.path.isfile(reg)

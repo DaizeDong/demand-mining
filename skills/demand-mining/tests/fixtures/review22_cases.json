@@ -1,0 +1,135 @@
+{
+  "salt": "synthetic-review22-salt",
+  "text": "please add batch export",
+  "timestamp": "2026-01-15T12:00:00Z",
+  "product": "example-product",
+  "candidate": {
+    "title": "batch export",
+    "summary": "please add batch export",
+    "inferred_job": "export reports",
+    "track": "core-workflow",
+    "evidence": [
+      {
+        "channel": "feedback",
+        "origin_type": "internal",
+        "redacted_snippet": "please add batch export",
+        "ts": "2026-01-15T12:00:00Z"
+      }
+    ],
+    "authors": [
+      {
+        "author_hash": "u_invented"
+      }
+    ],
+    "reach": 500,
+    "impact_label": "high",
+    "effort_weeks": 0.5,
+    "independent_source_count": 5,
+    "has_internal_explicit": true,
+    "importance": 9,
+    "satisfaction": 2,
+    "kano": "performance",
+    "user_business_value": 8,
+    "time_criticality": 7,
+    "risk_reduction": 5,
+    "job_size": 2,
+    "why": "export needs retries",
+    "recommendation": "add retries",
+    "internal_mentions": 99
+  },
+  "verdict": {
+    "i": 0,
+    "is_demand": true,
+    "confidence": 0.6,
+    "title": "batch export",
+    "track": "core-workflow",
+    "kano": "performance",
+    "why": "export needs retries"
+  },
+  "authors": [
+    "u_0000000000000001",
+    "u_0000000000000002",
+    "u_0000000000000003",
+    "u_0000000000000004",
+    "u_0000000000000005",
+    "u_0000000000000006",
+    "u_0000000000000007",
+    "u_0000000000000008"
+  ],
+  "channels": [
+    {
+      "id": "810000000000000001",
+      "name": "feedback"
+    },
+    {
+      "id": "810000000000000002",
+      "name": "support"
+    }
+  ],
+  "messages": {
+    "810000000000000001": [
+      {
+        "id": "820000000000000001",
+        "author": {
+          "id": "830000000000000001"
+        },
+        "content": "please add batch export",
+        "timestamp": "2026-01-15T12:00:00Z"
+      }
+    ],
+    "810000000000000002": [
+      {
+        "id": "820000000000000002",
+        "author": {
+          "id": "830000000000000002"
+        },
+        "content": "please add batch export",
+        "timestamp": "2026-01-15T12:00:00Z"
+      }
+    ]
+  },
+  "window": {
+    "start": "2026-01-15T00:00:00Z",
+    "end": "2026-01-16T00:00:00Z"
+  },
+  "external": {
+    "source": "synthetic-forum",
+    "origin_type": "external",
+    "redacted_snippet": "batch export needs retries",
+    "ts": "2026-01-15T12:00:00Z"
+  },
+  "external_claim": {
+    "internal_count": 2,
+    "external_origin_count": 400
+  },
+  "legacy_numeric_claim": 99999,
+  "raw_token": "SYNTHETIC0a1B2c3D4e5F6g7H8i9J0k1L2m3N4p5Q6r7S8t9U",
+  "huge_scores": [
+    9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999,
+    -9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999
+  ],
+  "valid_card": {
+    "canonical_key": "synthetic-batch-export",
+    "title": "batch export",
+    "summary": "please add batch export",
+    "inferred_job": "export reports",
+    "taxonomy_track": "core-workflow",
+    "rice": {
+      "rice_raw": 1
+    },
+    "opportunity_score": 5,
+    "urgency_wsjf": 1,
+    "final_score": 50,
+    "tier": "backlog",
+    "kano": "performance",
+    "independent_source_count": 1,
+    "evidence": [
+      {
+        "channel": "feedback",
+        "origin_type": "internal",
+        "redacted_snippet": "please add batch export",
+        "ts": "2026-01-15T12:00:00Z"
+      }
+    ]
+  }
+}

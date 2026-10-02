@@ -43,12 +43,16 @@ def test_daily_summary_is_english_and_dash_free(tmp_path):
     import re
     import json as _json
     import demand_bot as _b
+    from pathlib import Path
+    cases = _json.loads((Path(__file__).parent / "fixtures/repair_cases.json").read_text(encoding="utf-8"))
+    product = cases["review16"]["products"][0]
     pool_file = tmp_path / "demands.jsonl"
     pool_file.write_text(_json.dumps({
-        "canonical_key": "k", "title": "Fix reload button", "grade": "A", "final_score": 90,
+        "product_id": product, "canonical_key": "k", "title": "Fix reload button", "grade": "A", "final_score": 90,
         "reach": 5, "status": "new", "first_seen": "2026-07-19T00:00:00Z",
         "last_seen": "2026-07-19T00:00:00Z"}) + "\n", encoding="utf-8")
     bot = _b.DemandBot.__new__(_b.DemandBot)
+    bot.cfg = {"product_id": product, "timezone": "UTC"}
     bot.poolp = str(pool_file)
     out = bot._render_summary("2026-07-19")
     assert "Daily Demand Summary" in out and "All-time top" in out and "Fix reload button" in out

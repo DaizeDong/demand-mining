@@ -118,6 +118,14 @@ def build_unit(proposal: dict, redacted_source: str, author_pseudo: str,
     Returns {ok, unit?, reject_reason?}. A unit is REJECTED (fail-closed) when it is not a demand,
     or its quote is not verbatim-grounded in the redacted source. The returned unit NEVER contains
     raw text, only the (already redacted) grounded quote + distilled job/aspect."""
+    from redact import safe_data, safe_text, pseudonymize
+    if not verbatim_grounding(proposal.get("quote", ""), redacted_source):
+        return {"ok": False, "reject_reason": "quote not verbatim-grounded in source"}
+    proposal, redacted_source = safe_data(proposal), safe_text(redacted_source)
+    # This public argument already denotes a pseudonym. Preserve legacy
+    # abbreviated hexadecimal IDs; arbitrary text still becomes a fresh HMAC.
+    if not re.fullmatch(r"u_[0-9a-f]{1,16}", str(author_pseudo)):
+        author_pseudo = pseudonymize(str(author_pseudo))
     cfg = cfg or load_config()
     intents = normalize_intents(proposal.get("intents"))
     if not is_demand(intents):
@@ -152,7 +160,7 @@ def build_unit(proposal: dict, redacted_source: str, author_pseudo: str,
         "kano": (proposal.get("kano") or "").lower() or None,
         "urgency": (proposal.get("urgency") or "should").lower(),
         "segment": (proposal.get("segment") or "free").lower(),
-        "author_pseudo": author_pseudo,             # HMAC, never raw id
+        "author_pseudo": author_pseudo,             # supplied hex pseudonym or locally generated HMAC
         "message_ref": proposal.get("message_id") or proposal.get("message_ref") or "",
         "entities": entities,
     }

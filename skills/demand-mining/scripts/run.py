@@ -31,8 +31,8 @@ import json
 import sys
 
 from lib import (canonical_key, extract_entities, intensity as compute_intensity, iso,
-                 load_config, now_utc, demand_id)
-from redact import redact, pseudonymize, has_pii
+                 load_config, now_utc, demand_id, merge_observations, observed_corroboration)
+from redact import redact, pseudonymize, has_pii, safe_data
 from score import score_demand
 import dedup as dd
 from verify_gate import gate_batch
@@ -44,7 +44,7 @@ def _redact_card(cand: dict) -> dict:
     """Defense-in-depth redact-on-ingest: even if the upstream already redacted, re-scrub every
     text field and re-pseudonymize any raw author user_id, so raw PII can never flow downstream
     regardless of upstream discipline. Mutates a shallow copy."""
-    c = dict(cand)
+    c = safe_data(cand)
     for f in ("title", "summary", "inferred_job", "why", "recommendation", "action"):
         if c.get(f):
             c[f] = redact(str(c[f]))["redacted"]
@@ -52,8 +52,10 @@ def _redact_card(cand: dict) -> dict:
     for e in c.get("evidence", []) or []:
         e = dict(e)
         snip = e.get("redacted_snippet") or e.get("quote") or ""
-        if snip:
-            e["redacted_snippet"] = redact(str(snip))["redacted"]
+        if isinstance(snip, str):
+            e["redacted_snippet"] = redact(snip)["redacted"]
+        else:
+            e["redacted_snippet"] = snip
         e.pop("quote", None)
         ev.append(e)
     c["evidence"] = ev
@@ -88,14 +90,67 @@ def _scrub_entities(ents: list) -> list:
     return out
 
 
-def build_card(cand: dict, cfg: dict, run_id: str) -> dict:
-    cand = _redact_card(cand)
+def _canonical_fields(cand):
     title = cand.get("title", "")
     job = cand.get("inferred_job") or title
     track = cand.get("track") or cand.get("taxonomy_track") or "other"
     entities = _scrub_entities(cand.get("entities") or
                                extract_entities(job + " " + title + " " + cand.get("summary", "")))
-    ck = cand.get("canonical_key") or canonical_key(entities, track)
+    return cand.get("canonical_key") or canonical_key(entities, track), job, track
+
+
+def merge_candidates(candidates):
+    """Union exact canonical contributions before scoring; keep the first proposal.
+
+    Count estimates may overlap, so use the largest declared count or the
+    observed union size rather than adding estimates. Other scoring proposals
+    and prose retain the first candidate's values.
+    """
+    grouped = {}
+    for candidate in candidates:
+        current = _redact_card(candidate)
+        key, _, _ = _canonical_fields(current)
+        current["canonical_key"] = key
+        if "observation_index" in current:
+            current.update(merge_observations(current))
+        if key not in grouped:
+            grouped[key] = current
+            continue
+        previous = grouped[key]
+        if "observation_index" in previous or "observation_index" in current:
+            previous.update(merge_observations(previous, current))
+            continue
+        authors = dd.merge_authors(previous.get("authors", []), current.get("authors", []))
+        evidence = {}
+        for item in previous.get("evidence", []) + current.get("evidence", []):
+            evidence.setdefault(json.dumps(item, sort_keys=True, ensure_ascii=False), item)
+        observed = list(evidence.values())
+        sources = {item.get("channel") or item.get("source") for item in observed}
+        sources.discard(None)
+        sources.discard("")
+        counts = {
+            "reach": len(authors),
+            "independent_source_count": len(sources),
+            "internal_mentions": sum(item.get("origin_type", "internal") == "internal"
+                                     for item in observed),
+            "new_mentions": len(authors),
+        }
+        for field, count in counts.items():
+            declared = max(float(previous.get(field, 0) or 0),
+                           float(current.get(field, 0) or 0), count)
+            previous[field] = declared if field == "reach" else int(declared)
+        previous["authors"], previous["evidence"] = authors, observed
+        previous["has_internal_explicit"] = bool(previous.get("has_internal_explicit")
+                                                  or current.get("has_internal_explicit"))
+    return list(grouped.values())
+
+
+def build_card(cand: dict, cfg: dict, run_id: str) -> dict:
+    cand = _redact_card(cand)
+    if "observation_index" in cand:
+        cand.update(merge_observations(cand))
+    title = cand.get("title", "")
+    ck, job, track = _canonical_fields(cand)
 
     authors = cand.get("authors", [])
     inten = compute_intensity(authors, cfg)
@@ -123,7 +178,8 @@ def build_card(cand: dict, cfg: dict, run_id: str) -> dict:
         "intensity": inten["intensity"],
         "distinct_author_count": inten["distinct_author_count"],
         "new_mentions": int(cand.get("new_mentions", inten["mention_count"]) or 0),
-        "rice": sc["rice"], "opportunity_score": sc["opportunity_score"],
+        "rice": sc["rice"], "rice_domain": sc["rice_domain"],
+        "rice_weights": sc["rice_weights"], "opportunity_score": sc["opportunity_score"],
         "urgency_wsjf": sc["urgency_wsjf"], "kano": sc["kano"],
         "final_score": sc["final_score"], "grade": sc["grade"],
         "tier": sc["tier"], "tier_reason": sc["tier_reason"],
@@ -132,130 +188,19 @@ def build_card(cand: dict, cfg: dict, run_id: str) -> dict:
         "action": cand.get("action", ""),
         "competitor_status": cand.get("competitor_status", ""),
         "competitor_ref": cand.get("competitor_ref", ""),
-        "external_corroboration": cand.get("external_corroboration", {}),
+        "external_corroboration": observed_corroboration(evidence),
         "run_id": run_id, "schema_version": 1,
     }
 
 
 def process(candidates: list[dict], cfg: dict | None = None, ledger=None,
             dry_run: bool = False, run_id: str | None = None,
-            archive_dir: str | None = None) -> dict:
-    cfg = cfg or load_config()
-    run_id = run_id or f"demand-{now_utc().date().isoformat()}"
-
-    cards = [build_card(c, cfg, run_id) for c in candidates]
-
-    # ---- cross-day dedup against the base ledger (need pool) ----
-    ledger_rows = []
-    if ledger is not None:
-        try:
-            ledger_rows = ledger.list_active()
-        except Exception:
-            ledger_rows = []
-    new_cards, resurface, suppressed, candidate_merge = [], [], [], []
-    for c in cards:
-        band = dd.in_candidate_band(c, ledger_rows, cfg)
-        if band is not None:
-            candidate_merge.append({"title": c["title"], "with": dd._row_key(band)})
-        matched = dd.match_existing(c, ledger_rows, cfg)
-        d = dd.decide(c, matched, cfg)
-        c["_branch"] = d["branch"]
-        c["_dedup_delta"] = d["delta"]
-        if matched is not None:
-            c["first_seen"] = dd._row_ext(matched).get(dd.EXT + "first_seen")
-            c["push_count"] = int(dd._row_ext(matched).get(dd.EXT + "push_count", 0))
-        if d["branch"] == dd.SUPPRESS:
-            suppressed.append(c)
-        elif d["branch"] == dd.RESURFACE:
-            resurface.append(c)
-        else:
-            new_cards.append(c)
-
-    actionable = new_cards + resurface
-
-    # ---- verify gate (fail-closed: >=1 internal evidence + egress DLP) + bucketing ----
-    g = gate_batch(actionable, cfg)
-    pushable, archivable = g["pushable"], g["archivable"]
-
-    # ---- delivery model (2026-07): ONE consolidated 'headlines' digest per day, not a message per
-    # demand. The old per-card push (a Discord embed per pushable demand) was noisy and duplicated the
-    # EOD digest that shipped right after it. We now just MARK the pushable demands as shown here (no
-    # per-card network call) and render them as a single ranked headline list at the deliver step
-    # below; the full cards + RICE + evidence stay in the archived digest file (private companion
-    # repo). deliver()'s has_pii gate still fail-closed-guards the one message that goes out.
-    pushed = []
-    for c in pushable:
-        c["pushed"] = True
-        c["push_count"] = int(c.get("push_count", 0)) + 1
-        c["push_ts"] = iso(now_utc())
-        pushed.append(c)
-
-    # ---- pool UPSERT (NEW + RESURFACE + SUPPRESS all get a sample; idempotent UPSERT) ----
-    if ledger is not None and not dry_run:
-        for c in actionable + suppressed:
-            prior = {}
-            matched = dd.match_existing(c, ledger_rows, cfg)
-            if matched:
-                prior = dd._row_ext(matched)
-            ext = dd.build_ext(c, prior, cfg)
-            if c.get("pushed"):
-                ext[dd.EXT + "push_count"] = int(c.get("push_count", 0))
-            # priority: RICE-high → small iCal priority (1 highest). tier0 forces priority 1.
-            prio = 1 if c.get("tier") == "tier0" else max(1, min(9, 10 - int(
-                round(float(c.get("final_score", 0)) / 11.2))))
-            try:
-                ledger.upsert(c, ext, priority=prio)
-            except Exception:
-                pass
-
-    # ---- EOD digest (idempotent item + file + deliver) ----
-    coverage = {"internal": sum(1 for c in cards for e in c.get("evidence", [])
-                                if (e.get("origin_type") or "internal") == "internal"),
-                "external": sum(1 for c in cards for e in c.get("evidence", [])
-                                if e.get("origin_type") == "external"),
-                "candidates": len(candidates), "pushed": len(pushed),
-                "candidate_merge": len(candidate_merge)}
-    md = dg.build_markdown(archivable, coverage, cfg=cfg)
-    digest_path = None
-    if not dry_run:
-        try:
-            digest_path = str(dg.write_digest_file(md, archive_dir))
-        except Exception:
-            digest_path = None
-        if ledger is not None:
-            try:
-                dg.register_digest_item(ledger, summary=f"{len(archivable)} demands, {len(pushed)} pushed")
-            except Exception:
-                pass
-    # Deliver ONLY the compact headlines: the top max_per_day (default 5) archivable demands ranked by
-    # tier+score, a consistent briefing, not the raw markdown and not a message per demand. The full
-    # markdown (every field + RICE + evidence) is the archived digest file above; we point at it with a
-    # PLAIN-TEXT hint (never a url, demand-mining's egress gate aborts on any link). No card ships.
-    cap = int((cfg.get("push", {}) or {}).get("max_per_day", 5))
-    digest_hint = ""
-    if digest_path:
-        parts = str(digest_path).replace("\\", "/").rstrip("/").split("/")
-        digest_hint = "私有归档 " + "/".join(parts[-2:]) if len(parts) >= 2 else "私有归档 " + parts[-1]
-    headlines = dg.build_headlines(archivable, coverage, cap=cap, digest_hint=digest_hint, cfg=cfg)
-    pc.deliver(headlines, dry_run=dry_run)
-
-    # ---- atomic watermark (only after the full success path) ----
-    if ledger is not None and not dry_run:
-        try:
-            ledger.add_watermark(iso(now_utc()))
-        except Exception:
-            pass
-
-    return {
-        "run_id": run_id, "candidates": len(candidates), "built": len(cards),
-        "new": len(new_cards), "resurface": len(resurface), "suppressed": len(suppressed),
-        "candidate_merge": candidate_merge,
-        "blocked": g["blocked"],
-        "pushed": [c["title"] for c in pushed],
-        "archivable": [c["title"] for c in archivable],
-        "empty_day": len(archivable) == 0,
-        "digest_path": digest_path, "digest_markdown": md,
-    }
+            archive_dir: str | None = None, *, identity=None, attempt_id=None,
+            collection=None) -> dict:
+    """Finalize candidates locally; existing positional callers remain supported."""
+    from finalize import finalize
+    return finalize(candidates, cfg or load_config(), ledger, dry_run, run_id, archive_dir,
+                    identity=identity, attempt_id=attempt_id, collection=collection)
 
 
 def main() -> int:
@@ -274,28 +219,25 @@ def main() -> int:
     if not a.catch_up:  # catch-up backfills digests from the ledger; it reads no candidate input
         raw = open(a.infile, encoding="utf-8").read() if a.infile else sys.stdin.buffer.read().decode("utf-8-sig", "replace")
         candidates = json.loads(raw or "[]")
-        if isinstance(candidates, dict):
-            candidates = candidates.get("candidates", [])
 
     cfg = load_config()
-    ledger = None if a.no_ledger else dd.LedgerClient()
-    if ledger is not None:
-        try:
-            ledger.init()
-        except Exception:
-            ledger = None
+    ledger = None if a.no_ledger else dd.LedgerClient(db_path=cfg.get("ledger", {}).get("db_path"),
+                                        product_id=cfg.get("product_id") or cfg.get("slug"))
+    if ledger is not None and not a.dry_run:
+        ledger.init()
     if a.catch_up:
         if ledger is None:
             print(json.dumps({"catch_up": [], "error": "no ledger (schedule-reminder base required)"}))
             return 1
-        dates = dg.catch_up_digests(ledger, ledger.get_watermark())
+        dates = (dg.missed_digest_dates(ledger.get_watermark()) if a.dry_run else
+                 dg.catch_up_digests(ledger, ledger.get_watermark()))
         print(json.dumps({"catch_up": dates}, ensure_ascii=False))
         return 0
     res = process(candidates, cfg, ledger, dry_run=a.dry_run,
                   run_id=a.run_id or None, archive_dir=a.archive_dir or None)
     res.pop("digest_markdown", None)
     print(json.dumps(res, ensure_ascii=False, indent=2))
-    return 0
+    return 0 if res.get("ok") else 2
 
 
 if __name__ == "__main__":

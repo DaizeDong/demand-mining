@@ -4,9 +4,9 @@ Daily user-demand mining + competitor/hotspot tracking + EOD brainstorm + RICE/K
 
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-orange?style=flat)](https://docs.anthropic.com/en/docs/claude-code)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/status-v0.7.0%20live%20daemon%20%28shadow%29-green?style=flat)](ROADMAP.md)
+[![Status](https://img.shields.io/badge/status-v0.7.1%20live%20daemon%20%28shadow%29-green?style=flat)](ROADMAP.md)
 [![Languages](https://img.shields.io/badge/Languages-EN%20%2F%20CN-blue?style=flat)](#languages)
-[![Roadmap](https://img.shields.io/badge/Roadmap-v0.7.0-purple?style=flat)](ROADMAP.md)
+[![Roadmap](https://img.shields.io/badge/Roadmap-v0.7.1-purple?style=flat)](ROADMAP.md)
 
 [English](README.md) | [中文版](README_CN.md)
 
@@ -59,7 +59,7 @@ git clone https://github.com/DaizeDong/demand-mining.git ~/.claude/plugins/deman
 # offline preview — runs the full deterministic tail with no writes, no network
 python skills/demand-mining/scripts/run.py --in candidates.json --dry-run --no-ledger
 
-# real EOD (headless, via the scheduler wrapper)
+# real EOD after the private setup and preflight described below
 powershell -ExecutionPolicy Bypass -File skills/demand-mining/scripts/register-task.ps1 -Time 21:53
 ```
 
@@ -105,12 +105,17 @@ plus Quick-win / Big-bet pools. On a quiet day it honestly prints `今日无合�
 
 `demand-mining` is **config-bearing**, it reads per-product tunables (RICE weights, thresholds, Kano
 map, taxonomy, push limits) and secrets (pseudonym HMAC salt, Discord creds) from a **separate,
-private** companion config repo. Full contract: [CONFIG.md](CONFIG.md). Absent → built-in
-`scripts/lib.py:DEFAULT_CONFIG`.
+private** companion config repo. Full contract: [CONFIG.md](CONFIG.md). Pure offline helpers
+can use `skills/demand-mining/scripts/lib.py:DEFAULT_CONFIG` without configuration. Real
+collection, initialization and writes require the private repository prerequisites below.
 
 - **Mount (discovery order):** `$DEMAND_MINING_CONFIG` → `~/.demand-mining-config/` →
-  `~/.config/demand-mining-config/`. First that exists wins; absent = runs on defaults.
-- **First time:**
+  `~/.config/demand-mining-config/`. The first existing directory wins. Defaults support pure
+  offline helpers; they do not authorize a real run or a DATA write.
+- **First time:** Create or clone the private companion repository, configure its origin,
+  and prepare the verified PRIVATE visibility receipt before running the initializer.
+  See [Configuration and DATA](docs/runtime-contract.md#configuration-and-data).
+  An ordinary unversioned directory is insufficient.
   ```bash
   python scripts/init_config.py --product <slug>  # stamp skeleton (deterministic)
   export DEMAND_MINING_CONFIG=~/.demand-mining-config                   # or pass --out <dir>
