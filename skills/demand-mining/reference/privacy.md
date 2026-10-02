@@ -10,7 +10,11 @@ model has seen PII, it has leaked. So run.py redacts every raw message first; on
 |---|---|---|
 | 1 regex+checksum | email, phone, credit card (Luhn), Discord id/`@handle`/invite, URL, IPv4 | `redact.redact()` |
 | 2 entropy | API keys / long high-entropy tokens → `[SECRET_n]` | Shannon entropy ≥3.5 + mixed alnum |
-| 3 NER (opt, v0.2) | person names / addresses | Presidio **local-only**, never a 3rd-party PII API |
+| 3 local patterns and review | Latin name spans and common street addresses | local redaction; unsupported personal context is held before model/pool/output |
+
+The doctor lists covered, uncovered and unchecked sensitive types. General multilingual NER
+is unchecked; local patterns must not be described as complete recognition of every person
+or address. Model input, replies, extraction and pool writes all use the local privacy boundary.
 
 ## Two anti-patterns this kills
 

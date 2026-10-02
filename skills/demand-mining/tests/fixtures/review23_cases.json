@@ -1,0 +1,133 @@
+{
+  "valid_card": {
+    "canonical_key": "synthetic-batch-export",
+    "title": "batch export",
+    "summary": "please add batch export",
+    "inferred_job": "export reports",
+    "taxonomy_track": "core-workflow",
+    "rice": {
+      "rice_raw": 1
+    },
+    "opportunity_score": 5,
+    "urgency_wsjf": 1,
+    "final_score": 50,
+    "tier": "backlog",
+    "kano": "performance",
+    "independent_source_count": 1,
+    "evidence": [
+      {
+        "channel": "feedback",
+        "origin_type": "internal",
+        "redacted_snippet": "please add batch export",
+        "ts": "2026-01-15T12:00:00Z"
+      }
+    ]
+  },
+  "overflow_count_json": [
+    "1e400",
+    "-1e400"
+  ],
+  "ordinary_counts": [
+    {
+      "label": "backlog-zero",
+      "value": 0,
+      "score": 50,
+      "passes": true,
+      "pushable": false,
+      "error": ""
+    },
+    {
+      "label": "push-single",
+      "value": 1,
+      "score": 80,
+      "passes": false,
+      "pushable": false,
+      "error": "needs independent_source_count"
+    },
+    {
+      "label": "push-two",
+      "value": 2,
+      "score": 80,
+      "passes": true,
+      "pushable": true,
+      "error": ""
+    },
+    {
+      "label": "numeric-text",
+      "value": "2",
+      "score": 80,
+      "passes": true,
+      "pushable": true,
+      "error": ""
+    },
+    {
+      "label": "ordinary-bad-text",
+      "value": "invalid-count",
+      "score": 50,
+      "passes": false,
+      "pushable": false,
+      "error": "independent_source_count non-numeric"
+    },
+    {
+      "label": "backlog-absent-value",
+      "value": null,
+      "score": 50,
+      "passes": true,
+      "pushable": false,
+      "error": ""
+    },
+    {
+      "label": "existing-fraction-conversion",
+      "value": 2.5,
+      "score": 80,
+      "passes": true,
+      "pushable": true,
+      "error": ""
+    },
+    {
+      "label": "push-negative",
+      "value": -2,
+      "score": 80,
+      "passes": false,
+      "pushable": false,
+      "error": "needs independent_source_count"
+    }
+  ],
+  "alias_keys": [
+    "user_id",
+    "author",
+    "author_hash"
+  ],
+  "pseudonym": "u_0000000000000017",
+  "valid_author_scalars": [
+    "u_0000000000000017",
+    "synthetic-author",
+    23
+  ],
+  "malformed_authors": [
+    {
+      "label": "null",
+      "value": null
+    },
+    {
+      "label": "boolean",
+      "value": true
+    },
+    {
+      "label": "fraction",
+      "value": 1.5
+    },
+    {
+      "label": "array",
+      "value": [
+        "synthetic-author"
+      ]
+    },
+    {
+      "label": "object",
+      "value": {
+        "identity": "synthetic-author"
+      }
+    }
+  ]
+}

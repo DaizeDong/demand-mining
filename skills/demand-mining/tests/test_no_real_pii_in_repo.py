@@ -26,7 +26,7 @@ found exactly that.
 
 WHAT IT IS NOW
 --------------
-It delegates to `tools/pii_guard.py`, which is built the other way round:
+It delegates to `guards/tools/pii_guard.py`, which is built the other way round:
 
   * an ALLOWLIST -- anything real-world-shaped OUTSIDE the declared synthetic namespace
     (`*@example.com`, `555-*`, ZIP `10001`) is a finding, including identifiers nobody predicted.
@@ -73,7 +73,7 @@ def test_no_real_pii_in_tree_or_history() -> None:
 
 
 def test_data_boundary_holds() -> None:
-    """No real-run output is git-tracked: this repo ships as an UNINITIALIZED TOOL.
+    """No real-run output belongs in this PUBLIC repo; private companions retain its history.
 
     The scanner above is a backstop, not the primary control. It reads content and looks for things
     that SMELL private -- which is why it stayed green while sibling repos accumulated real stock
@@ -81,9 +81,10 @@ def test_data_boundary_holds() -> None:
     ticker with an entry price has no email in it. There is nothing to smell. Only the boundary
     catches that.
     """
-    boundary = REPO_ROOT / "tools" / "data_boundary.py"
-    if not boundary.is_file():
-        return
+    boundary = REPO_ROOT / "guards" / "tools" / "data_boundary.py"
+    assert boundary.is_file(), (
+        "guards/tools/data_boundary.py is missing; initialize the guards submodule before testing."
+    )
     p = subprocess.run(
         [sys.executable, str(boundary)],
         cwd=REPO_ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace",

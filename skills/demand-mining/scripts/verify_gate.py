@@ -20,7 +20,7 @@ from __future__ import annotations
 import json
 import sys
 
-from lib import load_config
+from lib import is_cut, load_config
 from redact import has_pii
 
 _AXES = ("rice", "opportunity_score", "urgency_wsjf")
@@ -42,11 +42,12 @@ def validate_card(card: dict, cfg: dict | None = None) -> tuple[bool, list[str]]
         if card.get(ax) is None:
             errs.append(f"missing axis {ax}")
 
+    fs = None
     try:
         fs = float(card.get("final_score"))
         if not (0 <= fs <= 100):
             errs.append(f"final_score out of [0,100]: {fs}")
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         errs.append("final_score missing/non-numeric")
 
     if card.get("tier") not in _TIERS:
@@ -55,21 +56,23 @@ def validate_card(card: dict, cfg: dict | None = None) -> tuple[bool, list[str]]
     # >=1 internal evidence (the no-filler rule): an iteration candidate MUST be grounded in at
     # least one internal (Discord) demand snippet. External corroboration is a bonus, not a sub.
     ev = card.get("evidence") or []
-    internal = [e for e in ev if (e.get("channel") or e.get("source"))
-                and e.get("redacted_snippet") is not None and e.get("ts")
+    internal = [e for e in ev if isinstance(e, dict)
+                and (e.get("channel") or e.get("source"))
+                and isinstance(e.get("redacted_snippet"), str)
+                and e["redacted_snippet"].strip() and e.get("ts")
                 and (e.get("origin_type") or "internal") == "internal"]
-    # tolerate evidence that doesn't tag origin_type: treat discord/internal channels as internal
-    if not internal:
-        internal = [e for e in ev if (e.get("channel") in ("discord", "internal")
-                    or (e.get("source") == "discord")) and e.get("ts")]
     if len(internal) < 1:
         errs.append("need >=1 internal evidence {channel,redacted_snippet,ts}")
 
     # >=2 independent source red line only enforced for push-floor crossers (a backlog implicit
     # single-complaint demand is allowed in the pool but cannot be pushed as decision-grade).
-    isc = int(card.get("independent_source_count", 0) or 0)
+    try:
+        isc = int(card.get("independent_source_count", 0) or 0)
+    except (TypeError, ValueError, OverflowError):
+        isc = 0
+        errs.append("independent_source_count non-numeric")
     min_src = int(sc.get("min_independent_sources", 2))
-    if float(card.get("final_score", 0) or 0) >= float(sc.get("min_score_to_push", 70)) \
+    if fs is not None and fs >= float(sc.get("min_score_to_push", 70)) \
             and isc < min_src:
         errs.append(f"push-grade card needs independent_source_count >= {min_src}, have {isc}")
 
@@ -81,7 +84,7 @@ def validate_card(card: dict, cfg: dict | None = None) -> tuple[bool, list[str]]
     # the pool), so it must clear the SAME egress DLP, a residual email/phone hiding in a snippet is
     # an exfil path identical to one in the title. Fail-closed per evidence unit.
     snippet_leaks = [i for i, e in enumerate(ev)
-                     if (e.get("redacted_snippet") or e.get("quote"))
+                     if isinstance(e, dict) and (e.get("redacted_snippet") or e.get("quote"))
                      and has_pii(str(e.get("redacted_snippet") or e.get("quote")))]
     if snippet_leaks:
         errs.append(f"residual PII in evidence snippet idx {snippet_leaks} (egress blocked)")
@@ -104,8 +107,9 @@ def gate_batch(cards: list[dict], cfg: dict | None = None) -> dict:
 
     # Tier0 (must-be missing) is always push-eligible regardless of score (stop-the-bleed), then
     # the score floor for the rest. Never filler: only floor-clearing cards are pushable/archivable.
-    tier0 = [c for c in passed if c.get("tier") == "tier0"]
-    rest = sorted([c for c in passed if c.get("tier") != "tier0"
+    eligible = [c for c in passed if not is_cut(c)]
+    tier0 = [c for c in eligible if c.get("tier") == "tier0"]
+    rest = sorted([c for c in eligible if c.get("tier") != "tier0"
                    and float(c.get("final_score", 0)) >= min_push],
                   key=lambda c: -float(c.get("final_score", 0)))
     pushable = (tier0 + rest)[:max_push]

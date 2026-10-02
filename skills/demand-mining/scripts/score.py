@@ -82,6 +82,24 @@ def assign_tier(opportunity_score: float, urgency_wsjf: float, kano: str | None,
     return {"tier": BACKLOG, "reason": "low demand × low urgency"}
 
 
+def domain_factors(record: dict) -> dict:
+    """Read domain facts only when their unweighted provenance is explicit."""
+    factors = record.get("rice_domain")
+    if not isinstance(factors, dict):
+        factors = (record.get("rice") or {}) if record.get("rice_factor_semantics") == "unweighted" else {}
+    return {key: factors.get(key) for key in ("reach", "impact", "confidence", "effort")}
+
+
+def domain_factor_text(record: dict) -> str:
+    factors = domain_factors(record)
+    if all(value is None for value in factors.values()):
+        return "unknown (Legacy RICE factors lack unweighted provenance; re-score to restore domain facts)"
+    values = {key: value if value is not None else "unknown" for key, value in factors.items()}
+    effort = factors["effort"] if factors["effort"] is not None else "TBD"
+    return (f"R={values['reach']} I={values['impact']} C={values['confidence']} "
+            f"E={effort} person-weeks")
+
+
 def score_demand(proposal: dict, cfg: dict | None = None) -> dict:
     """Aggregate one demand's three axes + Kano into a reproducible record. PURE.
 
@@ -96,14 +114,27 @@ def score_demand(proposal: dict, cfg: dict | None = None) -> dict:
     cfg = cfg or load_config()
 
     conf = confidence_from_evidence(
-        int(proposal.get("independent_source_count", 0)),
+        int(proposal.get("independent_source_count") or 0),
         bool(proposal.get("has_internal_explicit", False)),
-        int(proposal.get("internal_mentions", 0)),
+        int(proposal.get("internal_mentions") or 0),
         cfg,
     )
     imp = impact_anchor(proposal.get("impact_label", "medium"), cfg)
-    rc = rice_calc(float(proposal.get("reach", 0)), imp, conf,
-                   proposal.get("effort_weeks"), cfg)
+    # Apply the configured factor weights on the production path. Normalize only
+    # None to TBD; explicit zero and negative effort still reach rice()'s floor.
+    sc = cfg["scoring"]
+    configured = sc.get("rice_weights", {}) or {}
+    weights = {key: float(configured.get(key, 1.0))
+               for key in ("reach", "impact", "confidence", "effort")}
+    effort = proposal.get("effort_weeks")
+    domain = {"reach": float(proposal.get("reach") or 0), "impact": imp,
+              "confidence": conf, "effort": None if effort is None else float(effort)}
+    if effort is None:
+        effort = sc.get("effort_tbd_default", 2.0)
+    rc = rice_calc(float(proposal.get("reach") or 0) * float(weights.get("reach", 1.0)),
+                   imp * float(weights.get("impact", 1.0)),
+                   conf * float(weights.get("confidence", 1.0)),
+                   float(effort) * float(weights.get("effort", 1.0)), cfg)
     final = rice_to_final(rc["rice_raw"], cfg)
 
     opp = opp_calc(float(proposal.get("importance", 0)),
@@ -126,6 +157,8 @@ def score_demand(proposal: dict, cfg: dict | None = None) -> dict:
 
     return {
         "rice": rc,
+        "rice_domain": domain,
+        "rice_weights": weights,
         "confidence": conf,
         "impact": imp,
         "opportunity_score": opp,
@@ -150,21 +183,7 @@ def _final_map(items: list, weights: dict | None, cfg: dict) -> dict:
     if weights is not None:
         use = json.loads(json.dumps(cfg))
         use["scoring"]["rice_weights"] = weights
-    out = {}
-    for it in items:
-        rw = use["scoring"]["rice_weights"]
-        conf = confidence_from_evidence(int(it.get("independent_source_count", 2)),
-                                        bool(it.get("has_internal_explicit", True)),
-                                        int(it.get("internal_mentions", 3)), use)
-        imp = impact_anchor(it.get("impact_label", "medium"), use)
-        # apply per-factor weights as multiplicative emphasis (weight 1.0 = neutral), then RICE.
-        rc = rice_calc(float(it.get("reach", 0)) * float(rw.get("reach", 1.0)),
-                       imp * float(rw.get("impact", 1.0)),
-                       conf * float(rw.get("confidence", 1.0)),
-                       (float(it.get("effort_weeks") or use["scoring"]["effort_tbd_default"]) *
-                        float(rw.get("effort", 1.0))), use)
-        out[it["id"]] = rice_to_final(rc["rice_raw"], use)
-    return out
+    return {item["id"]: score_demand(item, use)["final_score"] for item in items}
 
 
 def _kendall_tau_distance(order_a: list, order_b: list) -> float:

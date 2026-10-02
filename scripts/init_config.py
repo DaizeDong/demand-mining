@@ -67,6 +67,8 @@ demand-mining secrets:
 # everything unset deep-merges from lib.py:DEFAULT_CONFIG). Byte-stable across runs (E4).
 STARTER_PRIORITY = {
     "schema_version": 1,
+    "timezone": "UTC",
+    "privacy": {"raw_retention_days": 14, "pseudo_map_retention_days": 7},
     "focus_topics": ["activation friction", "competitor switch"],
     "scoring": {"min_score_to_push": 70, "flagship_score": 80},
     "push": {"channel": "discord-relay", "max_per_day": 5},
@@ -109,6 +111,12 @@ def detect_skill():
 
 
 def write(path, content, force):
+    scripts = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                           "skills", "demand-mining", "scripts")
+    if scripts not in sys.path:
+        sys.path.insert(0, scripts)
+    from data_safety import require_private
+    require_private(path)
     if os.path.exists(path) and not force:
         print("  SKIP (exists): %s" % path)
         return
@@ -135,6 +143,12 @@ def main():
     out = a.out or default_dir(skill)
     out = os.path.abspath(os.path.expanduser(out))
     slug = a.product
+    if slug and not __import__("re").fullmatch(r"[a-zA-Z0-9_-]+", slug):
+        raise ValueError("product slug must contain only letters, digits, hyphen or underscore")
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                  "skills", "demand-mining", "scripts"))
+    from data_safety import require_private
+    require_private(out)
 
     print("Init config for skill '%s' (mode %s) at %s" % (skill, a.mode, out))
     print("Discovery env var: %s  (fallback %s)" % (env_var(skill), default_dir(skill)))
@@ -150,8 +164,8 @@ def main():
 
     if slug:
         pd = os.path.join(out, "products", slug)
-        write(os.path.join(pd, "priority.json"), dumps(STARTER_PRIORITY), a.force)
-        write(os.path.join(pd, "taxonomy.json"), dumps(STARTER_TAXONOMY), a.force)
+        write(os.path.join(pd, "priority.json"), dumps(dict(STARTER_PRIORITY, product_id=slug)), a.force)
+        write(os.path.join(pd, "taxonomy.json"), dumps(dict(STARTER_TAXONOMY, slug=slug)), a.force)
 
     print("\nNext:")
     if not slug:

@@ -9,19 +9,26 @@
     "          NOT lifelike and does not need a generator; the risk it guards against is a person",
     "          reaching for a convenient REAL example, and there is no temptation to reach for a",
     "          real value that would look obviously wrong next to FAKE_CANARY_XYZ.)",
-    "DATA    = anything a REAL RUN produced. Never git-tracked. Lives in the private companion",
+    "DATA    = anything a REAL RUN produced. Versioned only in the PRIVATE companion. Lives in the private companion",
     "          config, resolved at runtime by tools/datadir.py. This repo ships only the schema.",
     "data_sealed = a path that HELD real data, was purged, and must stay dead.",
     "",
     "Enforced by tools/data_boundary.py in .githooks and in CI."
   ],
-  "_audited": "2026-07-20 (was 2026-07-13) -- re-swept. Programmatic writers still all resolve OUTSIDE the repo. BUT a fleet audit found three untracked real-run corpus artifacts in scripts/ from a manual `pull_discord.py --out corpus_today.json` (default output is stdout and safe; a relative --out lands in cwd=scripts/). They were undeclared and un-gitignored, so both structural gates were blind (pii_guard: redaction stripped every smellable token; data_boundary: undeclared path fires zero checks). Moved out to ~/.demand-mining-config/data/manual-corpus/, gitignored (scripts/corpus*.json + dump_*.txt), and the canonical output name sealed below so the gate hard-fails on any future `git add -f`. An empty data[] is still a CONCLUSION: this skill's programmatic writers write outside the repo; only manual --out could reintroduce DATA, now blocked on two layers.",
+  "_audited": "Real writers now validate actual destinations against a verified PRIVATE repository before corpus, pool, ledger, archive, receipt, run-state, cursor, daemon-log or backup writes. Explicit invalid configuration fails closed. Source data remains empty because each writer resolves outside the public consumer and cannot use a repository-local fallback.",
   "data": [],
   "data_sealed": [
     "skills/demand-mining/scripts/corpus_today.json",
     "skills/demand-mining/scripts/dump_general.txt",
     "skills/demand-mining/scripts/dump_lorestage-support.txt"
   ],
-  "fixture": [],
-  "_data_home": "~/.demand-mining-config/data/   (override with $DEMAND_MINING_DATA_DIR). If this skill ever needs to record real-run output, it goes THERE -- never back into this repo."
+  "fixture": [
+    "skills/demand-mining/tests/fixtures/repair_cases.json",
+    "skills/demand-mining/tests/fixtures/review21_cases.json",
+    "skills/demand-mining/tests/fixtures/review22_cases.json",
+    "skills/demand-mining/tests/fixtures/review23_cases.json",
+    "skills/demand-mining/tests/fixtures/review24_cases.json",
+    "skills/demand-mining/tests/fixtures/review25_cases.json"
+  ],
+  "_data_home": "PRIVATE companion pool/ by default, overridden by DEMAND_MINING_DATA_DIR; every actual destination is verified before writes. See docs/runtime-contract.md."
 }

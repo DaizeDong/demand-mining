@@ -20,9 +20,10 @@ This file is the authoritative config contract (config-spec E1). It is the canon
 2. `~/.demand-mining-config/`, dotfile-in-home fallback.
 3. `~/.config/demand-mining-config/`, XDG-style fallback (Linux/macOS).
 
-If none resolves, the skill runs on the built-in `lib.py:DEFAULT_CONFIG` and says so, config is
-optional, never a hard crash. Loaded config is **deep-merged over** `DEFAULT_CONFIG`, so you only need
-to write the keys you want to override.
+If none resolves, pure offline helpers can use `lib.py:DEFAULT_CONFIG`. Initialization,
+real collection and DATA writes require a configured, versioned PRIVATE companion and its
+verified visibility receipt. Explicit invalid overrides are errors and never fall through to
+defaults. Loaded tunables are **deep-merged over** `DEFAULT_CONFIG`.
 
 ## Layouts (two supported)
 
@@ -129,10 +130,15 @@ the config repo ever echoes a secret value. Secrets used by demand-mining:
 `lib.py:now_utc()` honours `$DEMAND_MINING_NOW` / `$SCHEDULE_NOW` (ISO-8601) so tests and replays are
 deterministic. Not a config field, an env override for reproducibility.
 
-## First-time setup (E3), succeeds on the first try
+## First-time setup (E3)
+
+Create or clone the private companion repository, configure its origin, and prepare the
+verified PRIVATE visibility receipt before running `init_config.py`. A plain directory is
+not sufficient. The exact destination and transport checks are documented in
+[Configuration and DATA](docs/runtime-contract.md#configuration-and-data).
 
 ```bash
-# 1. Stamp a conformant config skeleton (deterministic — E4):
+# 1. After preparing the private repository, stamp its config skeleton:
 python scripts/init_config.py            # -> ~/.demand-mining-config/
 #    add a starter product profile in one shot:
 python scripts/init_config.py --product acme-app
@@ -142,6 +148,7 @@ export DEMAND_MINING_CONFIG=~/.demand-mining-config
 
 # 3. Fill secrets + per-product priority.json, then confirm it is ready:
 python scripts/verify_config.py          # doctor: PASS/FAIL per check
+python skills/demand-mining/scripts/scheduled.py --preflight  # current interpreter and adapters
 ```
 
 ## Switching between two configs (hot-swap), E5

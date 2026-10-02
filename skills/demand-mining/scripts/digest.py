@@ -18,24 +18,24 @@ catch-up never double-sends. Catch-up backfill is bounded (an overslept laptop n
 """
 from __future__ import annotations
 
+import html
 import json
 import re
 import sys
 from datetime import timedelta
 from pathlib import Path
 
-from lib import find_config_dir, iso, load_config, now_utc, parse_ts
+from lib import find_config_dir, is_cut, iso, load_config, now_utc, parse_ts
+from data_safety import atomic_bytes, data_root, require_private
+from score import domain_factors, domain_factor_text
 
 CATCHUP_CAP = 30
 
 
 def resolve_archive_dir(explicit: str | None = None) -> Path:
     if explicit:
-        return Path(explicit).expanduser()
-    d = find_config_dir()
-    if d:
-        return d / "pool"
-    return Path.home() / ".demand-mining-config" / "pool"
+        return Path(require_private(explicit)["path"])
+    return data_root()
 
 
 # --------------------------------------------------------------------------- brainstorm structure
@@ -43,7 +43,7 @@ def resolve_archive_dir(explicit: str | None = None) -> Path:
 def _is_cut(c: dict) -> bool:
     """A Kano indifferent/reverse demand (or one already tiered 'cut') is noise, never an iteration
     direction. Mirrors iteration_queue's filter so cut noise leaks into NO surface (queue OR pools)."""
-    return c.get("tier") == "cut" or (c.get("kano") or "").lower() in ("indifferent", "reverse")
+    return is_cut(c)
 
 
 def split_pools(cards: list[dict], cfg: dict | None = None) -> dict:
@@ -61,12 +61,13 @@ def split_pools(cards: list[dict], cfg: dict | None = None) -> dict:
             continue
         kano = (c.get("kano") or "").lower()
         opp = float(c.get("opportunity_score", 0) or 0)
-        eff = float((c.get("rice") or {}).get("effort", 99) or 99)
-        conf = float((c.get("rice") or {}).get("confidence", 1.0) or 1.0)
-        impact = float((c.get("rice") or {}).get("impact", 1.0) or 1.0)
-        if opp >= opp_hi and eff <= eff_modest and kano in ("must_be", "performance", ""):
+        domain = domain_factors(c)
+        eff, conf, impact = domain["effort"], domain["confidence"], domain["impact"]
+        if (opp >= opp_hi and eff is not None and float(eff) <= eff_modest
+                and kano in ("must_be", "performance", "")):
             quick.append(c)
-        elif kano == "delighter" or (impact >= 2.0 and conf <= 0.5):
+        elif kano == "delighter" or (impact is not None and conf is not None
+                                    and float(impact) >= 2.0 and float(conf) <= 0.5):
             big.append(c)
         else:
             other.append(c)
@@ -101,6 +102,8 @@ def iteration_queue(cards: list[dict], cfg: dict | None = None) -> list[dict]:
             "rice": {"reach": rc.get("reach"), "impact": rc.get("impact"),
                      "confidence": rc.get("confidence"), "effort": rc.get("effort"),
                      "rice_raw": rc.get("rice_raw"), "final_score": c.get("final_score")},
+            "rice_domain": domain_factors(c),
+            "rice_weights": c.get("rice_weights"),
             "opportunity_score": c.get("opportunity_score"),
             "intensity": c.get("intensity"),
             "distinct_authors": c.get("distinct_author_count"),
@@ -114,6 +117,26 @@ def iteration_queue(cards: list[dict], cfg: dict | None = None) -> list[dict]:
 
 
 # --------------------------------------------------------------------------- markdown
+
+def _append_complete_records(lines, cards):
+    """Keep every redacted field, including nested evidence, in the private report."""
+    from redact import safe_data
+
+    tier_rank = {"tier0": 0, "tier1": 1, "tier2": 2, "backlog": 3}
+    records = sorted(safe_data(cards), key=lambda card: (
+        tier_rank.get(card.get("tier", "backlog"), 5),
+        -float(card.get("final_score", 0)), str(card.get("canonical_key", "")),
+        json.dumps(card, ensure_ascii=False, sort_keys=True)))
+    lines.extend(["## Complete demand records and evidence", ""])
+    for number, card in enumerate(records, 1):
+        title = re.sub(r"\s+", " ", str(card.get("title") or card.get("inferred_job") or "Demand")).strip()
+        title = re.sub(r"([\\`*_{}\[\]()>#+.!|~])", r"\\\1", html.escape(title, quote=False))
+        content = json.dumps(card, ensure_ascii=False, sort_keys=True, indent=2)
+        # A delimiter longer than any payload run keeps embedded markup inside
+        # a literal record while preserving the full nested data structure.
+        fence = "`" * max(3, 1 + max((len(run) for run in re.findall(r"`+", content)), default=0))
+        lines.extend([f"### {number}. {title}", "", fence + "json", content, fence, ""])
+
 
 def build_markdown(cards: list[dict], coverage: dict | None = None,
                    date: str | None = None, cfg: dict | None = None) -> str:
@@ -145,7 +168,8 @@ def build_markdown(cards: list[dict], coverage: dict | None = None,
         rc = q["rice"]
         lines.append(
             f"{q['order']}. **[{q['tier']}/{q['horizon']}] {q['demand']}**, "
-            f"final {rc['final_score']} · RICE(R={rc['reach']},I={rc['impact']},"
+            f"Domain factors: {domain_factor_text(q)} · "
+            f"final {rc['final_score']} · Weighted RICE(R={rc['reach']},I={rc['impact']},"
             f"C={rc['confidence']},E={rc['effort']})={rc['rice_raw']} · "
             f"Opp={q['opportunity_score']}(intensity {q['intensity']},"
             f"{q['distinct_authors']} 人) · WSJF={q['urgency_wsjf']} · "
@@ -164,6 +188,7 @@ def build_markdown(cards: list[dict], coverage: dict | None = None,
                          f"{c.get('title') or c.get('inferred_job','?')} "
                          f"(`{c.get('taxonomy_track', c.get('track','?'))}`, Kano={c.get('kano')})")
         lines.append("")
+    _append_complete_records(lines, actionable)
     return "\n".join(lines)
 
 
@@ -289,17 +314,21 @@ def write_digest_file(markdown: str, archive_dir: str | None = None,
                       date: str | None = None) -> Path:
     date = date or now_utc().date().isoformat()
     base = resolve_archive_dir(archive_dir) / "digests" / date[:4]
-    base.mkdir(parents=True, exist_ok=True)
     path = base / f"{date}.md"
-    path.write_text(markdown, encoding="utf-8", newline="\n")
+    from redact import safe_text
+    atomic_bytes(path, safe_text(markdown).encode("utf-8"))
     return path
 
 
-def register_digest_item(ledger, date: str | None = None, summary: str = "") -> dict:
+def register_digest_item(ledger, date: str | None = None, summary: str = "", identity=None) -> dict:
     date = date or now_utc().date().isoformat()
     key = f"demand-mining:digest:{date}"
     ext = {"x_demand_mining_digest_date": date, "x_demand_mining_digest_summary": summary[:200]}
-    args = ["--title", f"demand-mining digest {date}", "--kind", "event", "--state", "done",
+    if identity is not None:
+        from finalize import digest
+        key += ":" + digest(identity)[:20]
+        ext["x_demand_mining_identity"] = identity
+    args = ["--title", f"demand-mining digest {date}", "--kind", "task",
             "--source", "demand-mining", "--idempotency-key", key,
             "--ext", json.dumps(ext, ensure_ascii=False)]
     return ledger._run("add", args)
@@ -319,8 +348,8 @@ def missed_digest_dates(last_run, now=None, cap: int = CATCHUP_CAP,
         return [today.isoformat()]
     try:
         last_date = (parse_ts(last_run) + off).date()
-    except Exception:
-        return [today.isoformat()]
+    except (TypeError, ValueError) as exc:
+        raise ValueError("invalid digest watermark timestamp") from exc
     if last_date >= today:
         return []
     start = max(last_date + timedelta(days=1), today - timedelta(days=max(0, int(cap)) - 1))
@@ -335,10 +364,7 @@ def catch_up_digests(ledger, last_run, now=None, cap: int = CATCHUP_CAP,
                      tz_offset_h: float = 0.0) -> list[str]:
     dates = missed_digest_dates(last_run, now=now, cap=cap, tz_offset_h=tz_offset_h)
     for d in dates:
-        try:
-            register_digest_item(ledger, date=d, summary="catch-up")
-        except Exception:
-            pass
+        register_digest_item(ledger, date=d, summary="catch-up")
     return dates
 
 

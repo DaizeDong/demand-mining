@@ -1,39 +1,26 @@
-# cron-setup, scheduling the daily EOD run (Step 7)
+﻿# Scheduling the daily EOD run
 
-**Never `CronCreate`**, an in-session cron dies with the session (wrong primitive). The correct
-chain on Windows:
+Windows Task Scheduler invokes wrapper.ps1, which runs scheduled.py with the
+selected Python interpreter. The installed llmcall agent interface proposes
+candidates. Local code validates the handoff and owns artifact, receipt and
+watermark persistence. No separate provider CLI is needed.
 
-`Windows Task Scheduler (off-:00, e.g. 21:53 to avoid top-of-hour congestion) → wrapper.ps1
-(absolute python/claude paths + fail-fast preflight + non-zero exit → Discord relay alert) →
-claude -p '<run demand-mining EOD>'` (headless).
+Configure product_id and an IANA timezone before registration. Initialization
+chooses UTC explicitly. The wrapper and runner share the zone, so day boundaries
+and DST are independent of the host timezone. The scheduled source window ends
+at a frozen collection cutoff and resumes from the previous completed cutoff.
+Pending runs are resumed before starting a new day. Historical digest registration is
+not proof that missed source messages were collected.
 
-## Register the task
+Register with register-task.ps1 at an appropriate local trigger time after the
+config doctor and scheduled.py --preflight succeed. Registration is an explicit
+operator action; running a doctor never creates a task or sends a notification.
+The scheduled caller reports incomplete status through its exit code and private
+caller state. It does not issue a second message to report a failed send.
 
-```powershell
-# from the skill's scripts/ dir
-powershell -ExecutionPolicy Bypass -File register-task.ps1 -Time 21:53
-```
-
-`register-task.ps1` registers `DemandMiningEOD` at the chosen off-:00 time, pointing at
-`wrapper.ps1`. `wrapper.ps1` resolves absolute interpreter paths, preflights (config dir reachable?
-relay present? base DB writable?), runs the headless EOD, and on any non-zero exit pushes a Discord
-alert via the configured notifier so a silent failure is impossible.
-
-## Idempotency + catch-up
-
-The EOD digest is an idempotent schedule-reminder item (`idempotency_key=demand-mining:digest:<date>`)
-, a re-run / backfill never double-sends. After the machine sleeps, the next run uses
-`since=last_run_at-5min` + fingerprint UPSERT = at-least-once + dedupe. `digest.catch_up_digests`
-backfills the most-recent missed days, **bounded** (an overslept laptop never floods the channel).
-
-## Folding into an existing daily summary
-
-If the product already has a "每日总结" routine, expose the demand-mining EOD block to it (don't
-start a competing channel). Otherwise the skill pushes its own digest via the relay.
-
-## Deployment form
-
-Deploy as a plugin into the product root `.claude/` (mirrors auto-support), carrying
-`templates/settings.json.template` (`permissions.deny` + a PreToolUse hook). The privacy/secret
-boundary is enforced by the **deterministic layer** (permissions.deny + PreToolUse hook + stdlib
-guardrails in redact.py) **outside** the prompt, not by SKILL.md text promises.
+A confirmed adapter receipt, bound to the logical run and actual sent content,
+suppresses replay. An ambiguous send remains pending reconciliation without
+another automatic delivery. Backup retry uses the same saved handoff and receipt.
+A private index for inspection and path-limited commits preserve unrelated staged edits. Every Git
+result is checked. See docs/runtime-contract.md in the repository root for the
+handoff, destination, receipt and backup requirements.

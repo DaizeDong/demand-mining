@@ -55,3 +55,9 @@ Weights/thresholds/maps live in `priority.json` (change data, not code). The wei
 (`score.weight_regression_gate`) re-ranks a golden set under a proposed weight vector WITHOUT
 re-evaluating (the breakdown is persisted) and rules auto_pass / needs_review / block by Kendall-tau
 drift + push-floor churn. override budget ≤20%/day; golden-set drift >1 band pauses scoring.
+
+Production scoring applies scoring.rice_weights to reach, impact, confidence and effort before the shared RICE clamp. None effort uses the configured TBD default before weighting; explicit zero or negative effort reaches the minimum-effort clamp. Missing evidence uses the production unverified defaults. Weight previews call score_demand with the proposed configuration, so preview and emitted-card scores use the same formula and defaults. The stored RICE factors reflect the configured weighting.
+
+Cards retain unweighted `rice_domain` facts separately from `rice` (the weighted arithmetic) and the normalized `rice_weights` used for ranking. EOD pool classification and domain displays use only the unweighted facts. Unknown effort remains TBD for those decisions even though ranking uses its configured default; explicit zero or negative effort retains the declared trivial/already-built meaning while ranking clamps its denominator.
+
+Historical cards without `rice_domain` retain their stored rank, but their factors are unknown unless explicit provenance `rice_factor_semantics: unweighted` establishes the old factor meanings. Do not add that marker from a schema version or today's neutral configuration alone. Unknown history receives a re-score notice and is not inferred into a quick-win or impact/confidence big-bet pool. A known Kano delighter remains an independent big-bet reason.

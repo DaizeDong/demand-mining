@@ -1,0 +1,239 @@
+{
+  "products": [
+    "example-product",
+    "acme-alt"
+  ],
+  "timestamp": "2026-01-15T12:00:00Z",
+  "authors": [
+    "u_0000000000000001",
+    "u_0000000000000002",
+    "u_0000000000000003",
+    "u_0000000000000004",
+    "u_0000000000000005",
+    "u_0000000000000006",
+    "u_0000000000000007",
+    "u_0000000000000008"
+  ],
+  "new_key": "export-new",
+  "missing_key": "export-absent",
+  "rows": [
+    {
+      "canonical_key": "export-unknown",
+      "title": "Export preview",
+      "summary": "Show a preview before exporting the selected items.",
+      "status": "new",
+      "first_seen": "2026-01-15T12:00:00Z",
+      "last_seen": "2026-01-15T12:00:00Z",
+      "final_score": 25,
+      "authors": [
+        {
+          "author_hash": "u_0000000000000001"
+        }
+      ],
+      "evidence": [
+        {
+          "observation_id": "obs_0000000000000000000000000000000000000000000000000000000000000001",
+          "source_id": "obs_0000000000000000000000000000000000000000000000000000000000000065",
+          "channel": "feedback",
+          "origin_type": "internal",
+          "ts": "2026-01-15T12:00:00Z",
+          "redacted_snippet": "please add batch export",
+          "author_hash": null
+        }
+      ],
+      "observation_index": [
+        {
+          "observation_id": "obs_0000000000000000000000000000000000000000000000000000000000000001",
+          "source_id": "obs_0000000000000000000000000000000000000000000000000000000000000065",
+          "source": "feedback",
+          "origin_type": "internal",
+          "explicit": true,
+          "author_hash": null
+        }
+      ],
+      "reach": 1,
+      "internal_mentions": 0,
+      "observation_count": 1,
+      "independent_source_count": 1,
+      "source_set": [
+        "feedback"
+      ],
+      "metadata": {
+        "retained": "synthetic-history"
+      },
+      "product_id": "example-product"
+    },
+    {
+      "canonical_key": "export-unknown",
+      "title": "Export preview",
+      "summary": "Show a preview before exporting the selected items.",
+      "status": "new",
+      "first_seen": "2026-01-15T12:00:00Z",
+      "last_seen": "2026-01-15T12:00:00Z",
+      "final_score": 25,
+      "authors": [
+        {
+          "author_hash": "u_0000000000000001"
+        }
+      ],
+      "evidence": [
+        {
+          "observation_id": "obs_0000000000000000000000000000000000000000000000000000000000000002",
+          "source_id": "obs_0000000000000000000000000000000000000000000000000000000000000066",
+          "channel": "feedback",
+          "origin_type": "internal",
+          "ts": "2026-01-15T12:00:00Z",
+          "redacted_snippet": "please add batch export",
+          "author_hash": null
+        }
+      ],
+      "observation_index": [
+        {
+          "observation_id": "obs_0000000000000000000000000000000000000000000000000000000000000002",
+          "source_id": "obs_0000000000000000000000000000000000000000000000000000000000000066",
+          "source": "feedback",
+          "origin_type": "internal",
+          "explicit": true,
+          "author_hash": null
+        }
+      ],
+      "reach": 1,
+      "internal_mentions": 0,
+      "observation_count": 1,
+      "independent_source_count": 1,
+      "source_set": [
+        "feedback"
+      ],
+      "metadata": {
+        "retained": "synthetic-history"
+      },
+      "product_id": "acme-alt"
+    },
+    {
+      "canonical_key": "export-known",
+      "title": "Export preview",
+      "summary": "Show a preview before exporting the selected items.",
+      "status": "new",
+      "first_seen": "2026-01-15T12:00:00Z",
+      "last_seen": "2026-01-15T12:00:00Z",
+      "final_score": 25,
+      "authors": [
+        {
+          "author_hash": "u_0000000000000002"
+        }
+      ],
+      "evidence": [
+        {
+          "observation_id": "obs_0000000000000000000000000000000000000000000000000000000000000003",
+          "source_id": "obs_0000000000000000000000000000000000000000000000000000000000000067",
+          "channel": "feedback",
+          "origin_type": "internal",
+          "ts": "2026-01-15T12:00:00Z",
+          "redacted_snippet": "please add batch export",
+          "author_hash": "u_0000000000000002"
+        }
+      ],
+      "observation_index": [
+        {
+          "observation_id": "obs_0000000000000000000000000000000000000000000000000000000000000003",
+          "source_id": "obs_0000000000000000000000000000000000000000000000000000000000000067",
+          "source": "feedback",
+          "origin_type": "internal",
+          "explicit": true,
+          "author_hash": "u_0000000000000002"
+        }
+      ],
+      "reach": 1,
+      "internal_mentions": 1,
+      "observation_count": 1,
+      "independent_source_count": 1,
+      "source_set": [
+        "feedback"
+      ],
+      "metadata": {
+        "retained": "synthetic-history"
+      },
+      "product_id": "example-product"
+    },
+    {
+      "canonical_key": "export-legacy",
+      "title": "Export preview",
+      "summary": "Show a preview before exporting the selected items.",
+      "status": "new",
+      "first_seen": "2026-01-15T12:00:00Z",
+      "last_seen": "2026-01-15T12:00:00Z",
+      "final_score": 25,
+      "authors": [
+        {
+          "author_hash": "u_0000000000000001"
+        }
+      ],
+      "evidence": [
+        {
+          "observation_id": "obs_0000000000000000000000000000000000000000000000000000000000000004",
+          "source_id": "obs_0000000000000000000000000000000000000000000000000000000000000068",
+          "channel": "feedback",
+          "origin_type": "internal",
+          "ts": "2026-01-15T12:00:00Z",
+          "redacted_snippet": "please add batch export",
+          "author_hash": null
+        }
+      ],
+      "observation_index": [
+        {
+          "observation_id": "obs_0000000000000000000000000000000000000000000000000000000000000004",
+          "source_id": "obs_0000000000000000000000000000000000000000000000000000000000000068",
+          "source": "feedback",
+          "origin_type": "internal",
+          "explicit": true,
+          "author_hash": null
+        }
+      ],
+      "reach": 1,
+      "internal_mentions": 0,
+      "observation_count": 1,
+      "independent_source_count": 1,
+      "source_set": [
+        "feedback"
+      ],
+      "metadata": {
+        "retained": "synthetic-history"
+      }
+    }
+  ],
+  "aliases": [
+    "author_hash",
+    "author",
+    "user_id"
+  ],
+  "new_alias_locations": [
+    "root",
+    "metadata",
+    "evidence",
+    "observation_index",
+    "authors"
+  ],
+  "rescore_targets": [
+    "new",
+    "known",
+    "unknown"
+  ],
+  "invalid_ids": [
+    null,
+    "",
+    false,
+    7,
+    "observation-untyped",
+    "obs_short",
+    "obs_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+  ],
+  "unsupported_authors": [
+    false,
+    [],
+    {}
+  ],
+  "typed_ids": [
+    "obs_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "u_bbbbbbbbbbbbbbbb"
+  ]
+}

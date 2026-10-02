@@ -142,8 +142,10 @@ DEFAULT_CONFIG = {
 
 def find_config_dir() -> Path | None:
     p = os.environ.get(CONFIG_ENV)
-    if p and Path(p).expanduser().is_dir():
-        return Path(p).expanduser()
+    if p is not None:
+        if not p.strip() or not Path(p).expanduser().is_dir():
+            raise ValueError(f"{CONFIG_ENV} is not an existing config directory: {p}")
+        return Path(p).expanduser().resolve()
     for cand in CONFIG_FALLBACKS:
         d = Path(cand).expanduser()
         if d.is_dir():
@@ -167,14 +169,20 @@ def _product_dir(d: Path) -> Path | None:
     reg = d / "registry.json"
     if not reg.is_file():
         return None
-    try:
-        products = json.loads(reg.read_text(encoding="utf-8-sig")).get("products", [])
-    except Exception:
-        return None
+    products = json.loads(reg.read_text(encoding="utf-8-sig")).get("products", [])
+    selected = os.environ.get("DEMAND_MINING_PRODUCT")
     for p in products:
         slug_ = p.get("slug")
-        if slug_ and (d / "products" / slug_).is_dir():
-            return d / "products" / slug_
+        if selected and slug_ != selected:
+            continue
+        if not isinstance(slug_, str) or not re.fullmatch(r"[a-zA-Z0-9_-]+", slug_):
+            raise ValueError("registry product slug is invalid")
+        product = d / "products" / slug_
+        if not product.is_dir():
+            raise ValueError(f"product config directory is missing: {product}")
+        return product
+    if selected:
+        raise ValueError("DEMAND_MINING_PRODUCT is not registered")
     return None
 
 
@@ -189,13 +197,16 @@ def load_config(explicit_path: str | None = None) -> dict:
     def merge_file(p: Path):
         nonlocal out
         if p.is_file():
-            try:
-                out = _deep_merge(out, json.loads(p.read_text(encoding="utf-8-sig")))
-            except Exception:
-                pass
+            value = json.loads(p.read_text(encoding="utf-8-sig"))
+            if not isinstance(value, dict):
+                raise ValueError(f"config must be an object: {p}")
+            out = _deep_merge(out, value)
 
     if explicit_path:
-        merge_file(Path(explicit_path).expanduser())
+        path = Path(explicit_path).expanduser()
+        if not path.is_file():
+            raise ValueError(f"explicit config file is missing: {path}")
+        merge_file(path)
         return out
 
     d = find_config_dir()
@@ -213,8 +224,11 @@ def load_config(explicit_path: str | None = None) -> dict:
     if not flat:
         pd = _product_dir(d)
         if pd:
+            out["product_id"] = pd.name
             merge_file(pd / "priority.json")
             merge_file(pd / "taxonomy.json")
+    if os.environ.get("DEMAND_MINING_TIMEZONE"):
+        out["timezone"] = os.environ["DEMAND_MINING_TIMEZONE"]
     return out
 
 
@@ -418,6 +432,11 @@ def wsjf(user_business_value: float, time_criticality: float, risk_reduction: fl
 
 # --------------------------------------------------------------------------- time
 
+def is_cut(card: dict) -> bool:
+    """Use one CUT rule before headline capacity selection and during rendering."""
+    return card.get("tier") == "cut" or (card.get("kano") or "").lower() in ("indifferent", "reverse")
+
+
 def now_utc() -> datetime:
     """Clock seam: DEMAND_MINING_NOW / SCHEDULE_NOW override for deterministic tests/replay."""
     for var in ("DEMAND_MINING_NOW", "SCHEDULE_NOW"):
@@ -437,3 +456,119 @@ def parse_ts(s: str) -> datetime:
 
 def iso(dt: datetime) -> str:
     return dt.astimezone(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def observation_identity(source, author, timestamp, text):
+    """Stable fallback for a redacted observation without a platform message id."""
+    value = json.dumps([source, author, timestamp, text], ensure_ascii=False, separators=(",", ":"))
+    return "obs_" + hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def evidence_observation(item, default_author=None):
+    """Keep identity and count facts separately from the bounded display snippets."""
+    snippet = item.get("redacted_snippet")
+    source = item.get("channel") or item.get("source") or ""
+    origin = item.get("origin_type") or "internal"
+    source_id = item.get("source_id") or observation_identity(origin, source, "", "")
+    # An identified observation keeps unknown attribution through later merges.
+    author = item.get("author_hash") or (
+        None if item.get("observation_id") else default_author)
+    fact = {
+        "observation_id": item.get("observation_id") or observation_identity(
+            source_id, author, item.get("ts"), snippet),
+        "source_id": source_id, "source": source, "origin_type": origin,
+        "explicit": isinstance(snippet, str) and bool(snippet.strip()),
+    }
+    if author is not None:
+        fact["author_hash"] = author
+    return fact
+
+
+def merge_observations(*records, evidence_cap=None):
+    """Union replay-stable observations before deriving corroboration inputs.
+
+    Internal corroboration counts distinct authors, so repeated messages from one
+    person do not create the three-author confidence band. Legacy rows contribute
+    only the authors and evidence still present; missing history is not invented.
+    """
+    index, evidence, authors = {}, {}, {}
+
+    def add_fact(item):
+        item = dict(item)
+        if item.get("author_hash") is None:
+            item.pop("author_hash", None)
+        key = item["observation_id"]
+        previous = index.get(key)
+        if previous is not None:
+            if any(previous.get(field) != item.get(field)
+                   for field in ("source_id", "author_hash", "origin_type")):
+                raise ValueError("conflicting observation identity")
+            index[key] = {**previous, "explicit": bool(previous.get("explicit") or item.get("explicit"))}
+        else:
+            index[key] = dict(item)
+
+    for record in records:
+        supplied = {a["author_hash"]: dict(a) for a in record.get("authors", [])
+                    if isinstance(a, dict) and a.get("author_hash")}
+        # An index can cover new observations while legacy author records remain
+        # individually known. Retain those records across every subsequent rebuild.
+        for author, details in supplied.items():
+            authors.setdefault(author, details)
+        tracked = record.get("observation_index")
+        if tracked is not None:
+            for item in tracked:
+                add_fact(item)
+        default_author = next(iter(supplied)) if len(supplied) == 1 else None
+        for item in record.get("evidence", []) or []:
+            if not isinstance(item, dict):
+                raise ValueError("evidence must contain objects")
+            fact = evidence_observation(item, default_author)
+            key = fact["observation_id"]
+            add_fact(fact)
+            normalized = {**item, "observation_id": key, "source_id": fact["source_id"]}
+            if "author_hash" in fact:
+                normalized["author_hash"] = fact["author_hash"]
+            else:
+                normalized.pop("author_hash", None)
+            evidence.setdefault(key, normalized)
+        for fact in index.values():
+            author = fact.get("author_hash")
+            if author:
+                authors.setdefault(author, supplied.get(author, {"author_hash": author}))
+    facts = list(index.values())
+    internal = [item for item in facts if item.get("origin_type") == "internal"
+                and item.get("explicit")]
+    sources = {item["source_id"] for item in facts if item.get("source") and item.get("explicit")}
+    shown = list(evidence.values())
+    return {
+        "authors": list(authors.values()), "reach": len(authors),
+        "evidence": shown if evidence_cap is None else shown[:evidence_cap],
+        "observation_index": facts, "observation_count": len(facts),
+        "independent_source_count": len(sources),
+        "internal_mentions": len({item["author_hash"] for item in internal if item.get("author_hash")}),
+        "has_internal_explicit": bool(internal),
+        "new_mentions": len(facts),
+    }
+
+
+def observed_corroboration(evidence):
+    """Count source origins only when a complete observed evidence event is present."""
+    origins = {"internal": set(), "external": set()}
+    for item in evidence if isinstance(evidence, list) else []:
+        if not isinstance(item, dict):
+            continue
+        origin = item.get("origin_type") or "internal"
+        source = item.get("channel") or item.get("source")
+        snippet, timestamp = item.get("redacted_snippet"), item.get("ts")
+        if (not isinstance(origin, str) or origin not in origins
+                or not isinstance(source, str) or not source.strip()
+                or not isinstance(snippet, str) or not snippet.strip()
+                or not isinstance(timestamp, str)):
+            continue
+        try:
+            parse_ts(timestamp)
+        except (ValueError, TypeError, OverflowError):
+            continue
+        origins[origin].add(source)
+    return {"internal_count": len(origins["internal"]),
+            "external_origin_count": len(origins["external"])}

@@ -1,114 +1,24 @@
-﻿<#
-demand-mining headless EOD wrapper for the Windows Task Scheduler.
-
-ABSOLUTE python/claude paths (Task Scheduler PATH is minimal, a bare `python` half-runs and
-silently fails), fail-fast preflight, notify-on-abort. It does NOT use the in-session CronCreate
-tool (session-only = wrong primitive).
-
-Register once with register-task.ps1 (off-:00, e.g. 21:53). It invokes `claude -p` headless so the
-SKILL orchestration (redact -> read Discord sessions -> extract -> external lanes) runs, then the
-deterministic run.py disposes (score/dedup/gate/push/pool/digest/watermark).
-
-Env it sets for the run:
-  DEMAND_MINING_CONFIG   (if a companion repo path is given; carries secrets/pseudonym_hmac_salt)
-  (SCHEDULE_DB_PATH is NOT set here any more; store.py owns that default)
-#>
+﻿<# Scheduled EOD uses installed llmcall routing and the local deterministic finalizer. #>
 param(
   [string]$Python = "",
   [string]$ConfigDir = "",
-  [string]$LogDir = "$env:USERPROFILE\.demand-mining-logs"
+  [string]$LogDir = ""
 )
 $ErrorActionPreference = "Stop"
-# PS 5.1 的 Tee-Object 和 *>> / 2>> 重定向默认写 UTF-16LE，日志因此变成 grep 搜不到的
-# 形态：不报错、不显示乱码，只是永远零命中。这一行同时把两者改成 UTF-8（实测有效）。
-$PSDefaultParameterValues["Out-File:Encoding"] = "utf8"
-
-function Resolve-Python {
-  param([string]$p)
-  if ($p -and (Test-Path $p)) { return $p }
-  $c = (Get-Command python -ErrorAction SilentlyContinue)
-  if ($c) { return $c.Source }
-  throw "python not found; pass -Python <abs path>"
-}
-
-function Notify-Abort {
-  param([string]$msg)
-  $relay = if ($env:DEMAND_MINING_RELAY) { $env:DEMAND_MINING_RELAY } else { "$env:USERPROFILE\.local\relay.py" }
-  if (Test-Path $relay) {
-    try { & $script:py $relay "[demand-mining] ABORT: $msg" | Out-Null } catch {}
+$env:GIT_OPTIONAL_LOCKS = '0'
+if ($Python) {
+  if (-not (Test-Path -LiteralPath $Python -PathType Leaf)) {
+    throw "Python executable not found: $Python"
   }
+} else {
+  $command = Get-Command python -ErrorAction Stop
+  $Python = $command.Source
 }
-
-try {
-  $script:py = Resolve-Python $Python
-  New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
-  $stamp = Get-Date -Format "yyyy-MM-dd"
-  $log = Join-Path $LogDir "eod-$stamp.log"
-
-  $claude = (Get-Command claude -ErrorAction SilentlyContinue)
-  if (-not $claude) { Notify-Abort "claude CLI not on PATH"; throw "claude CLI missing" }
-
-  if ($ConfigDir) { $env:DEMAND_MINING_CONFIG = $ConfigDir }
-  # SCHEDULE_DB_PATH is deliberately NOT set here (removed 2026-08-20). See the matching note
-  # in daily-hotspots/scripts/wrapper.ps1: this override forked the reminder store into a second
-  # sqlite nobody reads. store.py default_db_path() already points at the main pool on local
-  # NTFS, so letting it decide keeps a single authority. Do not hardcode the main pool here.
-
-  "[$(Get-Date -Format o)] demand-mining EOD start (py=$script:py)" | Tee-Object -FilePath $log -Append
-  # Skill orchestration goes through the resilient runner: cc (a hosted gateway) -> claude-direct
-  # (claude.ai subscription, gateway env unset, independent of the gateway) + retry (gateway 530s recover) +
-  # notify. A single dead transport no longer fails the run. The runner owns the native-stderr
-  # ErrorActionPreference dance internally, so it is NOT needed here.
-  $prompt = "Run the demand-mining skill EOD now: redact + read today's Discord demand signals, recover intent + JTBD, dedup into the need pool, score the three axes, brainstorm Quick-win/Big-bet iteration directions, deliver the ranked headlines digest to Discord, and archive. Write ALL delivered output (digest, headlines, demand titles and summaries) in ENGLISH; this product's community is English-speaking."
-  $runner = if ($env:DEMAND_MINING_AGENT_RUNNER) { $env:DEMAND_MINING_AGENT_RUNNER } else { "$env:USERPROFILE\.local\agent-runner.ps1" }
-  # -NoCodex is LOAD-BEARING (2026-08-06). This EOD is an AGENTIC run: it must reach Discord over the
-  # network and write OUTSIDE its own cwd (demand-mining-config/pool + the schedule-reminder sqlite).
-  # The runner's codex transport is a fixed `codex exec -s workspace-write`, whose sandbox denies both:
-  # the agent reported `WinError 10061` for Discord and `OperationalError` for the ledger, staged the
-  # digest into %TEMP%\demand-mining-staging instead of pool/digests, and still exited 0. rc=0 with no
-  # digest is invisible to the exit-code check; only the artifact-freshness gate caught it (48h stale).
-  # claude-direct runs unsandboxed under this wrapper's own permissions, which is what the skill needs.
-  # Run from the config dir before launching the agent, so any state the run scopes to the current
-  # directory is created alongside this skill's own config rather than under the launcher's default cwd.
-  if ($ConfigDir) { Set-Location -LiteralPath $ConfigDir }
-  & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $runner -Prompt $prompt -Log $log -Stream "demand-mining" -NoCodex
-  $rc = $LASTEXITCODE
-  "[$(Get-Date -Format o)] demand-mining EOD end rc=$rc" | Tee-Object -FilePath $log -Append
-  if ($rc -ne 0) { Notify-Abort "EOD agent failed rc=$rc (cc + claude-direct both; see $log)" }
-
-  # ---- commit + push the day's demand pool + digest to the PRIVATE companion repo ----
-  # Best-effort durability/sync of the private archive (the demand pool is DATA, it lives ONLY in the
-  # private companion repo, never a public tree). A push failure must NOT fail the run (the headlines
-  # already delivered). origin is the ssh-alias remote (git@daizedong:) for unattended auth;
-  # --rebase --autostash absorbs drift. Only pool/ is committed, other local changes stay the user's,
-  # and secrets/ is .gitignored so it is never staged.
-  if ($rc -eq 0 -and $ConfigDir -and (Test-Path (Join-Path $ConfigDir '.git'))) {
-    try {
-      Push-Location $ConfigDir
-      $ErrorActionPreference = 'Continue'
-      & git add pool/ *>> $log
-      & git diff --cached --quiet
-      if ($LASTEXITCODE -ne 0) {
-        & git commit -m "data: demand pool + digest $(Get-Date -Format 'yyyy-MM-dd')" *>> $log
-        & git pull --rebase --autostash origin master *>> $log
-        & git push origin master *>> $log
-        $pushRc = $LASTEXITCODE
-        "[$(Get-Date -Format o)] archive push rc=$pushRc" | Tee-Object -FilePath $log -Append
-        if ($pushRc -ne 0) { Notify-Abort "archive push failed rc=$pushRc (pool backup may lag; see $log)" }
-      } else {
-        "[$(Get-Date -Format o)] archive: nothing to commit" | Tee-Object -FilePath $log -Append
-      }
-      $ErrorActionPreference = 'Stop'
-      Pop-Location
-    } catch {
-      $ErrorActionPreference = 'Stop'
-      try { Pop-Location } catch {}
-      "[$(Get-Date -Format o)] archive push exception: $($_.Exception.Message)" | Tee-Object -FilePath $log -Append
-    }
-  }
-  exit $rc
-}
-catch {
-  Notify-Abort $_.Exception.Message
-  throw
-}
+$caller = Join-Path $PSScriptRoot 'scheduled.py'
+$arguments = @('-X', 'utf8', '-B', $caller)
+if ($ConfigDir) { $arguments += @('--config-dir', $ConfigDir) }
+if ($LogDir) { $arguments += @('--log-dir', $LogDir) }
+& $Python @arguments
+$rc = $LASTEXITCODE
+if ($rc -ne 0) { Write-Error "demand-mining EOD incomplete (exit $rc); inspect the private caller state" -ErrorAction Continue }
+exit $rc

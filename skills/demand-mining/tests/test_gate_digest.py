@@ -76,6 +76,7 @@ def test_split_pools_quickwin_bigbet():
     qw = _card(score=80)
     qw["opportunity_score"] = 15
     qw["rice"] = {"reach": 5, "impact": 2, "confidence": 1.0, "effort": 2, "rice_raw": 5}
+    qw["rice_factor_semantics"] = "unweighted"
     qw["kano"] = "performance"
     bb = _card(score=70)
     bb["kano"] = "delighter"

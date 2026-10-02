@@ -1,0 +1,172 @@
+{
+  "text": "Please add CSV export retries.",
+  "authors": [
+    "u_1111111111111111",
+    "u_2222222222222222",
+    "u_3333333333333333",
+    "u_4444444444444444"
+  ],
+  "observations": [
+    {
+      "id": "synthetic-message-0",
+      "author": "u_1111111111111111",
+      "channel": "feedback",
+      "text": "Please add CSV export retries.",
+      "ts": "2026-01-15T12:00:00Z"
+    },
+    {
+      "id": "synthetic-message-1",
+      "author": "u_2222222222222222",
+      "channel": "feedback",
+      "text": "Please add CSV export retries.",
+      "ts": "2026-01-15T12:00:00Z"
+    },
+    {
+      "id": "synthetic-message-2",
+      "author": "u_3333333333333333",
+      "channel": "feedback",
+      "text": "Please add CSV export retries.",
+      "ts": "2026-01-15T12:00:00Z"
+    },
+    {
+      "id": "synthetic-message-3",
+      "author": "u_4444444444444444",
+      "channel": "support",
+      "text": "Please add CSV export retries.",
+      "ts": "2026-01-15T12:00:00Z"
+    },
+    {
+      "id": "synthetic-message-4",
+      "author": "u_1111111111111111",
+      "channel": "support",
+      "text": "Please add CSV export retries.",
+      "ts": "2026-01-15T12:00:00Z"
+    },
+    {
+      "id": "synthetic-message-5",
+      "author": "u_2222222222222222",
+      "channel": "support",
+      "text": "Please add CSV export retries.",
+      "ts": "2026-01-15T12:00:00Z"
+    },
+    {
+      "id": "synthetic-message-6",
+      "author": "u_3333333333333333",
+      "channel": "support",
+      "text": "Please add CSV export retries.",
+      "ts": "2026-01-15T12:00:00Z"
+    },
+    {
+      "id": "synthetic-message-7",
+      "author": "u_4444444444444444",
+      "channel": "support",
+      "text": "Please add CSV export retries.",
+      "ts": "2026-01-15T12:00:00Z"
+    },
+    {
+      "id": "synthetic-message-8",
+      "author": "u_1111111111111111",
+      "channel": "support",
+      "text": "Please add CSV export retries.",
+      "ts": "2026-01-15T12:00:00Z"
+    },
+    {
+      "id": "synthetic-message-9",
+      "author": "u_2222222222222222",
+      "channel": "support",
+      "text": "Please add CSV export retries.",
+      "ts": "2026-01-15T12:00:00Z"
+    },
+    {
+      "id": "synthetic-message-10",
+      "author": "u_3333333333333333",
+      "channel": "support",
+      "text": "Please add CSV export retries.",
+      "ts": "2026-01-15T12:00:00Z"
+    },
+    {
+      "id": "synthetic-message-11",
+      "author": "u_4444444444444444",
+      "channel": "support",
+      "text": "Please add CSV export retries.",
+      "ts": "2026-01-15T12:00:00Z"
+    }
+  ],
+  "verdict": {
+    "i": 0,
+    "is_demand": true,
+    "confidence": 0.6,
+    "title": "csv export",
+    "track": "integrations",
+    "kano": "performance",
+    "why": "retry incomplete exports"
+  },
+  "candidate": {
+    "title": "reliable csv export",
+    "summary": "retry incomplete exports",
+    "inferred_job": "export reports reliably",
+    "track": "integrations",
+    "evidence": [
+      {
+        "channel": "feedback",
+        "redacted_snippet": "Please add CSV export retries.",
+        "origin_type": "external",
+        "ts": "2026-01-15T12:00:00Z"
+      }
+    ],
+    "authors": [
+      {
+        "author_hash": "u_invented"
+      }
+    ],
+    "reach": 500,
+    "impact_label": "high",
+    "effort_weeks": 0.5,
+    "independent_source_count": 5,
+    "has_internal_explicit": true,
+    "importance": 9,
+    "satisfaction": 2,
+    "kano": "performance",
+    "user_business_value": 8,
+    "time_criticality": 7,
+    "risk_reduction": 5,
+    "job_size": 2,
+    "why": "exports fail",
+    "recommendation": "add retries",
+    "internal_mentions": 99
+  },
+  "product": "example-product",
+  "invalid_snippets": [
+    null,
+    "",
+    " ",
+    "\t\n",
+    7,
+    [
+      "synthetic"
+    ],
+    {
+      "text": "synthetic"
+    }
+  ],
+  "bad_scores": [
+    null,
+    "",
+    "not-a-number",
+    [],
+    {}
+  ],
+  "score_axes": [
+    "rice",
+    "rice_domain",
+    "rice_weights",
+    "opportunity_score",
+    "urgency_wsjf",
+    "final_score",
+    "grade",
+    "tier",
+    "tier_reason"
+  ],
+  "dedup_words": "export retry scheduling reporting caching streaming pagination notifications serialization validation ordering progress receipts history",
+  "legacy_provenance": "unweighted"
+}

@@ -3,6 +3,8 @@
 redacted + author-pseudonymized first.
 """
 import asyncio
+import json
+from pathlib import Path
 import types
 from unittest import mock
 
@@ -31,7 +33,10 @@ def _aiter(items):
 def bot():
     # discord.Client.user is a read-only property; patch it on the class for the test's lifetime.
     with mock.patch.object(b.DemandBot, "user", types.SimpleNamespace(id=999)):
-        yield b.DemandBot.__new__(b.DemandBot)
+        bot = b.DemandBot.__new__(b.DemandBot)
+        cases = json.loads((Path(__file__).parent / "fixtures/repair_cases.json").read_text(encoding="utf-8"))
+        bot.cfg = {"product_id": cases["review16"]["products"][0], "timezone": "UTC"}
+        yield bot
 
 
 def test_gen_reply_threads_context_into_the_prompt(monkeypatch):

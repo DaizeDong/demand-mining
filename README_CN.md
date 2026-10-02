@@ -4,9 +4,9 @@
 
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-orange?style=flat)](https://docs.anthropic.com/en/docs/claude-code)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/status-v0.7.0%20live%20daemon%20%28shadow%29-green?style=flat)](ROADMAP.md)
+[![Status](https://img.shields.io/badge/status-v0.7.1%20live%20daemon%20%28shadow%29-green?style=flat)](ROADMAP.md)
 [![Languages](https://img.shields.io/badge/Languages-EN%20%2F%20CN-blue?style=flat)](#languages)
-[![Roadmap](https://img.shields.io/badge/Roadmap-v0.7.0-purple?style=flat)](ROADMAP.md)
+[![Roadmap](https://img.shields.io/badge/Roadmap-v0.7.1-purple?style=flat)](ROADMAP.md)
 
 [English](README.md) | [中文版](README_CN.md)
 
@@ -97,11 +97,12 @@ A 78 · RICE=9 · 3证据
 
 `demand-mining` 是**带 config 的 skill**, 每产品的可调参数(RICE 权重、阈值、Kano 映射、taxonomy、
 推送上限)与密钥(假名 HMAC salt、Discord 凭证)都放在一个**独立、私有**的伴随 config 仓里。完整规范见
-[CONFIG.md](CONFIG.md)。缺失则回落内置 `scripts/lib.py:DEFAULT_CONFIG`。
+[CONFIG.md](CONFIG.md)。纯离线函数可以使用内置默认值；真实采集、初始化和写入都需要先准备好私有仓。
 
 - **挂载(发现顺序):** `$DEMAND_MINING_CONFIG` → `~/.demand-mining-config/` →
-  `~/.config/demand-mining-config/`。命中第一个即用;都没有则跑默认值。
-- **首次配置:**
+  `~/.config/demand-mining-config/`。使用第一个已存在的目录；默认值仅供纯离线函数使用，不能据此开始真实运行或写入 DATA。
+- **首次配置:** 先创建或克隆私有伴生仓，配置 origin，并准备已核验为 PRIVATE 的可见性记录，再运行初始化命令。
+  普通的未纳入版本管理的目录不满足要求。详见 [Configuration and DATA](docs/runtime-contract.md#configuration-and-data)。
   ```bash
   python scripts/init_config.py --product <slug>  # 生成骨架(确定性)
   export DEMAND_MINING_CONFIG=~/.demand-mining-config                   # 或给 init 传 --out <dir>

@@ -18,18 +18,32 @@ The Discord token is NEVER read or echoed here, the relay owns the token; this s
 from __future__ import annotations
 
 import json
+import hashlib
+from contextlib import contextmanager
+from contextvars import ContextVar
 import os
 import shlex
 import subprocess
 import sys
 from pathlib import Path
 
-from redact import has_pii
+from redact import has_pii, safe_text, PrivacyReviewRequired
+from score import domain_factor_text
 
 EMBED_TOTAL, FIELD_VALUE, MAX_FIELDS, MAX_EMBEDS, CONTENT_MAX = 6000, 1024, 25, 10, 2000
 _TIER_COLOR = {"tier0": 0xE74C3C, "tier1": 0xE67E22, "tier2": 0x3498DB,
                "backlog": 0x95A5A6, "cut": 0x7F8C8D}
 _DLP_FIELDS = ("title", "summary", "inferred_job", "why", "action", "recommendation")
+_DELIVERY_IDENTITY = ContextVar("demand_delivery_identity", default=None)
+
+
+@contextmanager
+def delivery_context(identity):
+    token = _DELIVERY_IDENTITY.set(identity)
+    try:
+        yield
+    finally:
+        _DELIVERY_IDENTITY.reset(token)
 
 
 def dlp_scan(card: dict) -> list[str]:
@@ -55,7 +69,9 @@ def build_embed(card: dict, update: bool = False) -> dict:
     if card.get("action"):
         desc.append("**行动:** " + card["action"])
     fields = [
-        {"name": "RICE", "value": str(card.get("final_score"))[:FIELD_VALUE], "inline": True},
+        {"name": "Weighted RICE",
+         "value": f"{rc.get('rice_raw')} -> final {card.get('final_score')}"[:FIELD_VALUE], "inline": True},
+        {"name": "Domain factors", "value": domain_factor_text(card)[:FIELD_VALUE], "inline": False},
         {"name": "Opportunity", "value": str(card.get("opportunity_score"))[:FIELD_VALUE], "inline": True},
         {"name": "WSJF", "value": str(card.get("urgency_wsjf"))[:FIELD_VALUE], "inline": True},
         {"name": "Kano", "value": str(card.get("kano"))[:FIELD_VALUE], "inline": True},
@@ -91,8 +107,9 @@ def render_text(card: dict, update: bool = False) -> str:
         f"({card.get('grade')} {card.get('final_score')})",
         f"tier: {card.get('tier')} | track: {card.get('taxonomy_track', card.get('track'))} | "
         f"Kano: {card.get('kano')}",
-        f"RICE: R={rc.get('reach')} I={rc.get('impact')} C={rc.get('confidence')} "
-        f"E={rc.get('effort')} -> {card.get('final_score')}",
+        f"Domain factors: {domain_factor_text(card)}",
+        f"Weighted RICE: R={rc.get('reach')} I={rc.get('impact')} C={rc.get('confidence')} "
+        f"E={rc.get('effort')} = {rc.get('rice_raw')} -> final {card.get('final_score')}",
         f"Opportunity={card.get('opportunity_score')} (intensity {card.get('intensity')}, "
         f"{card.get('distinct_author_count',0)} 人) | WSJF={card.get('urgency_wsjf')}",
     ]
@@ -135,11 +152,36 @@ def deliver(message: str, dry_run: bool = False) -> tuple[bool, str]:
     if dry_run or os.environ.get("DEMAND_MINING_DRYRUN"):
         return (True, f"[dry-run] would deliver {len(message)} chars")
     try:
+        child_env = dict(os.environ, GIT_OPTIONAL_LOCKS="0")
+        identity = _DELIVERY_IDENTITY.get()
+        if identity is not None:
+            child_env["DEMAND_MINING_DELIVERY_IDENTITY"] = json.dumps(identity, sort_keys=True)
+        child_env["DEMAND_MINING_DELIVERY_CONTENT_SHA256"] = hashlib.sha256(message.encode("utf-8")).hexdigest()
         proc = subprocess.run(_relay_cmd() + [message], capture_output=True, text=True,
-                              encoding="utf-8", errors="replace", timeout=30)
-        return (proc.returncode == 0, f"rc={proc.returncode} ({len(message)} chars)")
+                              encoding="utf-8", errors="replace", timeout=30,
+                              env=child_env)
+        content_hash = hashlib.sha256(message.encode("utf-8")).hexdigest()
+        if proc.returncode != 0:
+            return False, {"status": "unknown", "adapter_exit": proc.returncode,
+                           "content_sha256": content_hash}
+        try:
+            receipt = json.loads(proc.stdout)
+        except (ValueError, TypeError):
+            return False, {"status": "unknown", "reason": "adapter returned no JSON receipt",
+                           "content_sha256": content_hash}
+        if not isinstance(receipt, dict):
+            return False, {"status": "unknown", "reason": "adapter receipt is not an object"}
+        # A native Discord response includes the actual ID and sent content.
+        if receipt.get("id") and receipt.get("content") == message:
+            receipt = {"status": "confirmed", "message_id": str(receipt["id"]),
+                       "content_sha256": content_hash}
+            if identity is not None:
+                receipt["identity"] = identity
+        confirmed = (receipt.get("status") == "confirmed" and receipt.get("message_id") and
+                     receipt.get("content_sha256") == content_hash)
+        return bool(confirmed), receipt
     except Exception as e:
-        return (False, f"deliver error: {e!r}")
+        return False, {"status": "unknown", "error_type": type(e).__name__}
 
 
 def push_card(card: dict, update: bool = False, dry_run: bool = False) -> dict:
