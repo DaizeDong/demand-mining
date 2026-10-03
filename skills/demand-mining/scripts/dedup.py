@@ -341,7 +341,7 @@ class LedgerClient:
 
     def __init__(self, cmd=None, db_path=None, actor=SOURCE, product_id=None):
         self.cmd = self._resolve_cmd(cmd)
-        self.db_path = db_path or os.environ.get("SCHEDULE_DB_PATH")
+        self.db_path = db_path if db_path is not None else os.environ.get("SCHEDULE_DB_PATH")
         self.actor = actor
         self.product_id = product_id
 
@@ -361,14 +361,15 @@ class LedgerClient:
         return [sys.executable, str(probe)]
 
     def _run(self, verb, args):
+        from data_safety import require_private
+        if not self.db_path:
+            raise ValueError("ledger requires an existing PRIVATE shared store; set SCHEDULE_DB_PATH")
+        admission = require_private(self.db_path)
+        database = Path(admission["path"])
+        if not database.is_file() or database.stat().st_size == 0:
+            raise ValueError("ledger requires an existing shared database; initialize it with schedule-reminder first")
         base = list(self.cmd)
-        if verb not in {"list", "get", "show", "health", "doctor"}:
-            from data_safety import require_private
-            if not self.db_path:
-                raise ValueError("ledger DATA destination is unproven; set SCHEDULE_DB_PATH to the existing PRIVATE shared store")
-            require_private(self.db_path)
-        if self.db_path:
-            base += ["--db", self.db_path]
+        base += ["--db", str(database)]
         base += ["--actor", self.actor, verb] + args
         proc = subprocess.run(base, capture_output=True, text=True, encoding="utf-8",
                               errors="replace", timeout=60, env=dict(os.environ, GIT_OPTIONAL_LOCKS="0"))

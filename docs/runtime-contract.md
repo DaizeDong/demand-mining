@@ -31,6 +31,8 @@ callers needing an independent collection declare its window and identity.
 
 Every persisted output must resolve to a Git repository with origin visibility
 PRIVATE in the operator's verified local `~/.pii-guard/visibility.json` receipt.
+The pinned Guards `prove_private_companion` API validates the complete transport
+and requires a fresh `_refreshed` timestamp in that receipt.
 PUBLIC, unknown and unmanaged destinations are rejected with the actual path.
 The local visibility receipt format identifies canonical GitHub remotes; an
 unresolved SSH alias or another host is not inferred to have that identity. Every
@@ -52,9 +54,15 @@ the Git launcher requires that current admission proof.
 
 This applies to explicit archive/corpus/log paths, daemon output, run state,
 receipts and the existing shared ledger. `SCHEDULE_DB_PATH` or `ledger.db_path`
-must identify that existing private shared store; no second database is silently
-created. The tool does not query or change repository visibility automatically.
+must identify an existing, nonempty private shared store. Initialize that store
+explicitly with schedule-reminder before attaching Demand; every ledger operation,
+including reads and `init`, refuses a missing or empty database. No second
+database is silently created. The tool does not query or change repository visibility automatically.
 Explicit invalid config or DATA overrides never fall through to home defaults.
+The nearest Git boundary owns a destination, including a nested private repository.
+A malformed or aliased boundary cannot fall back to an outer private repository.
+Runtime destinations refuse symbolic links, junctions and hardlinked files. Atomic
+writes recheck the current proof immediately before replacing their destination.
 
 Initialize the private companion repository and its visibility receipt before
 running `scripts/init_config.py`. Real DATA is versioned in that private repo.

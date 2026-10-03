@@ -2,6 +2,9 @@
 import ast
 import copy
 import json
+import importlib.util
+import datetime
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -23,24 +26,42 @@ REVIEW = CASES["review15"]
 def transport(tmp_path, monkeypatch):
     root = tmp_path / "companion"
     root.mkdir()
+    profile = tmp_path / "profile"
+    profile.mkdir()
+    for key in list(os.environ):
+        if key.upper().startswith("GIT_"):
+            monkeypatch.delenv(key, raising=False)
+    monkeypatch.setenv("HOME", str(profile))
+    monkeypatch.setenv("USERPROFILE", str(profile))
+    if os.name == "nt":
+        monkeypatch.setenv("ProgramData", str(profile / "program-data"))
+        import ctypes
+        def profile_folder(window, folder, token, flags, buffer):
+            buffer.value = str(profile)
+            return 0
+        monkeypatch.setattr(ctypes.windll.shell32, "SHGetFolderPathW", profile_folder)
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", os.devnull)
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+    clean_env = dict(os.environ)
+    subprocess.run(["git", "-C", str(root), "init", "-q"], check=True, capture_output=True)
+    base_config = (root / ".git/config").read_bytes()
     state = {"url": REVIEW["transport"][0]["url"], "config": [], "calls": []}
+    receipt = profile / "visibility.json"
+    receipt.write_text(json.dumps({"_refreshed": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "example/demand-mining-config": "PRIVATE", "example/other-config": "PRIVATE"}), encoding="utf-8")
+    api = data_safety._guard_api()
 
-    def git(directory, *args, **kwargs):
-        state["calls"].append(args)
-        if args == ("rev-parse", "--show-toplevel"):
-            output = str(root)
-        elif args[0] == "config":
-            output = "".join(key + ("\n" + value if value is not None else "") + "\0"
-                             for key, value in state["config"])
-        elif args[:2] == ("remote", "get-url"):
-            output = state.get("push", state["url"]) if "--push" in args else state["url"]
-        else:
-            raise AssertionError("unexpected synthetic Git command")
-        return subprocess.CompletedProcess(["git", *args], 0, stdout=output, stderr="")
+    def companion(directory):
+        (root / ".git/config").write_bytes(base_config)
+        entries = [("remote.origin.url", state["url"]), *state["config"]]
+        if "push" in state:
+            entries.append(("remote.origin.pushurl", state["push"]))
+        for key, value in entries:
+            subprocess.run(["git", "-C", str(root), "config", "--add", key, value or ""],
+                           env=clean_env, check=True, capture_output=True)
+        return api.prove_private_companion(directory, visibility_map=receipt)
 
-    monkeypatch.setattr(data_safety, "git", git)
-    monkeypatch.setattr(data_safety, "_visibility", lambda repo: "PRIVATE")
-    monkeypatch.setattr(data_safety, "_verify_ssh_transport", lambda: None, raising=False)
+    monkeypatch.setattr(data_safety, "_companion_proof", companion)
     return root, state
 
 
@@ -165,11 +186,14 @@ def _bot_namespace():
     tree = ast.parse(path.read_text(encoding="utf-8"))
     selected = [node for node in tree.body if (
         isinstance(node, ast.ClassDef) and node.name == "DemandBot"
-        or isinstance(node, ast.FunctionDef) and node.name == "_demand_from_verdict")]
+        or isinstance(node, ast.FunctionDef) and node.name in {
+            "_demand_from_verdict", "_message_observation"})]
     future = ast.ImportFrom(module="__future__", names=[ast.alias(name="annotations")], level=0)
     scope = {"discord": types.SimpleNamespace(Client=object), "re": re, "_SIGNAL": re.compile("export"),
              "safe_text": redact.safe_text, "safe_data": redact.safe_data,
-             "canonical_key": lib.canonical_key, "iso": lib.iso, "now_utc": lib.now_utc}
+             "canonical_key": lib.canonical_key, "iso": lib.iso, "now_utc": lib.now_utc,
+             "merge_observations": lib.merge_observations,
+             "observation_identity": lib.observation_identity, "pseudonymize": redact.pseudonymize}
     exec(compile(ast.fix_missing_locations(ast.Module(body=[future, *selected], type_ignores=[])),
                  str(path), "exec"), scope)
     return scope
@@ -286,13 +310,17 @@ def test_permitted_transports_keep_nonrouting_configuration(transport, transport
 
 @pytest.mark.parametrize("change", [False, True], ids=["healthy", "changed-before-push"])
 def test_backup_uses_current_transport_proof_at_actual_launcher(tmp_path, monkeypatch, change):
-    import backup
+    spec = importlib.util.spec_from_file_location("_review15_backup", Path(data_safety.__file__).with_name("backup.py"))
+    backup = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(backup)
     root = tmp_path / "companion"
     root.mkdir()
+    (root / ".git").mkdir()
     record = root / "record.json"
     record.write_text(json.dumps(REVIEW["backup_record"]), encoding="utf-8")
     state = {"config": "", "pushes": 0}
-    monkeypatch.setattr(data_safety, "_visibility", lambda repository: "PRIVATE")
+    monkeypatch.setattr(data_safety, "_companion_proof", lambda directory: types.SimpleNamespace(
+        root=str(root), repositories=("example/demand-mining-config",), signature=state["config"]))
 
     def child(argv, **kwargs):
         args = argv[3:]

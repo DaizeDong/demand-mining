@@ -28,7 +28,13 @@
     "skills/demand-mining/tests/fixtures/review22_cases.json",
     "skills/demand-mining/tests/fixtures/review23_cases.json",
     "skills/demand-mining/tests/fixtures/review24_cases.json",
-    "skills/demand-mining/tests/fixtures/review25_cases.json"
+    "skills/demand-mining/tests/fixtures/review25_cases.json",
+    "skills/demand-mining/tests/test_storage_boundary.py",
+    "skills/demand-mining/tests/test_run_contract.py",
+    "skills/demand-mining/tests/test_review15_repairs.py",
+    "skills/demand-mining/tests/test_review18_repairs.py",
+    "skills/demand-mining/tests/test_ledger_pipeline.py",
+    "skills/demand-mining/tests/test_review19_repairs.py"
   ],
   "_data_home": "PRIVATE companion pool/ by default, overridden by DEMAND_MINING_DATA_DIR; every actual destination is verified before writes. See docs/runtime-contract.md."
 }
