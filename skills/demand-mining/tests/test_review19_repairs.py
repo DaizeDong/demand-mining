@@ -44,7 +44,7 @@ class Harness:
         self.files, self.opens, self.writes, self.children, self.proofs = {}, [], [], [], []
         self.modules = {}
         self.root = CASES["private_root"]
-        self.dirs = {self.root, self.root + "/logs"}
+        self.dirs = {self.root, self.root + "/logs", self.root + "/.git"}
         self.sys = types.SimpleNamespace(**vars(sys))
         self.sys.stdout, self.sys.stderr = io.StringIO(), io.StringIO()
         self.original_streams = self.sys.stdout, self.sys.stderr
@@ -80,6 +80,14 @@ class Harness:
             @property
             def name(self):
                 return PurePosixPath(self.value).name
+            @property
+            def parts(self):
+                return PurePosixPath(self.value).parts
+            def lstat(self):
+                if not self.exists():
+                    raise FileNotFoundError(self.value)
+                return types.SimpleNamespace(st_mode=stat.S_IFDIR if self.is_dir() else stat.S_IFREG,
+                                             st_nlink=1, st_file_attributes=0)
             def expanduser(self):
                 return self
             def resolve(self):
@@ -224,7 +232,8 @@ class Harness:
         self.os = types.SimpleNamespace(
             environ={"DEMAND_MINING_CONFIG": self.root}, name="synthetic",
             path=types.SimpleNamespace(join=posixpath.join, dirname=posixpath.dirname,
-                abspath=lambda value: value, isfile=lambda value: False, isabs=posixpath.isabs),
+                abspath=lambda value: value, isfile=lambda value: False, isabs=posixpath.isabs,
+                lexists=lambda value: MemoryPath(value).exists()),
             makedirs=lambda path, **kwargs: self.dirs.add(str(path)))
         self.time = types.SimpleNamespace(time=lambda: 1, strftime=lambda fmt: "2026-01-15", sleep=sleep)
         self.subprocess = types.SimpleNamespace(Popen=popen, call=call, PIPE="SYNTHETIC_PIPE",
@@ -273,7 +282,7 @@ class Harness:
         exec(compile(source_bytes(path), str(path), "exec"), module.__dict__)
         if name == "data_safety":
             module.git = self.git
-            module._visibility = self.visible
+            module._companion_proof = self.companion
         return module
 
     def git(self, root, *args, **kwargs):
@@ -286,6 +295,13 @@ class Harness:
         else:
             raise AssertionError("unadmitted synthetic Git query")
         return types.SimpleNamespace(stdout=text)
+
+    def companion(self, root):
+        repository = CASES["private_remote"].removeprefix("https://github.com/").removesuffix(".git")
+        if self.visible(repository) != "PRIVATE":
+            raise self.modules["data_safety"].DestinationError("synthetic repository visibility is not PRIVATE")
+        return types.SimpleNamespace(root=self.Path(self.root), repositories=(repository,),
+                                     signature="synthetic-current-transport")
 
     def visible(self, repository):
         self.proofs.append((repository, self.visibility))

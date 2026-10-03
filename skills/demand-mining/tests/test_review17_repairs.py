@@ -118,6 +118,7 @@ def product():
                   date=type(fixed.date()), find_config_dir=lambda: MemoryPath("synthetic/config"))
     score = definitions("score.py", {**common, "rice_calc": lib.rice,
                                     "opp_calc": lib.opportunity, "wsjf_calc": lib.wsjf})
+    common.update(domain_factors=score.domain_factors, domain_factor_text=score.domain_factor_text)
     dd = definitions("dedup.py", dict(common))
     run_scope = {**common, "dd": dd, "score_demand": score.score_demand,
                  "compute_intensity": lib.intensity}

@@ -144,6 +144,15 @@
     "id": "1",
     "timestamp": "2026-01-15T12:00:00Z"
   },
+  "native_ledger": {
+    "config": {
+      "product_id": "example-product",
+      "timezone": "UTC"
+    },
+    "origin": "https://github.com/example/demand-mining-config.git",
+    "receipt_id": "synthetic-ledger-receipt",
+    "repository": "example/demand-mining-config"
+  },
   "person": "Alice Example",
   "private_text": "Alice Example needs CSV export delivered to 123 Example Street.",
   "product_text": "Please add CSV export with retry support.",

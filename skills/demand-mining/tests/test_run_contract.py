@@ -26,6 +26,7 @@ def cases():
 def private_repo(tmp_path, monkeypatch):
     root = tmp_path / "companion"
     root.mkdir()
+    (root / ".git").mkdir()
     def synthetic_git(directory, *args, **kwargs):
         if args == ("rev-parse", "--show-toplevel"):
             stdout = str(root)
@@ -40,7 +41,8 @@ def private_repo(tmp_path, monkeypatch):
         return subprocess.CompletedProcess(["git", *args], 0, stdout=stdout, stderr="")
 
     monkeypatch.setattr(data_safety, "git", synthetic_git)
-    monkeypatch.setattr(data_safety, "_visibility", lambda repository: "PRIVATE")
+    monkeypatch.setattr(data_safety, "_companion_proof", lambda directory: types.SimpleNamespace(
+        root=str(root), repositories=("example/demand-mining-config",), signature="synthetic-proof"))
     monkeypatch.setenv("DEMAND_MINING_CONFIG", str(root))
     monkeypatch.delenv("DEMAND_MINING_DRYRUN", raising=False)
     # Default deny of the external send seam, including before a failing assertion.
@@ -88,7 +90,9 @@ def test_explicit_invalid_config_does_not_fall_back(tmp_path, monkeypatch):
 
 
 def test_nonprivate_destination_is_named(private_repo, monkeypatch):
-    monkeypatch.setattr(data_safety, "_visibility", lambda repository: "PUBLIC")
+    def refuse(directory):
+        raise data_safety.DestinationError("synthetic PUBLIC companion")
+    monkeypatch.setattr(data_safety, "_companion_proof", refuse)
     with pytest.raises(data_safety.DestinationError, match="PUBLIC") as error:
         data_safety.atomic_json(private_repo / "pool/result.json", {})
     assert str(private_repo) in str(error.value)
@@ -205,10 +209,12 @@ def test_saved_identity_survives_midnight(cfg, monkeypatch):
 
 
 def test_pseudonym_metadata_cannot_bypass_privacy(cases):
-    result = redact.safe_data({"author_hash": "u_" + cases["person"].lower().replace(" ", "_"),
-                               "user_id": 123})
+    forged = "u_" + cases["person"].lower().replace(" ", "_")
+    result = redact.safe_data({"author_hash": forged})
     assert "example" not in result["author_hash"]
     assert "user_id" not in result
+    with pytest.raises(ValueError, match="conflicting author identity"):
+        redact.safe_data({"author_hash": forged, "user_id": 123})
 
 
 def test_overlapping_callers_finish_once(private_repo, cfg, cases, monkeypatch):
@@ -233,6 +239,21 @@ def test_overlapping_callers_finish_once(private_repo, cfg, cases, monkeypatch):
         raise
     assert all(result["status"] == "complete" for result in results)
     assert len(calls) == 1
+
+
+@pytest.mark.parametrize("seeded", [False, True])
+def test_file_lock_excludes_contender_and_releases_after_exception(private_repo, seeded):
+    path = private_repo / "exclusive.lock"
+    if seeded:
+        path.write_bytes(b"0")
+    with pytest.raises(ValueError, match="synthetic owner failure"):
+        with data_safety.file_lock(path):
+            with pytest.raises(TimeoutError, match="DATA lock unavailable"):
+                with data_safety.file_lock(path, timeout=0.1):
+                    pytest.fail("a contender acquired the owned lock")
+            raise ValueError("synthetic owner failure")
+    with data_safety.file_lock(path, timeout=0.1):
+        pass
 
 
 @pytest.fixture
@@ -311,7 +332,7 @@ def test_effective_push_url_cannot_point_to_another_repository(private_repo, mon
             raise AssertionError("unapproved synthetic Git command")
         return subprocess.CompletedProcess([], 0, stdout=output, stderr="")
     monkeypatch.setattr(data_safety, "git", wrong_push)
-    with pytest.raises(data_safety.DestinationError, match="push destination"):
+    with pytest.raises(data_safety.DestinationError, match="attested companion routes"):
         data_safety.require_private_push(private_repo, "example/demand-mining-config")
 
 
@@ -361,8 +382,12 @@ def test_scheduled_proposal_uses_shared_agent_interface(cfg, cases, monkeypatch)
                                                      "candidates": [cases["candidate"]]})
 
     monkeypatch.setattr(llmcall, "call", call)
-    corpus = {"channels": {"feedback": [{"text": cases["private_text"] + " " + cases["product_text"]}]}}
-    assert scheduled.propose(corpus, cfg)
+    evidence = cases["candidate"]["evidence"][0]
+    corpus = {"channels": {"feedback": [{
+        "text": cases["private_text"] + " " + cases["product_text"],
+        "ts": evidence["ts"], "author_hash": redact.pseudonymize(cases["person"])}]}}
+    proposed = scheduled.propose(corpus, cfg)
+    assert proposed and proposed[0]["observation_provenance"] == "collected_corpus"
     assert calls[0][1] == {"mode": "agent"}
     assert cases["person"] not in calls[0][0] and cases["address"] not in calls[0][0]
     assert cases["product_text"] in calls[0][0]
@@ -490,7 +515,9 @@ def test_collection_preserves_distinct_redacted_channels(service_cases, monkeypa
 @pytest.mark.parametrize("response", ["", "[]", '{"ok": false}', '{"error": "synthetic failure"}'])
 def test_ledger_rejects_failed_or_missing_response(private_repo, monkeypatch, response):
     import dedup
-    ledger = dedup.LedgerClient(cmd=["synthetic-ledger"], db_path=str(private_repo / "synthetic.db"))
+    database = private_repo / "synthetic.db"
+    database.write_bytes(b"synthetic existing store")
+    ledger = dedup.LedgerClient(cmd=["synthetic-ledger"], db_path=str(database))
     monkeypatch.setattr(dedup.subprocess, "run", lambda *a, **k: subprocess.CompletedProcess(
         [], 0, stdout=response, stderr=""))
     with pytest.raises(ValueError, match="reminder.py"):

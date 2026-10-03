@@ -33,12 +33,15 @@ def bot_namespace():
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     selected = [node for node in tree.body if (
         isinstance(node, ast.ClassDef) and node.name == "DemandBot"
-        or isinstance(node, ast.FunctionDef) and node.name in {"_demand_from_verdict", "_reply_sys"})]
+        or isinstance(node, ast.FunctionDef) and node.name in {
+            "_demand_from_verdict", "_message_observation", "_reply_sys"})]
     future = ast.ImportFrom(module="__future__", names=[ast.alias(name="annotations")], level=0)
     scope = {"discord": types.SimpleNamespace(Client=object), "re": re,
              "_SIGNAL": re.compile("export"), "safe_text": redact.safe_text,
              "safe_data": redact.safe_data, "canonical_key": lib.canonical_key,
-             "iso": lib.iso, "now_utc": lib.now_utc, "parse_ts": lib.parse_ts}
+             "iso": lib.iso, "now_utc": lib.now_utc, "parse_ts": lib.parse_ts,
+             "merge_observations": lib.merge_observations,
+             "observation_identity": lib.observation_identity, "pseudonymize": redact.pseudonymize}
     exec(compile(ast.fix_missing_locations(ast.Module(body=[future, *selected], type_ignores=[])),
                  str(path), "exec"), scope)
     return scope
@@ -72,10 +75,14 @@ class ProductPoolTests(unittest.TestCase):
         product = CASES["products"][0]
         value = self.demand(product)
         self.assertEqual(pool.upsert(self.path, value)[0], "new")
-        self.assertEqual(pool.upsert(self.path, value)[0], "merged")
+        action, replay = pool.upsert(self.path, value)
+        self.assertEqual(action, "merged")
+        self.assertEqual(len(replay["evidence"]), 1)
         row = pool.upsert(self.path, self.demand(product, authors=[{"author_hash": CASES["second_author"]}]))[1]
         self.assertEqual(row["reach"], 2)
-        self.assertEqual(len(row["evidence"]), 1)
+        self.assertEqual(len(row["evidence"]), 2)
+        self.assertEqual({item["author_hash"] for item in row["evidence"]},
+                         {item["author_hash"] for item in row["authors"]})
 
     def test_status_and_summary_never_include_another_product(self):
         first, second = CASES["products"]
