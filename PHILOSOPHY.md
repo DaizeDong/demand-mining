@@ -1,52 +1,36 @@
 # demand-mining, Design Philosophy
 
-> One test governs every change: **does it fix the framing, or just patch a symptom?**
+## Separate interpretation from reproducible decisions
 
-demand-mining is a *thin orchestration skill* for turning a shipped product's messy community
-signal into a ranked iteration plan, without leaking a user's PII, without re-building an engine,
-and without the usual demand-mining self-deceptions (loudest-wins, feature-factory, vote=truth).
-Five root-cause principles produced every concrete decision in this repo.
+Community feedback includes explicit requests and implied jobs, and a model can help interpret
+both. The local pipeline owns scoring, evidence admission, deduplication and delivery state.
+This makes those decisions reproducible and prevents a fluent proposal from becoming a confirmed
+demand merely because it sounds confident. Verbatim evidence and observation identity remain necessary.
 
-## P1, LLM proposes, a deterministic gate disposes
+## Protect data before interpreting it
 
-- **Symptom patch:** trust the model to rank demands and "remember" not to push duplicates.
-- **Root cause:** judgement (reading intent, JTBD, proposing a score) is the model's strength;
-  *ruling* (what merges, what ships, what gets pushed) must be reproducible and fail-closed.
-- **Decision:** `score.py` aggregates with pure functions (byte-identical reruns), `dedup.py` rules
-  NEW/SUPPRESS/RESURFACE, `verify_gate.py` blocks unfit cards. The model never makes a final call.
+Collection applies structured redaction and HMAC author pseudonyms before model processing and
+persistence. Regex and entropy checks have limits: they cannot promise to remove every name or
+sensitive passage. Inputs must respect those limits. Real observations, demand pools and reports
+belong in a PRIVATE versioned companion, and egress checks run again before delivery.
 
-## P2, Privacy is a code boundary, not a prompt promise
+## Own the demand workflow and use established interfaces
 
-- **Symptom patch:** instruct the model "please don't store PII."
-- **Root cause:** once the model sees PII it has leaked; a prompt cannot un-see it.
-- **Decision:** `redact.py` runs *before* any model/embedding/pool write (Tier1 regex+Luhn, Tier2
-  entropy, unique non-collapsing placeholders, HMAC author pseudonyms with a gitignored salt). The
-  pool stores only redacted, distilled items; an egress DLP wall re-checks before anything leaves.
+The shipped tap and daemon own demand-specific Discord collection. Model work uses installed
+`llmcall` routing; reminder operations use the scheduler CLI instead of directly changing its database.
+The daemon's own private pool is a separate persistence surface. Hotspot and competitor research
+remain deferred integrations, so their absence must stay visible rather than be implied by delegation prose.
 
-## P3, Own the seam, delegate every engine
+## Keep ranking questions distinct
 
-- **Symptom patch:** add a Discord listener here, a hotspot collector there, a competitor scraper too.
-- **Root cause:** each of those is an engine another skill already owns; re-building them is sprawl
-  and double-maintenance.
-- **Decision:** share auto-support's bot (no 2nd listener), consume daily-hotspots' archive (no
-  re-fan-out), gate-delegate market-intel (it refuses monitoring), use the schedule-reminder base as
-  the pool (CLI-only). demand-mining owns only the cadence and the seam between them.
+RICE orders effort-adjusted opportunities, Opportunity represents unmet need, WSJF represents
+urgency, and Kano describes need type. Distinct-author counts reduce repeated-message inflation.
+These calculations preserve their separate meanings; combining them does not turn uncertain
+inputs into calibrated forecasts. Realized outcomes are needed before changing calibration.
 
-## P4, Three orthogonal axes, never one opaque number
+## Accept an empty result when evidence is insufficient
 
-- **Symptom patch:** blend everything into a single 0-100 "priority" score.
-- **Root cause:** "how strong", "do-first", and "how soon" are different questions; merging them
-  hides the trade-off and lets a tiny Effort denominator explode the rank.
-- **Decision:** RICE (order, clamped Effort, mechanical Confidence), Opportunity/ODI (strength),
-  WSJF (urgency, competitor-just-shipped = highest), with a Kano floor (must-be missing → Tier0).
-  Tiers are argued as bands, never single points (anti false-precision).
-
-## P5, Honest emptiness over filler; the implicit demand is the prize
-
-- **Symptom patch:** always produce a digest of "top demands" so the radar looks busy.
-- **Root cause:** loudest-wins and feature-factory optimize for output volume, not truth; the real
-  value is the demand a user did *not* say out loud.
-- **Decision:** every suggestion needs ≥1 internal evidence or it is blocked; an empty day prints
-  "今日无合格新需求"; intensity counts distinct authors (anti-stuffing); JTBD's Anxiety/Habit forces
-  are double-tracked as the implicit pool, never dropped; verbatim grounding rejects ungrounded
-  extractions (omission ≈ 2× fabrication).
+A daily cadence does not require a nonempty digest. Grounding and admission checks can leave no
+qualified new demand, which the output reports explicitly. Implicit-demand recall remains a quality
+question to measure with separate evaluation material. Synthetic regression cases establish local
+behavior, while collection access, actual delivery and model effectiveness require their own evidence.

@@ -4,7 +4,7 @@ Daily user-demand mining + competitor/hotspot tracking + EOD brainstorm + RICE/K
 
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-orange?style=flat)](https://docs.anthropic.com/en/docs/claude-code)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/status-v0.7.1%20live%20daemon%20%28shadow%29-green?style=flat)](ROADMAP.md)
+[![Status](https://img.shields.io/badge/status-v0.7.1%20demand%20workflow-green?style=flat)](ROADMAP.md)
 [![Languages](https://img.shields.io/badge/Languages-EN%20%2F%20CN-blue?style=flat)](#languages)
 [![Roadmap](https://img.shields.io/badge/Roadmap-v0.7.1-purple?style=flat)](ROADMAP.md)
 
@@ -12,22 +12,25 @@ Daily user-demand mining + competitor/hotspot tracking + EOD brainstorm + RICE/K
 
 ---
 
-## ⭐ Read this first, the design philosophy
+## Design Philosophy
 
-**LLM proposes, a deterministic gate disposes, and the gate guards privacy first.** A shipped
-product's user signal is messy, sensitive, and easy to mis-rank. So every judgement call (reading a
-Discord session, recovering intent + the Job-To-Be-Done, proposing a score) is the model's, but
-every *ruling*, what counts as a demand, what merges, what ships, what gets pushed, is made by a
-pure Python gate that fails closed. And before the model ever sees a message, `redact.py` strips the
-PII. The need pool stores only redacted, distilled demand items, never raw conversation.
+A feedback thread mixes requests, workarounds and repeated reports. The model proposes an
+interpretation of that material; deterministic scoring, deduplication and evidence gates then decide
+which candidates can enter the pool or digest. Keeping those steps separate makes a ranking
+reproducible without treating a model's confidence as proof of a demand.
 
-This is the orchestration product `market-intel` reserved and `daily-hotspots`' twin: it owns the
-*seam* (cadence, pool, scoring, delivery) and **delegates every engine**, it never re-implements
-search, verification, the Discord listener, or the hotspot fan-out.
+Collection redacts structured personal data and pseudonymizes authors before model processing or
+persistence. That does not guarantee removal of names or sensitive free-form prose. Inputs must
+respect those limits, and real observations and reports stay in a PRIVATE versioned companion.
+Distinct-author evidence limits repeated-message inflation; an empty qualified result is valid output.
 
-📜 **[Read the full design philosophy -> PHILOSOPHY.md](PHILOSOPHY.md)**
+The skill owns demand-specific collection and the local finalization workflow. It delegates model
+routing to installed `llmcall` and reminder operations to the installed scheduler CLI. Automated
+competitor collection and the sister-skill research loop remain separate, deferred integrations.
+This keeps the current workflow testable while leaving implicit-demand recall and score calibration
+as measured quality questions rather than promises made by the pipeline.
 
----
+[Read the full design philosophy](PHILOSOPHY.md).
 
 ## What it is (and isn't)
 
@@ -37,9 +40,9 @@ distinct-author intensity, ranks them on three orthogonal axes (RICE for order, 
 strength, WSJF for urgency, Kano for nature), and emits an EOD brainstorm with a prioritized
 iteration-direction queue.
 
-**Isn't:** a second Discord bot (it shares auto-support's listener), a hotspot collector (it consumes
-daily-hotspots), a competitor research engine (it gates-delegates to market-intel), or a database
-(the need pool is the schedule-reminder base, CLI-only). It is a thin seam, not an engine.
+The shipped Discord tap and daemon collect demand-specific feedback. The batch workflow uses the
+`schedule-reminder` CLI, while the daemon also maintains its private demand pool. Automated hotspot
+and competitor collection remain deferred integrations; the tool does not implement a general research engine.
 
 ## Install
 
@@ -50,7 +53,7 @@ daily-hotspots), a competitor research engine (it gates-delegates to market-inte
 Or clone manually:
 
 ```bash
-git clone https://github.com/DaizeDong/demand-mining.git ~/.claude/plugins/demand-mining
+git clone --recurse-submodules https://github.com/DaizeDong/demand-mining.git ~/.claude/plugins/demand-mining
 ```
 
 ## Quick start
@@ -128,11 +131,10 @@ collection, initialization and writes require the private repository prerequisit
 
 ## Limitations
 
-- **It runs in shadow mode.** The live Discord tap shipped in v0.3.0 (`scripts/pull_discord.py`) and
-  the daemon runs against a real product forum, but at `--mode shadow`: it answers a direct
-  @-mention or DM and appends to the admin activity log, and it stays silent on unprompted community
-  chatter. Promoting it to `--mode live` is a deliberate human act, do it after reading the
-  dashboard, not before.
+- **Daemon mode must be chosen for the deployment.** In `--mode shadow`, direct @-mentions and DMs
+  can receive replies and the admin activity log can be updated; unsolicited community replies stay
+  disabled. Review the actual deployment and its evidence before authorizing `--mode live`.
+  The presence of daemon code does not establish that a service is running.
 - The **product code root is still `@DEFERRED`** (see [CONFIG.md](CONFIG.md)). It is reserved and the
   EOD pipeline does not need it, so nothing is blocked; the cost is that a ranked demand cannot yet
   be traced to the code that would implement it.
