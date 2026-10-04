@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented here (Keep a Changelog style).
 
+## [Unreleased]
+
+### Changed
+- Route scheduled candidate generation and daemon model work through installed `llmcall`; the local deterministic finalizer owns persistence and delivery.
+- Bind proposed evidence to collected observations and distinguish completed classification with no candidates from a failed handoff.
+- Require verified PRIVATE companion storage before initialization and real DATA writes; preserve ledger writes and expose missing prerequisites.
+- Refresh the roadmap against the shipped tap/daemon and remaining external integrations; describe daemon modes without asserting an active deployment.
+- Explain the limits of structured redaction and separate model interpretation from reproducible admission decisions.
+
+### Fixed
+- Include pinned submodules in the manual clone instructions so the DATA verifier is available.
+
 ## [0.7.1] - 2026-08-06
 ### Fixed
 - **The scheduled EOD run silently produced nothing for two days while exiting 0.** `wrapper.ps1` now

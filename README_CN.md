@@ -4,7 +4,7 @@
 
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-orange?style=flat)](https://docs.anthropic.com/en/docs/claude-code)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/status-v0.7.1%20live%20daemon%20%28shadow%29-green?style=flat)](ROADMAP.md)
+[![Status](https://img.shields.io/badge/status-v0.7.1%20demand%20workflow-green?style=flat)](ROADMAP.md)
 [![Languages](https://img.shields.io/badge/Languages-EN%20%2F%20CN-blue?style=flat)](#languages)
 [![Roadmap](https://img.shields.io/badge/Roadmap-v0.7.1-purple?style=flat)](ROADMAP.md)
 
@@ -12,29 +12,30 @@
 
 ---
 
-## ⭐ 先读这里, 设计理念
+## 设计理念
 
-**LLM 提议,确定性 gate 裁决,而 gate 首先守护隐私。** 已发布产品的用户信号杂、敏感、易误排。
-所以每个判断(读 Discord 会话、还原意图与 JTBD、提议打分)交给模型,但每个**裁决**,什么算需求、
-什么该合并、什么该做、什么该推,由 fail-closed 的纯 Python gate 做出;且在模型看到任何消息**之前**,
-`redact.py` 先脱去 PII。需求池只存脱敏提炼项,绝不存原始对话。
+一段反馈里常常混着请求、临时绕过办法和重复报告。模型先解释这些材料，再由确定性的评分、
+去重和证据检查决定哪些候选可以进入需求池或日报。把解释与裁决分开，排名才便于复算，也不会
+将模型的自信当成需求成立的证据。
 
-它是 `market-intel` 预留的编排产品、`daily-hotspots` 的孪生:只拥有 *seam*(节律、池、打分、推送),
-**深活全部委托**,绝不重写检索、验证、Discord 监听层或热点扇出。
+采集阶段先脱去结构化个人信息，并为作者生成假名，再交给模型或写入记录。这不能保证清除姓名
+和敏感散文，输入仍需遵守这些限制；真实观察和报告保存在 PRIVATE 版本化伴生仓。
+按独立作者累计证据可以减少重复发言造成的虚高，没有合格需求也是有效结果。
 
-📜 **[完整设计理念 -> PHILOSOPHY.md](PHILOSOPHY.md)**
+技能负责需求采集和本地收尾流程，模型路由交给已安装的 `llmcall`，提醒操作通过已安装的调度器
+CLI 完成。自动采集竞品变更以及与其他技能联动调研仍是待接入项。现有流程因此可以单独验证；
+隐性需求召回和评分校准的效果，则要靠测量判断，不能由流水线替它们作保证。
 
----
+[完整设计理念](PHILOSOPHY.md)。
 
 ## 它是什么(不是什么)
 
-**是:** 单个已发布产品的每日需求雷达。摄取产品社群信号(Discord),抽取真实需求(显性 + 隐性,
-JTBD 还原),跨日去重 + 按独立人累计强度入池,三轴正交排序(RICE 定顺序 / Opportunity 定强度 /
+**是：** 单个已发布产品的每日需求雷达。摄取产品社群信号(Discord),抽取真实需求(显性 + 隐性，
+JTBD 还原),跨日去重 + 按独立人累计强度入池，三轴正交排序(RICE 定顺序 / Opportunity 定强度 /
 WSJF 定紧迫 / Kano 定性质),产出 EOD 头脑风暴 + 量化迭代方向队列。
 
-**不是:** 第二个 Discord bot(共享 auto-support 监听层)、热点采集器(消费 daily-hotspots)、
-竞品调研引擎(受闸委托 market-intel)、数据库(需求池=schedule-reminder 基座,仅 CLI)。它是薄 seam,
-不是引擎。
+自带的 Discord tap 和 daemon 负责需求反馈采集。批处理通过 `schedule-reminder` CLI 操作提醒，
+daemon 还会维护私有需求池。热点和竞品自动采集仍待接入；本工具不提供通用调研引擎。
 
 ## 安装
 
@@ -42,10 +43,10 @@ WSJF 定紧迫 / Kano 定性质),产出 EOD 头脑风暴 + 量化迭代方向队
 /plugin install github:DaizeDong/demand-mining
 ```
 
-或手动克隆:
+或手动克隆：
 
 ```bash
-git clone https://github.com/DaizeDong/demand-mining.git ~/.claude/plugins/demand-mining
+git clone --recurse-submodules https://github.com/DaizeDong/demand-mining.git ~/.claude/plugins/demand-mining
 ```
 
 ## 快速开始
@@ -63,11 +64,11 @@ redact → score → dedup → verify → push → pool → digest → watermark
 
 ## 如何触发
 
-触发词:**需求挖掘 · demand mining · 迭代建议 · EOD 汇总**,或每日定时运行。
+触发词：**需求挖掘 · demand mining · 迭代建议 · EOD 汇总**,或每日定时运行。
 
 ## 示例输出
 
-**推送到 Discord**, 每日一条排序「需求头条」(top ≤5 合格需求),不再逐需求发卡片:
+**推送到 Discord**, 每日一条排序「需求头条」(top ≤5 合格需求),不再逐需求发卡片：
 
 ```
 📊 **需求头条** · 2026-07-15
@@ -80,11 +81,11 @@ A 78 · RICE=9 · 3证据
 📄 完整版(全部字段 + RICE + 证据): 私有归档 2026/2026-07-15.md
 ```
 
-【】标签是需求的**紧迫度·需求性质**(立即/本周/本月 · 刚需/期望/惊喜)。与 `daily-hotspots` 孪生不同,
-头条**不含任何链接**, 本 skill 挖私密对话,fail-closed 出口门遇链接即中止,证据保持私有,完整 digest
+【】标签是需求的**紧迫度·需求性质**(立即/本周/本月 · 刚需/期望/惊喜)。与 `daily-hotspots` 孪生不同，
+头条**不含任何链接**, 本 skill 挖私密对话，fail-closed 出口门遇链接即中止，证据保持私有，完整 digest
 用纯文本指针指向私有归档。
 
-**归档**的 digest 文件保留完整迭代方向队列,每行三轴齐显:
+**归档**的 digest 文件保留完整迭代方向队列，每行三轴齐显：
 
 ```
 1. [tier0/immediate] reliably export my data — final 78 · RICE(R=6,I=3,C=1.0,E=2)=9 ·
@@ -101,30 +102,29 @@ A 78 · RICE=9 · 3证据
 
 - **挂载(发现顺序):** `$DEMAND_MINING_CONFIG` → `~/.demand-mining-config/` →
   `~/.config/demand-mining-config/`。使用第一个已存在的目录；默认值仅供纯离线函数使用，不能据此开始真实运行或写入 DATA。
-- **首次配置:** 先创建或克隆私有伴生仓，配置 origin，并准备已核验为 PRIVATE 的可见性记录，再运行初始化命令。
+- **首次配置：** 先创建或克隆私有伴生仓，配置 origin，并准备已核验为 PRIVATE 的可见性记录，再运行初始化命令。
   普通的未纳入版本管理的目录不满足要求。详见 [Configuration and DATA](docs/runtime-contract.md#configuration-and-data)。
   ```bash
   python scripts/init_config.py --product <slug>  # 生成骨架(确定性)
   export DEMAND_MINING_CONFIG=~/.demand-mining-config                   # 或给 init 传 --out <dir>
   python scripts/verify_config.py                  # doctor:逐项 PASS/FAIL 报缺
   ```
-- **切换 config(即插即用):** 把环境变量指向另一个 config 目录即可, config 自包含,无需别的改动:
+- **切换 config(即插即用):** 把环境变量指向另一个 config 目录即可， config 自包含，无需别的改动：
   `export DEMAND_MINING_CONFIG=~/configs/work` ↔ `~/configs/personal`。
-- **密钥:** Mode B, `secrets/*` 已 gitignore,永不入库,请用库外备份。假名 salt 也可改由
+- **密钥：** Mode B, `secrets/*` 已 gitignore,永不入库，请用库外备份。假名 salt 也可改由
   `$DEMAND_MINING_PSEUDONYM_SALT` 提供。
 
 ## 局限
 
-- **跑在 shadow 模式。** 实时 Discord tap 已在 v0.3.0 落地(`scripts/pull_discord.py`),daemon 也已
-  对着真实产品论坛长跑,但模式是 `--mode shadow`:它会回复直接 @ 或 DM、会往管理频道追加活动日志,
-  但对无人召唤的社群闲聊保持沉默。升到 `--mode live` 是一个需要人来做的决定,先看过 dashboard 再升,
-  不要反过来。
-- **产品代码根仍是 `@DEFERRED`**(见 [CONFIG.md](CONFIG.md))。它是预留项,EOD 流水线不需要它,
-  所以没有东西被卡住;代价是排好序的需求暂时无法追溯到实现它的那段代码。
-- **竞品情报靠模型给,不是自动采集。** 打分会消费 `competitor_status` 字段(竞品刚发布该功能会抬高
+- **部署时须明确选择 daemon 模式。** `--mode shadow` 可以回复直接 @ 或 DM，也可更新管理活动
+  日志，但不会主动回复无人召唤的社群闲聊。授权 `--mode live` 前，先核对实际部署及其证据。
+  仓库里有 daemon 代码，不能证明服务正在运行。
+- **产品代码根仍是 `@DEFERRED`**(见 [CONFIG.md](CONFIG.md))。它是预留项，EOD 流水线不需要它，
+  所以没有东西被卡住；代价是排好序的需求暂时无法追溯到实现它的那段代码。
+- **竞品情报靠模型给，不是自动采集。** 打分会消费 `competitor_status` 字段(竞品刚发布该功能会抬高
   时间紧迫度),但自动化的竞品 changelog diff 与 daily-hotspots / market-intel 闭环仍在 roadmap 上。
-- 隐性需求召回是死穴,靠持续扩充对抗 fixture 迭代提升。
-- Kano 为 LLM 代理(无问卷)。对着真实论坛的校准仍在进行,尚未完成。
+- 隐性需求召回是死穴，靠持续扩充对抗 fixture 迭代提升。
+- Kano 为 LLM 代理(无问卷)。对着真实论坛的校准仍在进行，尚未完成。
 
 ## 语言
 
