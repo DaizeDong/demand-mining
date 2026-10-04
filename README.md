@@ -66,9 +66,10 @@ python skills/demand-mining/scripts/run.py --in candidates.json --dry-run --no-l
 powershell -ExecutionPolicy Bypass -File skills/demand-mining/scripts/register-task.ps1 -Time 21:53
 ```
 
-`candidates.json` is a list of candidate demand clusters (the SKILL's LLM layer produces them from
-the live Discord + external fan-out); the gate runs redact → score → dedup → verify → push → pool →
-digest → watermark.
+`candidates.json` supplies candidate demand clusters to the deterministic pipeline. The caller
+must provide their source evidence; automated competitor collection and the external hotspot
+integration remain deferred. The gate runs redact → score → dedup → verify → push → pool → digest →
+watermark.
 
 ## How to invoke
 
@@ -142,7 +143,8 @@ collection, initialization and writes require the private repository prerequisit
   field (a competitor that just shipped the feature raises time-criticality), but the automated
   competitor changelog diff and the daily-hotspots / market-intel closed loop are still roadmap.
 - Implicit-demand recall is the hard part; it improves by adding adversarial fixtures over time.
-- Kano is an LLM proxy (no survey). Calibration against the live forum is ongoing, not finished.
+- Kano is an LLM proxy (no survey). Calibration against real forum judgments still needs a scoped
+  evaluation; this documentation does not establish that one is running or complete.
 
 ## Languages
 

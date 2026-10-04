@@ -59,7 +59,8 @@ python skills/demand-mining/scripts/run.py --in candidates.json --dry-run --no-l
 powershell -ExecutionPolicy Bypass -File skills/demand-mining/scripts/register-task.ps1 -Time 21:53
 ```
 
-`candidates.json` 是候选需求簇列表(由 SKILL 的 LLM 层从实时 Discord + 外部扇出产出);gate 跑
+`candidates.json` 向确定性流水线提供候选需求簇，调用方需要附上来源证据。
+竞品自动采集和外部热点集成仍待实现。gate 依次执行
 redact → score → dedup → verify → push → pool → digest → watermark。
 
 ## 如何触发
@@ -124,7 +125,8 @@ A 78 · RICE=9 · 3证据
 - **竞品情报靠模型给，不是自动采集。** 打分会消费 `competitor_status` 字段(竞品刚发布该功能会抬高
   时间紧迫度),但自动化的竞品 changelog diff 与 daily-hotspots / market-intel 闭环仍在 roadmap 上。
 - 隐性需求召回是死穴，靠持续扩充对抗 fixture 迭代提升。
-- Kano 为 LLM 代理(无问卷)。对着真实论坛的校准仍在进行，尚未完成。
+- Kano 为 LLM 代理，没有问卷依据。与真实论坛判断的校准仍需要明确范围的评估，
+  本文不能证明评估正在进行或已经完成。
 
 ## 语言
 
