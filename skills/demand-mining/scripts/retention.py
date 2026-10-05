@@ -261,12 +261,17 @@ def _remove(root, item):
         shell = shutil.which("powershell.exe") or shutil.which("pwsh.exe")
         if not shell:
             raise RuntimeError("PowerShell is required for literal-path retention deletion")
-        subprocess.run([shell, "-NoProfile", "-NonInteractive",
-                        "-File", str(Path(__file__).with_name("retention_remove.ps1")),
-                        "-Root", str(root), "-Relative", item["path"],
-                        "-ExpectedBytes", str(item["bytes"]),
-                        "-ExpectedMtimeNs", str(item["mtime_ns"]), "-ExpectedSha256", item["sha256"]],
-                       check=True, capture_output=True, stdin=subprocess.DEVNULL, timeout=60)
+        command = [shell, "-NoProfile", "-NonInteractive",
+                   "-File", str(Path(__file__).with_name("retention_remove.ps1")),
+                   "-Root", str(root), "-Relative", item["path"],
+                   "-ExpectedBytes", str(item["bytes"]),
+                   "-ExpectedMtimeNs", str(item["mtime_ns"]), "-ExpectedSha256", item["sha256"]]
+        try:
+            subprocess.run(command, check=True, capture_output=True,
+                           stdin=subprocess.DEVNULL, timeout=60)
+        except subprocess.CalledProcessError as exc:
+            exc.add_note("Native retention check: " + exc.stderr.decode("utf-8", errors="replace"))
+            raise
     else:
         (root / item["path"]).unlink()
 
