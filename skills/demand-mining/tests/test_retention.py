@@ -226,8 +226,19 @@ def test_native_delete_rechecks_after_python_snapshot(storage, monkeypatch, chan
         return invoke(*args, **kwargs)
 
     monkeypatch.setattr(retention.subprocess, "run", change_then_invoke)
-    with pytest.raises(subprocess.CalledProcessError):
+    with pytest.raises(subprocess.CalledProcessError) as error:
         retention.enforce(root, cfg, now=NOW)
+    expected = {"mtime": "snapshot changed", "hardlink": "verified link metadata", "nested_repo": "nested repositories"}
+    assert expected[change] in error.value.stderr.decode("utf-8", errors="replace")
     assert target.exists()
     receipt = json.loads((root / "pool/retention/latest-receipt.json").read_text())
     assert receipt["deleted"] == []
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows native deletion boundary")
+def test_native_delete_does_not_need_optional_powershell_modules(storage, monkeypatch):
+    retention, root, cfg, cases, write = storage
+    target = write("data/raw/old.json", 20)
+    monkeypatch.setenv("PSModulePath", str(root / "missing-powershell-modules"))
+    assert retention.enforce(root, cfg, now=NOW)["status"] == "applied"
+    assert not target.exists()
