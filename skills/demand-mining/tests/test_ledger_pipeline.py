@@ -45,6 +45,9 @@ def native_ledger(tmp_path, monkeypatch):
     companion.mkdir()
     for args in (("init", "--quiet"), ("remote", "add", "origin", case["origin"])):
         subprocess.run(["git", "-C", str(companion), *args], check=True, capture_output=True)
+    subprocess.run(["git", "-C", str(companion), "-c", "user.name=Synthetic Fixture",
+                    "-c", "user.email=user1@example.com", "commit", "--allow-empty",
+                    "-m", "Initialize synthetic companion"], check=True, capture_output=True)
     sends = []
 
     def confirm(message, dry_run=False):
@@ -55,10 +58,12 @@ def native_ledger(tmp_path, monkeypatch):
 
     monkeypatch.setattr(push_card, "deliver", confirm)
     cfg = {**CFG, **case["config"]}
-    client = dd.LedgerClient(cmd=[sys.executable, str(REMINDER)],
+    from native_fixture import native_reminder
+    launcher = native_reminder(tmp_path, REMINDER)
+    client = dd.LedgerClient(cmd=[sys.executable, str(launcher)],
                              db_path=str(companion / "t.db"), product_id=cfg["product_id"])
     # The shared store is initialized explicitly by its own CLI, before Demand attaches.
-    subprocess.run([sys.executable, str(REMINDER), "--db", client.db_path, "init"],
+    subprocess.run([sys.executable, str(launcher), "--db", client.db_path, "init"],
                    check=True, capture_output=True)
     client.init()
     return client, cfg, str(companion / "pool"), sends
