@@ -39,6 +39,9 @@ def native_storage(tmp_path, monkeypatch):
         for args in [('init', '-q'), ('config', 'remote.origin.url',
                                      'https://github.com/example-owner/'+name+'.git')]:
             subprocess.run(['git', '-C', str(path), *args], capture_output=True, check=True)
+        subprocess.run(['git', '-C', str(path), '-c', 'user.name=Synthetic Fixture',
+                        '-c', 'user.email=user1@example.com', 'commit', '--allow-empty',
+                        '-m', 'Initialize synthetic companion'], capture_output=True, check=True)
         receipts['example-owner/'+name] = visibility
         target = profile / '.pii-guard/visibility.json'
         target.parent.mkdir(exist_ok=True)
@@ -46,6 +49,8 @@ def native_storage(tmp_path, monkeypatch):
             key: {'v': value} for key, value in receipts.items()}}), encoding='utf-8')
         return path
 
+    from native_fixture import native_reminder
+    monkeypatch.setattr(sys.modules[__name__], 'REMINDER', native_reminder(tmp_path, REMINDER))
     private = repository(tmp_path/'private', 'private-vault', 'PRIVATE')
     public = repository(tmp_path/'public', 'public-tool', 'PUBLIC')
     return private, public, repository
