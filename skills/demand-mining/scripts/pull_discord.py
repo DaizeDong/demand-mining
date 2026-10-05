@@ -32,7 +32,7 @@ from datetime import timedelta
 
 from lib import find_config_dir, load_config, now_utc, parse_ts
 from redact import pseudonymize, redact, safe_text
-from data_safety import atomic_bytes, require_private
+from data_safety import require_private
 
 API = "https://discord.com/api/v10"
 _HARD_CAP = 60000  # runaway backstop per channel; real pulls exhaust well before this
@@ -163,7 +163,8 @@ def main() -> int:
     data = pull(channels, token, since_hours=args.since_hours, full=args.full)
     text = json.dumps(data, ensure_ascii=False)
     if args.out:
-        atomic_bytes(args.out, text.encode("utf-8"))
+        from retention import write_corpus
+        write_corpus(args.out, text.encode("utf-8"))
         tot = sum(s.get("human_text", 0) for s in data["stats"].values())
         sys.stderr.write(f"pull_discord: {tot} redacted messages -> {args.out}\n")
     else:
