@@ -43,7 +43,15 @@ function Assert-Snapshot {
     }
 }
 Assert-Snapshot
-$actualHash = (Get-FileHash -LiteralPath $targetPath -Algorithm SHA256).Hash
+$stream = [IO.File]::OpenRead($targetPath)
+$hasher = [Security.Cryptography.SHA256]::Create()
+try {
+    $actualHash = [BitConverter]::ToString($hasher.ComputeHash($stream)).Replace('-', '')
+}
+finally {
+    $hasher.Dispose()
+    $stream.Dispose()
+}
 if ($actualHash -ne $ExpectedSha256) {
     throw 'Retention file hash changed'
 }
