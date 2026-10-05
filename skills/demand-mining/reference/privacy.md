@@ -1,45 +1,79 @@
-# privacy, redact-on-ingest (Step 1, runs FIRST, always)
+# Privacy and temporary collection retention
 
-The load-bearing guarantee, enforced in code (`scripts/redact.py`), not in a prompt promise.
-**Redaction must happen before any LLM / embedding / pool write touches a message**, once the
-model has seen PII, it has leaked. So run.py redacts every raw message first; only the output flows.
+Redaction runs before message text reaches a model, embedding, pool write or
+output. `scripts/redact.py` provides the local checks; `run.py` and the live
+collection pipeline apply them at their input boundaries.
 
-## Layers (cost-ascending; Tier1/Tier2 always on, pure stdlib)
+## Local redaction
 
-| Tier | Catches | How |
-|---|---|---|
-| 1 regex+checksum | email, phone, credit card (Luhn), Discord id/`@handle`/invite, URL, IPv4 | `redact.redact()` |
-| 2 entropy | API keys / long high-entropy tokens → `[SECRET_n]` | Shannon entropy ≥3.5 + mixed alnum |
-| 3 local patterns and review | Latin name spans and common street addresses | local redaction; unsupported personal context is held before model/pool/output |
+| Layer | Covered forms | Implementation |
+| --- | --- | --- |
+| Regex and checksum | Email, phone, Luhn-valid payment-card numbers, Discord IDs, handles, invites, URLs and IPv4 addresses | `redact.redact()` |
+| Entropy | Long mixed high-entropy tokens that resemble API keys or secrets | Local entropy and token-shape checks |
+| Conservative contextual patterns | Latin name spans and common street-address forms | Local redaction; unsupported personal context is held for review before model, pool or output use |
 
-The doctor lists covered, uncovered and unchecked sensitive types. General multilingual NER
-is unchecked; local patterns must not be described as complete recognition of every person
-or address. Model input, replies, extraction and pool writes all use the local privacy boundary.
+The doctor lists covered, uncovered and unchecked sensitive types. General
+multilingual named-entity recognition remains unchecked. These checks do not
+recognize every person, address or private fact.
 
-## Two anti-patterns this kills
+Distinct detected values receive distinct placeholders within a message, such
+as `[EMAIL_1]` and `[EMAIL_2]`. Repeated occurrences of the same value reuse its
+placeholder. This preserves local references without retaining the original
+value in the processed text.
 
-1. **Collapsed placeholders.** A unified `[PERSON]` for two people loses who-said-what. We mint
-   **unique, co-reference-stable** placeholders: `[EMAIL_1]`/`[EMAIL_2]`; the same value twice in
-   one message reuses one placeholder. (Tested: `test_redact.py::test_unique_placeholders_no_collapse`.)
-2. **Reversible / committed pseudonyms.** `pseudonymize(user_id) = HMAC-SHA256(salt, id)[:16]`,
-   same person → same token (a real clustering signal), not invertible. The salt is read from
-   `DEMAND_MINING_PSEUDONYM_SALT` env or `secrets/pseudonym_hmac_salt` (gitignored, Mode B) at call
-   time, **never hardcoded or echoed**. Salt-in-repo = pseudonym-in-clear.
+## Stable author identity
 
-## Egress DLP (fail-closed, the second wall)
+`pseudonymize(user_id)` uses HMAC-SHA256 with a stable private salt and retains
+16 hexadecimal digest characters. The same input and salt produce the same
+author token. This supports observation deduplication; it is pseudonymization,
+not proof that the retained evidence is anonymous.
 
-`redact.has_pii()` re-scans any user-visible string before it leaves the machine. `verify_gate.py`
-blocks a card with residual PII; `push_card.py` aborts a send with residual PII. So even a model
-slip cannot reach Discord or a delegated web query.
+The salt resolver reads `DEMAND_MINING_PSEUDONYM_SALT` first, then
+`secrets/pseudonym_hmac_salt` in the configured PRIVATE companion. Real collection
+requires stable configured bytes. The explicit offline dry-run mode can use an
+ephemeral salt. Never publish or log the configured salt. Restoring or rotating
+it requires attention to the author identities already stored in the pool.
 
-## Pool storage rule + retention
+The built-in pseudonymizer does not persist a reverse map. An optional map
+supplied by another process is separate from the HMAC salt and needs explicit
+retention registration. No map encryption is implemented here.
 
-The need pool stores **only distilled, redacted demand items**, canonical job/pain + redacted
-evidence snippet + msg pointer + HMAC pseudonym. **Never raw conversation.** Retention (config
-`privacy`): Tier0 raw 7-30 days cron-purged; pool long-lived; pseudo-map (if persisted) short-TTL +
-encrypted. Right-to-erasure = forward-delete every evidence row by `author_hash` (no reverse table).
+## Output checks
 
-## Delegation hygiene
+`redact.has_pii()` checks supported sensitive patterns before output.
+`verify_gate.py` blocks a card with a detected residual value, and
+`push_card.py` refuses a send with such a value. These checks are bounded by the
+covered patterns above; a passing result is not a guarantee that all private
+context has been removed.
 
-Queries handed to market-intel / web carry only non-private topics (feature/competitor name),
-never a user's raw words. That is both a privacy rule and a prompt-injection defense.
+Delegated market or web queries contain non-private topics such as product
+features or competitor names. Do not send a user's raw conversation as a query.
+
+## Storage and expiry
+
+The need pool keeps distilled, redacted demands, evidence snippets, observation
+pointers and HMAC author tokens. Raw conversation does not belong in the pool.
+Real configuration and runtime DATA reside in a verified, versioned PRIVATE
+companion, outside the public source repository.
+
+`scripts/retention.py` implements the two `privacy` limits: raw collection
+material defaults to **14 days**, and explicitly registered optional pseudo-maps
+default to **7 days**. Declared raw areas cover `data/corpus*.json`, `data/raw/`,
+`data/chunks/`, `data/eod2_chunks/` and `data/eod3_chunks/`. Manual material under
+`data/manual-corpus/` and maps under `data/pseudo-maps/` require explicit
+registration; unknown historical files remain for review.
+
+The standalone retention runtime uses exact plans and SHA256 checks, with the
+existing Guards-backed PRIVATE validation and runtime recovery/lock checks. It does
+not age-delete the pool, shared ledger, run receipts, pending checkpoints or
+the HMAC salt. The default interval is a runtime retention policy; this page
+does not promise an independent cron job.
+
+Deleting a working-tree file does not remove its private Git history or backups.
+Neither encryption at rest nor full right-to-erasure handling is implemented by
+this retention policy. An erasure request requires identifying the relevant
+author's evidence and reviewing every retained copy, including history.
+
+The source-root [DATA.md](../../../DATA.md) and
+[storage.contract.json](../../../storage.contract.json) define artifact purposes,
+retention boundaries and restoration requirements.

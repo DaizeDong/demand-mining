@@ -1,0 +1,1694 @@
+{
+  "schema_version": 1,
+  "tool": "demand-mining",
+  "artifacts": [
+    {
+      "artifact_id": "setup_reference_0",
+      "path_pattern": "README.md",
+      "purpose": "Minimal companion setup reference or empty layout marker.",
+      "schema": "CONFIG.md; scripts/init_config.py.",
+      "producer": "Companion initialization or maintainer.",
+      "consumer_or_final_deliverable": "Configuration setup and restoration.",
+      "rebuild_or_restore": "Recreate from current source instructions.",
+      "retention_rule": {
+        "class": "rebuildable",
+        "rule": "Keep only a current useful reference or required empty container marker."
+      }
+    },
+    {
+      "artifact_id": "setup_reference_1",
+      "path_pattern": ".gitignore",
+      "purpose": "Minimal companion setup reference or empty layout marker.",
+      "schema": "CONFIG.md; scripts/init_config.py.",
+      "producer": "Companion initialization or maintainer.",
+      "consumer_or_final_deliverable": "Configuration setup and restoration.",
+      "rebuild_or_restore": "Recreate from current source instructions.",
+      "retention_rule": {
+        "class": "rebuildable",
+        "rule": "Keep only a current useful reference or required empty container marker."
+      }
+    },
+    {
+      "artifact_id": "setup_reference_2",
+      "path_pattern": "products/.gitkeep",
+      "purpose": "Minimal companion setup reference or empty layout marker.",
+      "schema": "CONFIG.md; scripts/init_config.py.",
+      "producer": "Companion initialization or maintainer.",
+      "consumer_or_final_deliverable": "Configuration setup and restoration.",
+      "rebuild_or_restore": "Recreate from current source instructions.",
+      "retention_rule": {
+        "class": "rebuildable",
+        "rule": "Keep only a current useful reference or required empty container marker."
+      }
+    },
+    {
+      "artifact_id": "setup_reference_3",
+      "path_pattern": "pool/.gitkeep",
+      "purpose": "Minimal companion setup reference or empty layout marker.",
+      "schema": "CONFIG.md; scripts/init_config.py.",
+      "producer": "Companion initialization or maintainer.",
+      "consumer_or_final_deliverable": "Configuration setup and restoration.",
+      "rebuild_or_restore": "Recreate from current source instructions.",
+      "retention_rule": {
+        "class": "rebuildable",
+        "rule": "Keep only a current useful reference or required empty container marker."
+      }
+    },
+    {
+      "artifact_id": "configuration_0",
+      "path_pattern": "registry.json",
+      "purpose": "Selected product identity, collection wiring, taxonomy and policy.",
+      "schema": "CONFIG.md; skills/demand-mining/scripts/lib.py: load_config and pull_discord.py: _load_wiring.",
+      "producer": "Companion maintainer and scripts/init_config.py.",
+      "consumer_or_final_deliverable": "Collection, scoring, delegation, privacy checks and runtime preflight.",
+      "rebuild_or_restore": "Restore the reviewed configuration version with the state that depends on its identities.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "Preserve current configuration and versions required to interpret unresolved work; retire obsolete copies only after their dependencies end."
+      }
+    },
+    {
+      "artifact_id": "configuration_1",
+      "path_pattern": "priority.json",
+      "purpose": "Selected product identity, collection wiring, taxonomy and policy.",
+      "schema": "CONFIG.md; skills/demand-mining/scripts/lib.py: load_config and pull_discord.py: _load_wiring.",
+      "producer": "Companion maintainer and scripts/init_config.py.",
+      "consumer_or_final_deliverable": "Collection, scoring, delegation, privacy checks and runtime preflight.",
+      "rebuild_or_restore": "Restore the reviewed configuration version with the state that depends on its identities.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "Preserve current configuration and versions required to interpret unresolved work; retire obsolete copies only after their dependencies end."
+      }
+    },
+    {
+      "artifact_id": "configuration_2",
+      "path_pattern": "watchlist.json",
+      "purpose": "Selected product identity, collection wiring, taxonomy and policy.",
+      "schema": "CONFIG.md; skills/demand-mining/scripts/lib.py: load_config and pull_discord.py: _load_wiring.",
+      "producer": "Companion maintainer and scripts/init_config.py.",
+      "consumer_or_final_deliverable": "Collection, scoring, delegation, privacy checks and runtime preflight.",
+      "rebuild_or_restore": "Restore the reviewed configuration version with the state that depends on its identities.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "Preserve current configuration and versions required to interpret unresolved work; retire obsolete copies only after their dependencies end."
+      }
+    },
+    {
+      "artifact_id": "configuration_3",
+      "path_pattern": "taxonomy.json",
+      "purpose": "Selected product identity, collection wiring, taxonomy and policy.",
+      "schema": "CONFIG.md; skills/demand-mining/scripts/lib.py: load_config and pull_discord.py: _load_wiring.",
+      "producer": "Companion maintainer and scripts/init_config.py.",
+      "consumer_or_final_deliverable": "Collection, scoring, delegation, privacy checks and runtime preflight.",
+      "rebuild_or_restore": "Restore the reviewed configuration version with the state that depends on its identities.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "Preserve current configuration and versions required to interpret unresolved work; retire obsolete copies only after their dependencies end."
+      }
+    },
+    {
+      "artifact_id": "configuration_4",
+      "path_pattern": "competitors.json",
+      "purpose": "Selected product identity, collection wiring, taxonomy and policy.",
+      "schema": "CONFIG.md; skills/demand-mining/scripts/lib.py: load_config and pull_discord.py: _load_wiring.",
+      "producer": "Companion maintainer and scripts/init_config.py.",
+      "consumer_or_final_deliverable": "Collection, scoring, delegation, privacy checks and runtime preflight.",
+      "rebuild_or_restore": "Restore the reviewed configuration version with the state that depends on its identities.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "Preserve current configuration and versions required to interpret unresolved work; retire obsolete copies only after their dependencies end."
+      }
+    },
+    {
+      "artifact_id": "configuration_5",
+      "path_pattern": "products/*/priority.json",
+      "purpose": "Selected product identity, collection wiring, taxonomy and policy.",
+      "schema": "CONFIG.md; skills/demand-mining/scripts/lib.py: load_config and pull_discord.py: _load_wiring.",
+      "producer": "Companion maintainer and scripts/init_config.py.",
+      "consumer_or_final_deliverable": "Collection, scoring, delegation, privacy checks and runtime preflight.",
+      "rebuild_or_restore": "Restore the reviewed configuration version with the state that depends on its identities.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "Preserve current configuration and versions required to interpret unresolved work; retire obsolete copies only after their dependencies end."
+      }
+    },
+    {
+      "artifact_id": "configuration_6",
+      "path_pattern": "products/*/taxonomy.json",
+      "purpose": "Selected product identity, collection wiring, taxonomy and policy.",
+      "schema": "CONFIG.md; skills/demand-mining/scripts/lib.py: load_config and pull_discord.py: _load_wiring.",
+      "producer": "Companion maintainer and scripts/init_config.py.",
+      "consumer_or_final_deliverable": "Collection, scoring, delegation, privacy checks and runtime preflight.",
+      "rebuild_or_restore": "Restore the reviewed configuration version with the state that depends on its identities.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "Preserve current configuration and versions required to interpret unresolved work; retire obsolete copies only after their dependencies end."
+      }
+    },
+    {
+      "artifact_id": "credentials",
+      "path_pattern": "secrets/**",
+      "purpose": "Private credentials, stable pseudonym salt and their setup references.",
+      "schema": "CONFIG.md; scripts/redact.py: _stable_salt; product discord_token_ref configuration.",
+      "producer": "Companion maintainer or credential provisioning.",
+      "consumer_or_final_deliverable": "Authorized collection and stable author pseudonyms.",
+      "rebuild_or_restore": "Restore through the selected private credential backup policy; keep the salt consistent with stored author identities.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "Do not apply corpus or pseudo-map TTL to credentials or the HMAC salt. Preserve until an explicit credential rotation or retirement is complete."
+      }
+    },
+    {
+      "artifact_id": "demand_pool",
+      "path_pattern": "pool/demands.jsonl",
+      "purpose": "Canonical product-bound demands and recorded observation identities.",
+      "schema": "skills/demand-mining/scripts/demand_pool.py; docs/runtime-contract.md.",
+      "producer": "Live and scheduled demand-pool mutations.",
+      "consumer_or_final_deliverable": "Ranking, deduplication, resurfacing and explicit status changes.",
+      "rebuild_or_restore": "Restore exact private pool history; do not infer missing observation identities from numeric counts.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "No automatic age deletion. Preserve live demand history and identities needed to prevent replay; require explicit review for erasure or migration."
+      }
+    },
+    {
+      "artifact_id": "business_locks_0",
+      "path_pattern": "pool/demands.jsonl.lock",
+      "purpose": "OS-owned coordination for pool writes, summary delivery or repository backup.",
+      "schema": "skills/demand-mining/scripts/data_safety.py: file_lock; demand_bot.py; backup.py.",
+      "producer": "The owning runtime process.",
+      "consumer_or_final_deliverable": "Concurrent writers and recovery.",
+      "rebuild_or_restore": "Reacquire through the owning runtime; a persistent lock file alone is not evidence of activity.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "Never select through age cleanup. Coordinate any separate lock-file retirement with stopped writers and reconciled recovery state."
+      }
+    },
+    {
+      "artifact_id": "business_locks_1",
+      "path_pattern": "pool/.daily-summary-*.json.lock",
+      "purpose": "OS-owned coordination for pool writes, summary delivery or repository backup.",
+      "schema": "skills/demand-mining/scripts/data_safety.py: file_lock; demand_bot.py; backup.py.",
+      "producer": "The owning runtime process.",
+      "consumer_or_final_deliverable": "Concurrent writers and recovery.",
+      "rebuild_or_restore": "Reacquire through the owning runtime; a persistent lock file alone is not evidence of activity.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "Never select through age cleanup. Coordinate any separate lock-file retirement with stopped writers and reconciled recovery state."
+      }
+    },
+    {
+      "artifact_id": "business_locks_2",
+      "path_pattern": ".demand-backup.lock",
+      "purpose": "OS-owned coordination for pool writes, summary delivery or repository backup.",
+      "schema": "skills/demand-mining/scripts/data_safety.py: file_lock; demand_bot.py; backup.py.",
+      "producer": "The owning runtime process.",
+      "consumer_or_final_deliverable": "Concurrent writers and recovery.",
+      "rebuild_or_restore": "Reacquire through the owning runtime; a persistent lock file alone is not evidence of activity.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "Never select through age cleanup. Coordinate any separate lock-file retirement with stopped writers and reconciled recovery state."
+      }
+    },
+    {
+      "artifact_id": "live_summary_state_0",
+      "path_pattern": "pool/.daily-summary-*.json",
+      "purpose": "Product-bound live-summary receipt/state or a retained legacy date marker.",
+      "schema": "skills/demand-mining/scripts/demand_bot.py; docs/runtime-contract.md: Handoff and completion.",
+      "producer": "Live daily-summary workflow or legacy implementation.",
+      "consumer_or_final_deliverable": "Summary reconciliation and duplicate prevention; a legacy date does not prove delivery.",
+      "rebuild_or_restore": "Restore exact state and confirmed receipt evidence before resuming the summary writer.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "Keep unresolved outcomes and replay-prevention identities. No automatic age deletion or conversion of legacy dates to delivery proof."
+      }
+    },
+    {
+      "artifact_id": "live_summary_state_1",
+      "path_pattern": "pool/.last_summary",
+      "purpose": "Product-bound live-summary receipt/state or a retained legacy date marker.",
+      "schema": "skills/demand-mining/scripts/demand_bot.py; docs/runtime-contract.md: Handoff and completion.",
+      "producer": "Live daily-summary workflow or legacy implementation.",
+      "consumer_or_final_deliverable": "Summary reconciliation and duplicate prevention; a legacy date does not prove delivery.",
+      "rebuild_or_restore": "Restore exact state and confirmed receipt evidence before resuming the summary writer.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "Keep unresolved outcomes and replay-prevention identities. No automatic age deletion or conversion of legacy dates to delivery proof."
+      }
+    },
+    {
+      "artifact_id": "durable_run_state_0",
+      "path_pattern": "pool/runs/**",
+      "purpose": "Finalization bundles, frozen identities, manifests, delivery receipts, source cursors and recovery coordination.",
+      "schema": "skills/demand-mining/scripts/finalize.py and scheduled.py; docs/runtime-contract.md.",
+      "producer": "Finalizer and scheduled caller.",
+      "consumer_or_final_deliverable": "Run recovery, artifact verification, delivery reconciliation, replay prevention and selected final evidence.",
+      "rebuild_or_restore": "Restore each consistent bundle and its exact manifests/receipts with the shared ledger. Resume the saved identity after reconciliation.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "No corpus TTL. Keep pending states, checkpoint markers and artifacts used by retries, ledgers or retained evidence; retire only after all dependent work is reconciled."
+      }
+    },
+    {
+      "artifact_id": "durable_run_state_1",
+      "path_pattern": "pool/scheduled/**",
+      "purpose": "Finalization bundles, frozen identities, manifests, delivery receipts, source cursors and recovery coordination.",
+      "schema": "skills/demand-mining/scripts/finalize.py and scheduled.py; docs/runtime-contract.md.",
+      "producer": "Finalizer and scheduled caller.",
+      "consumer_or_final_deliverable": "Run recovery, artifact verification, delivery reconciliation, replay prevention and selected final evidence.",
+      "rebuild_or_restore": "Restore each consistent bundle and its exact manifests/receipts with the shared ledger. Resume the saved identity after reconciliation.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "No corpus TTL. Keep pending states, checkpoint markers and artifacts used by retries, ledgers or retained evidence; retire only after all dependent work is reconciled."
+      }
+    },
+    {
+      "artifact_id": "durable_run_state_2",
+      "path_pattern": "pool/implicit/**",
+      "purpose": "Finalization bundles, frozen identities, manifests, delivery receipts, source cursors and recovery coordination.",
+      "schema": "skills/demand-mining/scripts/finalize.py and scheduled.py; docs/runtime-contract.md.",
+      "producer": "Finalizer and scheduled caller.",
+      "consumer_or_final_deliverable": "Run recovery, artifact verification, delivery reconciliation, replay prevention and selected final evidence.",
+      "rebuild_or_restore": "Restore each consistent bundle and its exact manifests/receipts with the shared ledger. Resume the saved identity after reconciliation.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "No corpus TTL. Keep pending states, checkpoint markers and artifacts used by retries, ledgers or retained evidence; retire only after all dependent work is reconciled."
+      }
+    },
+    {
+      "artifact_id": "digests",
+      "path_pattern": "pool/digests/**",
+      "purpose": "Redacted final demand digests outside a per-run bundle.",
+      "schema": "skills/demand-mining/scripts/digest.py: write_digest_file.",
+      "producer": "Digest rendering.",
+      "consumer_or_final_deliverable": "Selected final evidence and reader archive.",
+      "rebuild_or_restore": "Restore selected artifacts from private history; a new render is not proof of prior delivery.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "Preserve selected final evidence and unresolved archive dependencies. Retire only after explicit evidence-retention review."
+      }
+    },
+    {
+      "artifact_id": "diagnostic_logs",
+      "path_pattern": "pool/logs/**",
+      "purpose": "Private runtime and supervisor diagnostic output.",
+      "schema": "skills/demand-mining/scripts/private_log.py and daemon_supervisor.py.",
+      "producer": "Runtime, wrapper and daemon supervisor.",
+      "consumer_or_final_deliverable": "Current diagnosis and selected incident evidence.",
+      "rebuild_or_restore": "New diagnostics can be collected; preserve exact incident evidence when selected.",
+      "retention_rule": {
+        "class": "rebuildable",
+        "rule": "Rotate only in coordination with the active writer after required diagnosis and recovery dependencies end. Corpus TTL does not select logs."
+      }
+    },
+    {
+      "artifact_id": "pool_atomic_staging_0",
+      "path_pattern": "pool/.demands.jsonl.*",
+      "purpose": "Temporary bytes before atomic publication of pool or summary state.",
+      "schema": "skills/demand-mining/scripts/data_safety.py: atomic_bytes.",
+      "producer": "Runtime atomic publication.",
+      "consumer_or_final_deliverable": "The active writer and interrupted-write reconciliation.",
+      "rebuild_or_restore": "Recreate from retained inputs only after checking whether publication committed.",
+      "retention_rule": {
+        "class": "rebuildable",
+        "rule": "Remove only after the writer is stopped and the final publication outcome is known; never select using corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "pool_atomic_staging_1",
+      "path_pattern": "pool/..daily-summary-*.json.*",
+      "purpose": "Temporary bytes before atomic publication of pool or summary state.",
+      "schema": "skills/demand-mining/scripts/data_safety.py: atomic_bytes.",
+      "producer": "Runtime atomic publication.",
+      "consumer_or_final_deliverable": "The active writer and interrupted-write reconciliation.",
+      "rebuild_or_restore": "Recreate from retained inputs only after checking whether publication committed.",
+      "retention_rule": {
+        "class": "rebuildable",
+        "rule": "Remove only after the writer is stopped and the final publication outcome is known; never select using corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "temporary_raw_0",
+      "path_pattern": "data/corpus*.json",
+      "purpose": "Temporary collection corpus or derived processing chunks.",
+      "schema": "skills/demand-mining/scripts/retention.py; pull_discord.py redacted corpus output.",
+      "producer": "Authorized collection or chunk preparation.",
+      "consumer_or_final_deliverable": "Current demand extraction and reviewed replay inputs.",
+      "rebuild_or_restore": "Recollect only when authorized and still available; expiry does not promise the same historical observation can be reconstructed.",
+      "retention_rule": {
+        "class": "rebuildable",
+        "rule": "Expire at privacy.raw_retention_days (default 14), using registered capture time or legacy file mtime, only after exact plan verification and inactive/recovery checks."
+      }
+    },
+    {
+      "artifact_id": "temporary_raw_1",
+      "path_pattern": "data/raw/**",
+      "purpose": "Temporary collection corpus or derived processing chunks.",
+      "schema": "skills/demand-mining/scripts/retention.py; pull_discord.py redacted corpus output.",
+      "producer": "Authorized collection or chunk preparation.",
+      "consumer_or_final_deliverable": "Current demand extraction and reviewed replay inputs.",
+      "rebuild_or_restore": "Recollect only when authorized and still available; expiry does not promise the same historical observation can be reconstructed.",
+      "retention_rule": {
+        "class": "rebuildable",
+        "rule": "Expire at privacy.raw_retention_days (default 14), using registered capture time or legacy file mtime, only after exact plan verification and inactive/recovery checks."
+      }
+    },
+    {
+      "artifact_id": "temporary_raw_2",
+      "path_pattern": "data/chunks/**",
+      "purpose": "Temporary collection corpus or derived processing chunks.",
+      "schema": "skills/demand-mining/scripts/retention.py; pull_discord.py redacted corpus output.",
+      "producer": "Authorized collection or chunk preparation.",
+      "consumer_or_final_deliverable": "Current demand extraction and reviewed replay inputs.",
+      "rebuild_or_restore": "Recollect only when authorized and still available; expiry does not promise the same historical observation can be reconstructed.",
+      "retention_rule": {
+        "class": "rebuildable",
+        "rule": "Expire at privacy.raw_retention_days (default 14), using registered capture time or legacy file mtime, only after exact plan verification and inactive/recovery checks."
+      }
+    },
+    {
+      "artifact_id": "temporary_raw_3",
+      "path_pattern": "data/eod2_chunks/**",
+      "purpose": "Temporary collection corpus or derived processing chunks.",
+      "schema": "skills/demand-mining/scripts/retention.py; pull_discord.py redacted corpus output.",
+      "producer": "Authorized collection or chunk preparation.",
+      "consumer_or_final_deliverable": "Current demand extraction and reviewed replay inputs.",
+      "rebuild_or_restore": "Recollect only when authorized and still available; expiry does not promise the same historical observation can be reconstructed.",
+      "retention_rule": {
+        "class": "rebuildable",
+        "rule": "Expire at privacy.raw_retention_days (default 14), using registered capture time or legacy file mtime, only after exact plan verification and inactive/recovery checks."
+      }
+    },
+    {
+      "artifact_id": "temporary_raw_4",
+      "path_pattern": "data/eod3_chunks/**",
+      "purpose": "Temporary collection corpus or derived processing chunks.",
+      "schema": "skills/demand-mining/scripts/retention.py; pull_discord.py redacted corpus output.",
+      "producer": "Authorized collection or chunk preparation.",
+      "consumer_or_final_deliverable": "Current demand extraction and reviewed replay inputs.",
+      "rebuild_or_restore": "Recollect only when authorized and still available; expiry does not promise the same historical observation can be reconstructed.",
+      "retention_rule": {
+        "class": "rebuildable",
+        "rule": "Expire at privacy.raw_retention_days (default 14), using registered capture time or legacy file mtime, only after exact plan verification and inactive/recovery checks."
+      }
+    },
+    {
+      "artifact_id": "manual_corpus",
+      "path_pattern": "data/manual-corpus/**",
+      "purpose": "Manually supplied temporary collection inputs.",
+      "schema": "skills/demand-mining/scripts/retention.py registration contract.",
+      "producer": "Authorized manual intake.",
+      "consumer_or_final_deliverable": "Current extraction or explicitly selected replay.",
+      "rebuild_or_restore": "Recover from the original authorized source if available; do not assume reproducibility.",
+      "retention_rule": {
+        "class": "rebuildable",
+        "rule": "Require explicit raw-artifact registration before automatic expiry at privacy.raw_retention_days (default 14). Preserve and report unregistered files for review."
+      }
+    },
+    {
+      "artifact_id": "optional_pseudo_maps",
+      "path_pattern": "data/pseudo-maps/**",
+      "purpose": "Optional externally supplied pseudonym maps; not the stable HMAC salt.",
+      "schema": "skills/demand-mining/scripts/retention.py registration contract; redact.py does not persist reverse maps.",
+      "producer": "An explicitly authorized external mapping workflow.",
+      "consumer_or_final_deliverable": "The specific reviewed mapping task.",
+      "rebuild_or_restore": "Restore only if the mapping task still requires it; this tool does not generate, encrypt or reconstruct reverse maps.",
+      "retention_rule": {
+        "class": "rebuildable",
+        "rule": "Require explicit pseudo-map registration before automatic expiry at privacy.pseudo_map_retention_days (default 7). Unregistered or unidentified files remain for review."
+      }
+    },
+    {
+      "artifact_id": "retention_control_0",
+      "path_pattern": "pool/retention/registry.json",
+      "purpose": "Artifact registration, one current exact cleanup plan, one latest apply receipt and maintenance coordination.",
+      "schema": "skills/demand-mining/scripts/retention.py plan, registration and receipt formats.",
+      "producer": "Retention registration, planning and application.",
+      "consumer_or_final_deliverable": "Safe expiry, changed-file detection and the latest cleanup outcome.",
+      "rebuild_or_restore": "Preserve registry identity; rebuild a stale plan from current admitted metadata. Never assume a prior plan authorizes changed bytes.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "Keep current control records and unresolved maintenance state; replace current plan/latest receipt rather than accumulating daily report histories."
+      }
+    },
+    {
+      "artifact_id": "retention_control_1",
+      "path_pattern": "pool/retention/current-plan.json",
+      "purpose": "Artifact registration, one current exact cleanup plan, one latest apply receipt and maintenance coordination.",
+      "schema": "skills/demand-mining/scripts/retention.py plan, registration and receipt formats.",
+      "producer": "Retention registration, planning and application.",
+      "consumer_or_final_deliverable": "Safe expiry, changed-file detection and the latest cleanup outcome.",
+      "rebuild_or_restore": "Preserve registry identity; rebuild a stale plan from current admitted metadata. Never assume a prior plan authorizes changed bytes.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "Keep current control records and unresolved maintenance state; replace current plan/latest receipt rather than accumulating daily report histories."
+      }
+    },
+    {
+      "artifact_id": "retention_control_2",
+      "path_pattern": "pool/retention/latest-receipt.json",
+      "purpose": "Artifact registration, one current exact cleanup plan, one latest apply receipt and maintenance coordination.",
+      "schema": "skills/demand-mining/scripts/retention.py plan, registration and receipt formats.",
+      "producer": "Retention registration, planning and application.",
+      "consumer_or_final_deliverable": "Safe expiry, changed-file detection and the latest cleanup outcome.",
+      "rebuild_or_restore": "Preserve registry identity; rebuild a stale plan from current admitted metadata. Never assume a prior plan authorizes changed bytes.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "Keep current control records and unresolved maintenance state; replace current plan/latest receipt rather than accumulating daily report histories."
+      }
+    },
+    {
+      "artifact_id": "retention_control_3",
+      "path_pattern": "pool/retention/.lock",
+      "purpose": "Artifact registration, one current exact cleanup plan, one latest apply receipt and maintenance coordination.",
+      "schema": "skills/demand-mining/scripts/retention.py plan, registration and receipt formats.",
+      "producer": "Retention registration, planning and application.",
+      "consumer_or_final_deliverable": "Safe expiry, changed-file detection and the latest cleanup outcome.",
+      "rebuild_or_restore": "Preserve registry identity; rebuild a stale plan from current admitted metadata. Never assume a prior plan authorizes changed bytes.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "Keep current control records and unresolved maintenance state; replace current plan/latest receipt rather than accumulating daily report histories."
+      }
+    },
+    {
+      "artifact_id": "product_competitor_watchlist",
+      "path_pattern": "products/*/competitors.json",
+      "purpose": "Optional current product competitor watchlist.",
+      "schema": "CONFIG.md and skills/demand-mining/reference/delegation.md.",
+      "producer": "Companion maintainer.",
+      "consumer_or_final_deliverable": "Product-specific delegation lane 3 research.",
+      "rebuild_or_restore": "Restore the reviewed product configuration from private history.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "Preserve while this product is actively monitored; no automatic TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_helper_scripts_0",
+      "path_pattern": "data/_helpers_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_helper_scripts_1",
+      "path_pattern": "data/append_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_helper_scripts_2",
+      "path_pattern": "data/branch_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_helper_scripts_3",
+      "path_pattern": "data/branches_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_helper_scripts_5",
+      "path_pattern": "data/check_authors_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_helper_scripts_6",
+      "path_pattern": "data/ctx_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_helper_scripts_7",
+      "path_pattern": "data/delta_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_helper_scripts_8",
+      "path_pattern": "data/dump_corpus_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_helper_scripts_9",
+      "path_pattern": "data/dump_ledger_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_helper_scripts_10",
+      "path_pattern": "data/ev_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_helper_scripts_11",
+      "path_pattern": "data/find_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_helper_scripts_12",
+      "path_pattern": "data/grep_corpus_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_helper_scripts_13",
+      "path_pattern": "data/ground_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_helper_scripts_14",
+      "path_pattern": "data/ground_check_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_helper_scripts_15",
+      "path_pattern": "data/ground_fix_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_helper_scripts_16",
+      "path_pattern": "data/hotspots_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_helper_scripts_17",
+      "path_pattern": "data/hotspots_ifq_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_helper_scripts_18",
+      "path_pattern": "data/keys_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_helper_scripts_19",
+      "path_pattern": "data/lead_fix_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_helper_scripts_20",
+      "path_pattern": "data/peek_delivered_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_helper_scripts_21",
+      "path_pattern": "data/peek_headlines_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_helper_scripts_22",
+      "path_pattern": "data/pick_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_helper_scripts_23",
+      "path_pattern": "data/preflight_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_helper_scripts_24",
+      "path_pattern": "data/prior_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_helper_scripts_25",
+      "path_pattern": "data/q_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_helper_scripts_26",
+      "path_pattern": "data/redeliver_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_helper_scripts_27",
+      "path_pattern": "data/render_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_helper_scripts_28",
+      "path_pattern": "data/rows_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_helper_scripts_29",
+      "path_pattern": "data/score_alts_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_helper_scripts_30",
+      "path_pattern": "data/thread_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_helper_scripts_31",
+      "path_pattern": "data/tighten_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_helper_scripts_32",
+      "path_pattern": "data/verify_delivery_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_helper_scripts_33",
+      "path_pattern": "data/window_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_helper_scripts_34",
+      "path_pattern": "data/wm_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_output_snapshots_35",
+      "path_pattern": "data/branches_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].json",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_output_snapshots_36",
+      "path_pattern": "data/candidates_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].json",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_output_snapshots_37",
+      "path_pattern": "data/prior_inputs_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].json",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_output_snapshots_38",
+      "path_pattern": "data/run_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].json",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_output_snapshots_39",
+      "path_pattern": "data/verify_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].json",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_output_snapshots_40",
+      "path_pattern": "data/ledger_keys_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].json",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_text_outputs_42",
+      "path_pattern": "data/ctx_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].txt",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_text_outputs_43",
+      "path_pattern": "data/daemon_delta_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].txt",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_text_outputs_44",
+      "path_pattern": "data/delta_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].txt",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_text_outputs_45",
+      "path_pattern": "data/dryrun_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].txt",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_text_outputs_46",
+      "path_pattern": "data/ev_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].txt",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_text_outputs_48",
+      "path_pattern": "data/hotspots_recent_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].txt",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_text_outputs_49",
+      "path_pattern": "data/hs_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].txt",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_text_outputs_50",
+      "path_pattern": "data/keys_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].txt",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_text_outputs_51",
+      "path_pattern": "data/ledger_keys_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].txt",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_text_outputs_52",
+      "path_pattern": "data/run_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].txt",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_text_outputs_53",
+      "path_pattern": "data/scores_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].txt",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_text_outputs_54",
+      "path_pattern": "data/thread_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].txt",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_text_outputs_55",
+      "path_pattern": "data/window_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].txt",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_notes_56",
+      "path_pattern": "data/append_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].md",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_notes_57",
+      "path_pattern": "data/external_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].md",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_notes_58",
+      "path_pattern": "data/notes_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].md",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_notes_59",
+      "path_pattern": "data/runnotes_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].md",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_variant_60",
+      "path_pattern": "data/build_candidates_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_eod.py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_variant_61",
+      "path_pattern": "data/candidates_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_eod.json",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_variant_62",
+      "path_pattern": "data/corpus_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_readable.txt",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_variant_63",
+      "path_pattern": "data/delta_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_product.txt",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_variant_64",
+      "path_pattern": "data/delta_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_weak.txt",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_variant_65",
+      "path_pattern": "data/delta_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_ask.txt",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_variant_66",
+      "path_pattern": "data/delta_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_full.txt",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_variant_67",
+      "path_pattern": "data/delta_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_hits.txt",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_variant_68",
+      "path_pattern": "data/delta_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_stat.txt",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_variant_69",
+      "path_pattern": "data/delta_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_stat.err",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_variant_70",
+      "path_pattern": "data/dryrun_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_ledger.txt",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_variant_71",
+      "path_pattern": "data/dryrun_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_v[0-9].txt",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_variant_72",
+      "path_pattern": "data/dryrun_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_branches.txt",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_variant_73",
+      "path_pattern": "data/headlines_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_eod.txt",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_variant_74",
+      "path_pattern": "data/window_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_new.txt",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_variant_75",
+      "path_pattern": "data/window_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_readable.txt",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_variant_76",
+      "path_pattern": "data/run_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].err",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_variant_78",
+      "path_pattern": "data/new_daemon_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].jsonl",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_reference_or_scratch_79",
+      "path_pattern": "data/_head.tmp",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_reference_or_scratch_80",
+      "path_pattern": "data/dots_prior.py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_reference_or_scratch_81",
+      "path_pattern": "data/eod_en_driver.py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_reference_or_scratch_82",
+      "path_pattern": "data/general_render.txt",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_reference_or_scratch_83",
+      "path_pattern": "data/grep.exe.stackdump",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_reference_or_scratch_84",
+      "path_pattern": "data/tighten_titles.py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_reference_or_scratch_85",
+      "path_pattern": "data/verify_delivery.py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_reference_or_scratch_86",
+      "path_pattern": "data/verify_relay_stream.py",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_reference_or_scratch_87",
+      "path_pattern": "metrics/SCHEMA.md",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_reference_or_scratch_88",
+      "path_pattern": "runbooks/incident-response.md",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_reference_or_scratch_89",
+      "path_pattern": "runbooks/new-machine.md",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_reference_or_scratch_90",
+      "path_pattern": "runbooks/retention-purge.md",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_reference_or_scratch_91",
+      "path_pattern": "runbooks/secret-rotation.md",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_additional_0",
+      "path_pattern": "data/__pycache__/build_candidates_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_eod.cpython-*.pyc",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_additional_1",
+      "path_pattern": "data/__pycache__/eod_en_driver.cpython-*.pyc",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_additional_2",
+      "path_pattern": "data/discord_corpus_[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].jsonl",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    },
+    {
+      "artifact_id": "legacy_additional_3",
+      "path_pattern": "scripts",
+      "purpose": "Historical operator helper, intermediate output or duplicated reference; outside the current runtime contract.",
+      "schema": "Legacy artifact; current source has no reader for this concrete filename family.",
+      "producer": "Historical manual collection, inspection or delivery workflow.",
+      "consumer_or_final_deliverable": "No current runtime consumer identified. Check pending recovery and selected final evidence before removal.",
+      "rebuild_or_restore": "Regenerate from retained canonical ledger/source inputs when possible; otherwise review unique evidence before retirement.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
+      }
+    }
+  ],
+  "protected_paths": [
+    "pool/demands.jsonl",
+    "pool/runs/**",
+    "pool/scheduled/**",
+    "pool/implicit/**",
+    "pool/.daily-summary-*",
+    "pool/.last_summary",
+    "pool/retention/**",
+    "secrets/**",
+    ".demand-backup.lock"
+  ]
+}

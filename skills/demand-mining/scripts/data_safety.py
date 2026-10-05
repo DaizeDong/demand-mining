@@ -212,11 +212,12 @@ def atomic_json(path, value):
 
 
 @contextmanager
-def file_lock(path, timeout=30.0):
+def file_lock(path, timeout=30.0, *, create=True):
     """OS-owned exclusive lock; process exit releases it, contention never bypasses it."""
     path = Path(require_private(path)["path"])
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a+b") as handle:
+    if create:
+        path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a+b" if create else "r+b") as handle:
         # Windows can lock a byte beyond EOF. Initializing it before acquiring
         # the lock races with another opener that already owns that byte.
         deadline = time.monotonic() + timeout

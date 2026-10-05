@@ -181,6 +181,20 @@
       }
     ]
   },
+  "retention": {
+    "body": "synthetic temporary collection\n",
+    "complete": {
+      "status": "complete"
+    },
+    "ledger": "synthetic canonical ledger\n",
+    "mapping": {
+      "synthetic-author": "u_synthetic"
+    },
+    "pending": {
+      "status": "started"
+    },
+    "replacement": "synthetic temporary collectioX\n"
+  },
   "review15": {
     "backup_record": {
       "synthetic": true

@@ -6,6 +6,14 @@ from pathlib import Path
 
 def fixtures():
     return {
+        "retention": {
+            "body": "synthetic temporary collection\n",
+            "replacement": "synthetic temporary collectioX\n",
+            "mapping": {"synthetic-author": "u_synthetic"},
+            "pending": {"status": "started"},
+            "complete": {"status": "complete"},
+            "ledger": "synthetic canonical ledger\n"
+        },
         "causal_review": causal_review_cases(),
         "review15": review15_cases(),
         "review16": review16_cases(),

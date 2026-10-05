@@ -275,7 +275,12 @@ def main():
                           "data_dir": str(destination), "log_dir": str(logs),
                           "privacy": privacy_coverage()}))
         return 0
-    result = execute(args.config_dir, args.log_dir)
+    import retention
+    cfg, directory, _, _ = preflight(args.config_dir, args.log_dir)
+    with retention.activity(retention.companion_root(directory)) as companion:
+        cleanup = retention.enforce(companion, cfg, locked=True)
+        result = execute(args.config_dir, args.log_dir)
+        result["retention"] = cleanup
     result.pop("digest_markdown", None)
     print(json.dumps(result, ensure_ascii=False))
     return 0 if result.get("ok") and result.get("status") == "complete" else 2
@@ -283,4 +288,3 @@ def main():
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
