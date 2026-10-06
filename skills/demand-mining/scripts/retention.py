@@ -18,6 +18,7 @@ import subprocess
 import time
 
 import data_safety
+from no_console import no_window_kwargs
 
 RAW_DIRS = ("raw", "chunks", "eod2_chunks", "eod3_chunks")
 MANAGED_DIRS = (*RAW_DIRS, "manual-corpus", "pseudo-maps")
@@ -268,7 +269,7 @@ def _remove(root, item):
                    "-ExpectedMtimeNs", str(item["mtime_ns"]), "-ExpectedSha256", item["sha256"]]
         try:
             subprocess.run(command, check=True, capture_output=True,
-                           stdin=subprocess.DEVNULL, timeout=60)
+                           stdin=subprocess.DEVNULL, timeout=60, **no_window_kwargs())
         except subprocess.CalledProcessError as exc:
             exc.add_note("Native retention check: " + exc.stderr.decode("utf-8", errors="replace"))
             raise

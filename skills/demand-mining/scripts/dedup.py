@@ -29,6 +29,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from no_console import no_window_kwargs
 from lib import (canonical_key, hamming, iso, jaccard, load_config, now_utc, simhash,
                  extract_entities, intensity as compute_intensity)
 
@@ -372,7 +373,8 @@ class LedgerClient:
         base += ["--db", str(database)]
         base += ["--actor", self.actor, verb] + args
         proc = subprocess.run(base, capture_output=True, text=True, encoding="utf-8",
-                              errors="replace", timeout=60, env=dict(os.environ, GIT_OPTIONAL_LOCKS="0"))
+                              errors="replace", timeout=60, env=dict(os.environ, GIT_OPTIONAL_LOCKS="0"),
+                              **no_window_kwargs())
         out = (proc.stdout or "").strip()
         if proc.returncode != 0:
             err = (proc.stderr or out).strip()

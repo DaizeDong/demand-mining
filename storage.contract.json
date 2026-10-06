@@ -289,6 +289,19 @@
       }
     },
     {
+      "artifact_id": "privacy_quarantine",
+      "path_pattern": "pool/quarantine/**",
+      "purpose": "Live observations the privacy screen held repeatedly, kept in redacted form for review and replay instead of being retried forever or discarded.",
+      "schema": "skills/demand-mining/scripts/observation_retry.py and demand_bot.py; docs/runtime-contract.md.",
+      "producer": "Live daemon classification and direct-feedback workers.",
+      "consumer_or_final_deliverable": "Operator privacy review and explicit replay into the demand pool.",
+      "rebuild_or_restore": "Restore exact records; held observations cannot be collected again.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "No automatic age deletion. Remove a record only after its observation was reviewed and replayed or explicitly rejected."
+      }
+    },
+    {
       "artifact_id": "diagnostic_logs",
       "path_pattern": "pool/logs/**",
       "purpose": "Private runtime and supervisor diagnostic output.",
@@ -1700,6 +1713,7 @@
     "pool/implicit/**",
     "pool/.daily-summary-*",
     "pool/.last_summary",
+    "pool/quarantine/**",
     "pool/retention/**",
     "secrets/**",
     ".demand-backup.lock"

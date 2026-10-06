@@ -343,6 +343,8 @@ def execute(config_dir=None, log_dir=None, *, backup_enabled=None):
 
 
 def main():
+    from no_console import install_no_console_window_default
+    install_no_console_window_default()
     ap = argparse.ArgumentParser()
     ap.add_argument("--config-dir", default=None)
     ap.add_argument("--log-dir", default=None)

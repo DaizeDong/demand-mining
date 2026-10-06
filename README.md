@@ -136,6 +136,9 @@ collection, initialization and writes require the private repository prerequisit
   can receive replies and the admin activity log can be updated; unsolicited community replies stay
   disabled. Review the actual deployment and its evidence before authorizing `--mode live`.
   The presence of daemon code does not establish that a service is running.
+- **Privacy-held live observations wait for a person.** An observation the privacy screen keeps
+  holding moves to `pool/quarantine/` in the private companion after bounded retries. There is no
+  replay command yet; review each record and replay or reject it explicitly.
 - The **product code root is still `@DEFERRED`** (see [CONFIG.md](CONFIG.md)). It is reserved and the
   EOD pipeline does not need it, so nothing is blocked; the cost is that a ranked demand cannot yet
   be traced to the code that would implement it.

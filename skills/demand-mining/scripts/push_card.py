@@ -27,6 +27,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from no_console import no_window_kwargs
 from redact import has_pii, safe_text, PrivacyReviewRequired
 from score import domain_factor_text
 
@@ -159,7 +160,7 @@ def deliver(message: str, dry_run: bool = False) -> tuple[bool, str]:
         child_env["DEMAND_MINING_DELIVERY_CONTENT_SHA256"] = hashlib.sha256(message.encode("utf-8")).hexdigest()
         proc = subprocess.run(_relay_cmd() + [message], capture_output=True, text=True,
                               encoding="utf-8", errors="replace", timeout=30,
-                              env=child_env)
+                              env=child_env, **no_window_kwargs())
         content_hash = hashlib.sha256(message.encode("utf-8")).hexdigest()
         if proc.returncode != 0:
             return False, {"status": "unknown", "adapter_exit": proc.returncode,
