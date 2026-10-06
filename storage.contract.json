@@ -253,7 +253,7 @@
       "artifact_id": "durable_run_state_1",
       "path_pattern": "pool/scheduled/**",
       "purpose": "Finalization bundles, frozen identities, manifests, delivery receipts, source cursors and recovery coordination.",
-      "schema": "skills/demand-mining/scripts/finalize.py and scheduled.py; docs/runtime-contract.md.",
+      "schema": "skills/demand-mining/scripts/finalize.py and scheduled.py; docs/runtime-contract.md. Existing caller.json and failed backup objects add enum-only error_stage and error_category beside error_type; no raw error message or traceback.",
       "producer": "Finalizer and scheduled caller.",
       "consumer_or_final_deliverable": "Run recovery, artifact verification, delivery reconciliation, replay prevention and selected final evidence.",
       "rebuild_or_restore": "Restore each consistent bundle and its exact manifests/receipts with the shared ledger. Resume the saved identity after reconciliation.",
