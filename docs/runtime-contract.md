@@ -166,6 +166,31 @@ classification, ledger, digest, lock and persistence errors are visible failures
 The finalizer must return successfully and the scheduled caller must complete
 its own outcome; a model exit code or an old artifact cannot prove success.
 
+After the scheduled caller has created its private `caller.json`, an exception
+retains `status: "failed"` and `error_type` and adds `error_stage` and
+`error_category`. Stages are `working_directory`, `handoff_read`,
+`collection_config`, `collection`, `classification`, `handoff_write`, `ledger`,
+`finalization`, `caller_state`, `manifest_verify`, `backup_delivery`,
+`completion_state` and `backup_completion`. Failed backup objects carry the same
+fields while retaining the existing `delivered_backup_pending` result.
+
+Categories are `config_missing`, `config_invalid`, `config_io_error`, `timeout`,
+`http_access_denied`, `http_source_unavailable`, `http_rate_limited`,
+`http_server_error`, `http_error`, `transport_error`, `invalid_json`,
+`io_error`, `llm_process_cleanup_failed`, `llm_timeout`,
+`llm_policy_refusal`, `llm_not_installed`, `llm_budget_exhausted` and `unknown`.
+Configuration categories apply to the collection-wiring stage. Transport
+categories describe preserved exception types or numeric HTTP status, including
+explicit causes; they do not reconstruct retries whose evidence was discarded.
+LLM categories consume exact emitted `attempts[].reason` codes, with cleanup,
+timeout, refusal, missing installation and budget in that priority order.
+Unknown or absent codes remain `unknown`; empty attempts do not prove a
+configuration or budget failure. These fields contain no exception message,
+provider text, source content, token, path or traceback. The original exception
+still propagates and restores the working directory. Preflight, initial state
+writes and `BaseException` exits retain their existing behavior and may occur
+before this failure record exists. Older records are not backfilled.
+
 Delivery remains tuple-compatible: `(ok, detail)`. Confirmed adapters return a
 detail object with `status: "confirmed"`, actual `message_id`, exact `identity`,
 and the SHA256 of the sent UTF-8 content. A native Discord

@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import secrets
 import shutil
+import urllib.error
 
 from data_safety import atomic_json, data_root, file_lock, require_private
 from finalize import digest, logical_identity, verify_manifest
@@ -16,6 +17,66 @@ import dedup
 import pull_discord
 import push_card
 import run
+
+
+_LLM_FAILURE_REASONS = (
+    "process_cleanup_failed", "timeout", "policy_refusal", "not_installed", "budget_exhausted",
+)
+
+
+def _llm_failure_category(response):
+    """Consume only emitted llmcall codes; never inspect provider/error text."""
+    attempts = getattr(response, "attempts", None)
+    if not isinstance(attempts, (list, tuple)):
+        return "unknown"
+    reasons = {attempt.reason for attempt in attempts
+               if getattr(attempt, "ok", None) is False
+               and isinstance(getattr(attempt, "reason", None), str)
+               and attempt.reason in _LLM_FAILURE_REASONS}
+    return next(("llm_" + reason for reason in _LLM_FAILURE_REASONS if reason in reasons), "unknown")
+
+
+def _failure_category(exc, stage):
+    """Return bounded evidence from exception types/codes, without stringification."""
+    category = getattr(exc, "_scheduled_error_category", None)
+    if isinstance(category, str) and category in {"llm_" + reason for reason in _LLM_FAILURE_REASONS}:
+        return category
+    if stage == "collection_config":
+        if isinstance(exc, FileNotFoundError):
+            return "config_missing"
+        if isinstance(exc, (ValueError, KeyError)):
+            return "config_invalid"
+        if isinstance(exc, OSError):
+            return "config_io_error"
+    seen = set()
+    for _ in range(8):
+        if not isinstance(exc, BaseException) or id(exc) in seen:
+            break
+        seen.add(id(exc))
+        if isinstance(exc, urllib.error.HTTPError):
+            code = exc.code
+            if isinstance(code, int):
+                if code in (401, 403):
+                    return "http_access_denied"
+                if code == 404:
+                    return "http_source_unavailable"
+                if code == 429:
+                    return "http_rate_limited"
+                if 500 <= code <= 599:
+                    return "http_server_error"
+            return "http_error"
+        if isinstance(exc, TimeoutError):
+            return "timeout"
+        if isinstance(exc, urllib.error.URLError):
+            if isinstance(exc.reason, TimeoutError):
+                return "timeout"
+            return "transport_error"
+        if isinstance(exc, json.JSONDecodeError):
+            return "invalid_json"
+        if isinstance(exc, OSError):
+            return "transport_error" if stage == "collection" else "io_error"
+        exc = exc.__cause__
+    return "unknown"
 
 
 def check_llmcall():
@@ -126,7 +187,9 @@ def propose(corpus, cfg):
         + json.dumps(clean, ensure_ascii=False))
     response = call(prompt, mode="agent")
     if not response or getattr(response, "error", None):
-        raise RuntimeError("llmcall agent did not complete candidate classification")
+        exc = RuntimeError("llmcall agent did not complete candidate classification")
+        exc._scheduled_error_category = _llm_failure_category(response)
+        raise exc
     payload = response.data if isinstance(getattr(response, "data", None), dict) else json.loads(response.text)
     if not isinstance(payload, dict) or payload.get("classification") != "complete":
         raise ValueError("agent handoff did not confirm completed classification")
@@ -170,27 +233,36 @@ def execute(config_dir=None, log_dir=None, *, backup_enabled=None):
                   "privacy": privacy_coverage()}
         atomic_json(caller_path, caller)
         previous_cwd = Path.cwd()
+        stage = "working_directory"
         try:
             os.chdir(directory)
             if handoff_path.exists():
+                stage = "handoff_read"
                 handoff = json.loads(handoff_path.read_text(encoding="utf-8"))
                 if handoff.get("identity") != identity:
                     raise ValueError("saved handoff belongs to another logical run")
             else:
+                stage = "collection_config"
                 channels, token = pull_discord._load_wiring()
+                stage = "collection"
                 corpus = pull_discord.pull(channels, token, source_window=identity["source_window"])
                 if corpus.get("collection", {}).get("status") != "complete":
                     raise ValueError("collector did not finish successfully")
+                stage = "classification"
                 candidates = propose(corpus, cfg)
                 handoff = {"identity": identity, "attempt_id": attempt,
                            "collection": {**corpus["collection"], "classification": "complete"},
                            "candidates": candidates}
+                stage = "handoff_write"
                 atomic_json(handoff_path, handoff)
             handoff["attempt_id"] = attempt
+            stage = "ledger"
             ledger = dedup.LedgerClient(db_path=cfg.get("ledger", {}).get("db_path"),
                                         product_id=cfg.get("product_id") or cfg.get("slug"))
             ledger.init()
+            stage = "finalization"
             result = run.process(handoff, cfg, ledger, archive_dir=str(destination))
+            stage = "caller_state"
             caller.update(status="finalized" if result["status"] == "complete" else result["status"],
                           delivery=result.get("delivery"),
                           manifest_path=result.get("manifest_path"))
@@ -199,8 +271,10 @@ def execute(config_dir=None, log_dir=None, *, backup_enabled=None):
                 active["status"] = result["status"]
                 atomic_json(active_path, active)
                 return result
+            stage = "manifest_verify"
             manifest = verify_manifest(result["manifest_path"], identity)
             if enabled:
+                stage = "backup_delivery"
                 from backup import backup
                 state_path = Path(result["state_path"])
                 paths = [item["path"] for item in manifest["artifacts"]]
@@ -213,10 +287,12 @@ def execute(config_dir=None, log_dir=None, *, backup_enabled=None):
                     if backup_result.get("status") != "confirmed":
                         raise RuntimeError("delivery snapshot was not confirmed")
                 except Exception as exc:
-                    backup_result = {"status": "failed", "error_type": type(exc).__name__}
+                    backup_result = {"status": "failed", "error_type": type(exc).__name__,
+                                     "error_stage": stage, "error_category": _failure_category(exc, stage)}
             else:
                 backup_result = {"status": "disabled"}
             result["backup"] = backup_result
+            stage = "completion_state"
             caller["backup"] = backup_result
             caller["status"] = "complete"
             if backup_result["status"] == "failed":
@@ -229,6 +305,7 @@ def execute(config_dir=None, log_dir=None, *, backup_enabled=None):
             active["status"] = caller["status"]
             atomic_json(active_path, active)
             if enabled and backup_result["status"] == "confirmed":
+                stage = "backup_completion"
                 # The first push preserves delivery. The second preserves the
                 # now-known caller/backup completion state; success changes no
                 # backed bytes afterward. Its receipt is returned separately.
@@ -239,7 +316,8 @@ def execute(config_dir=None, log_dir=None, *, backup_enabled=None):
                 except Exception as exc:
                     result["backup"] = {"status": "failed", "phase": "completion_snapshot",
                                         "delivery_snapshot": backup_result,
-                                        "error_type": type(exc).__name__}
+                                        "error_type": type(exc).__name__, "error_stage": stage,
+                                        "error_category": _failure_category(exc, stage)}
                     result.update(status="delivered_backup_pending", ok=False)
                     caller.update(status=result["status"], backup=result["backup"])
                     durable_state["backup"] = result["backup"]
@@ -254,7 +332,8 @@ def execute(config_dir=None, log_dir=None, *, backup_enabled=None):
             result["caller_path"] = str(caller_path)
             return result
         except Exception as exc:
-            caller.update(status="failed", error_type=type(exc).__name__)
+            caller.update(status="failed", error_type=type(exc).__name__,
+                          error_stage=stage, error_category=_failure_category(exc, stage))
             atomic_json(caller_path, caller)
             active["status"] = "failed"
             atomic_json(active_path, active)
