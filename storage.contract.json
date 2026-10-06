@@ -1678,6 +1678,19 @@
         "class": "retired",
         "rule": "Retirement candidate for a separately reviewed exact-hash plan after inactivity and recovery checks. Never removed by automatic corpus TTL."
       }
+    },
+    {
+      "artifact_id": "tracking_configuration",
+      "path_pattern": "tracking.json",
+      "purpose": "Collection sources, disabled-source decisions and deduplication/delegation policy.",
+      "schema": "scripts/verify_config.py: tracking.json checks; companion setup reference.",
+      "producer": "Companion maintainer.",
+      "consumer_or_final_deliverable": "Current configuration validation and reviewed collection policy.",
+      "rebuild_or_restore": "Restore the reviewed tracking configuration with the observations and source decisions it governs.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "Preserve the selected tracking policy while collection or interpretation depends on it; change or retire it only after its source and policy dependencies are reconciled."
+      }
     }
   ],
   "protected_paths": [

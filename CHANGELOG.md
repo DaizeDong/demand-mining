@@ -5,6 +5,7 @@ All notable changes to this project are documented here (Keep a Changelog style)
 ## [Unreleased]
 
 ### Changed
+- Declare root tracking policy separately from unknown author files and undeclared product metadata.
 - Route scheduled candidate generation and daemon model work through installed `llmcall`; the local deterministic finalizer owns persistence and delivery.
 - Bind proposed evidence to collected observations and distinguish completed classification with no candidates from a failed handoff.
 - Require verified PRIVATE companion storage before initialization and real DATA writes; preserve ledger writes and expose missing prerequisites.

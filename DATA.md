@@ -91,10 +91,13 @@ has to report no undeclared paths, ambiguous matches or boundary errors before
 the companion can be called covered. The contract lists audited legacy script,
 snapshot and diagnostic filename families as retirement candidates. That
 classification does not establish inactivity: an exact removal plan still needs
-to check old task bindings, pending recovery and unique final evidence. Unknown
-author files, unconsumed product metadata and legacy tracking state remain
-explicit review exceptions; they are neither core-state assertions nor TTL
-targets.
+to check old task bindings, pending recovery and unique final evidence. The exact root
+`tracking.json` is selected collection policy and is checked by the current
+configuration verifier. Preserve its reviewed sources and disabled-source
+decisions while collection or interpretation depends on them. Unknown author
+files and undeclared product metadata still require individual review; neither
+is a TTL target. A product metadata file or saved registry pointer does not prove
+its configured product directory exists or that collection is deployed.
 
 Restore the private repository, selected credentials and shared ledger before
 enabling writers. Verify the destination's current PRIVATE proof, then run
