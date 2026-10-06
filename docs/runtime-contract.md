@@ -64,6 +64,43 @@ A malformed or aliased boundary cannot fall back to an outer private repository.
 Runtime destinations refuse symbolic links, junctions and hardlinked files. Atomic
 writes recheck the current proof immediately before replacing their destination.
 
+### Proof reuse
+
+A full companion proof launches about twenty Git processes. Every DATA write still
+asks for admission, but a SUCCESSFUL proof for one repository root is reused while
+two conditions hold: a cheap local signature of the proof inputs is unchanged, and
+the proof is younger than ten minutes (`PROOF_CACHE_TTL` in `data_safety.py`). The
+signature needs no subprocess. It covers the destination repository's Git
+configuration (including a worktree's administration and common directories),
+user and system Git configuration, SSH client configuration, the visibility
+receipt, the pinned guard files, the whole process environment and the proof
+seams. Changing any of them, such as a remote URL edit or a receipt refresh that
+marks the companion PUBLIC, forces a fresh proof at the next write, and a refused
+proof stops that write. A failed proof is never stored and evicts a stored success.
+Path checks (aliases, hardlinks, the containing Git boundary, the public tool tree)
+still run on every call. Backup pushes never reuse a proof.
+
+This relaxes the shared guard's advice that callers repeat the proof before each
+write. The reason is the 2026-10-05 incident: a windowless daemon ran the full proof
+for every log line and pool write, launched tens of thousands of Git processes and
+opened a terminal window for each. The residual exposure is bounded: a change that
+alters none of the signed inputs, for example a file reached only through a Git
+`include`, is seen when the reused proof expires, at most ten minutes later.
+Setting `PROOF_CACHE_TTL` to 0 restores a full proof per write.
+
+### Windowless child processes
+
+The daemon and its supervisor run under pythonw.exe, which has no console. On
+Windows a console program started by such a process receives a new console, which
+the default terminal shows as a window. Every subprocess launch in this skill
+passes `CREATE_NO_WINDOW` (`no_console.no_window_kwargs`). The long-running entry
+points (`daemon_supervisor.py`, `demand_bot.py`, `scheduled.py`) also install a
+process-wide default when they start without a console, so launches made by
+imported code, including the guard kit's Git calls, get the same flag. A caller
+that explicitly requests a new console or a detached process keeps its choice. The
+supervisor starts the daemon with the flag as well. With a console, children share
+it and the default is not installed.
+
 Initialize the private companion repository and its visibility receipt before
 running `scripts/init_config.py`. Real DATA is versioned in that private repo.
 `DEMAND_MINING_DATA_DIR` overrides the default `<config>/pool` destination.
@@ -107,14 +144,31 @@ with `DEMAND_MINING_DRYRUN=1`.
 
 The gateway owns one classification task and retains its pending batch separately
 from newly arriving messages. A classifier or pool failure logs a pending state
-and retries after the polling interval. Completed observations leave the pending
+and retries with exponential backoff counted in polling intervals: the first retry
+is the next poll (90 s by default), then each wait doubles up to one hour. Only
+state changes are logged: the first failure, a different error, recovery and
+quarantine. Retries in between are silent. Completed observations leave the pending
 queue before acknowledgment, so later failures do not replay completed work.
 Reconnects reuse the active task. An unexpected task exit starts a replacement
 with the same pending batch.
 
+An observation the privacy screen keeps holding (`PrivacyReviewRequired`) is not
+retried forever. After eight held attempts (about 2.6 hours at the default
+interval) it moves to `pool/quarantine/` in the PRIVATE companion and the batch
+continues. A hold during persistence quarantines the head observation; a hold
+during classification cannot name one message, so the unclassified batch is held
+together. Each record keeps the ingest-redacted text, pseudonymous identities, the
+stage, any verdict or demand already computed, and `hold_source`. `pool` means the
+observation screens clean on its own and the hold came from rows already stored in
+`pool/demands.jsonl`, which every pool write screens again. Nothing is discarded:
+the quarantine write uses the same PRIVATE admission as every other DATA write, and
+when that admission is refused the observation stays pending and keeps backing off.
+Replaying a record is an explicit operator step after review.
+
 Direct mentions and DMs enter a separate pending map before context gathering.
 Context, classification, persistence and reply-generation failures retain the
-observation for the same supervised polling task to retry. Direct handlers require complete
+observation for the same supervised polling task to retry, with the same per-observation
+backoff, change-only logging and privacy quarantine as passive collection. Direct handlers require complete
 context: opener, reply-reference and history API failures propagate before partial context
 can be cached or classified. The default context helper remains best-effort for display-only
 callers. A successful stage
@@ -253,7 +307,7 @@ evidence for each actionable demand, ordered by the same priority as the queue.
 Literal JSON records preserve extension fields and keep embedded markup inside
 the record. Delivered headlines retain their concise summary format.
 
-Daemon and supervisor logs renew PRIVATE destination admission before every append. The supervisor reads child stdout and stderr through a pipe and writes bounded binary chunks itself; children never inherit a log file handle. A refused log destination stops the current child and prevents restart. Direct --log-file uses the same append path, restores the prior output streams on exit, and records startup tracebacks only while the destination remains PRIVATE. Admission is checked when output is appended or a restart is attempted, not by an idle background visibility poll.
+Daemon and supervisor logs renew PRIVATE destination admission before every append, through the bounded proof reuse described under Configuration and DATA. The supervisor reads child stdout and stderr through a pipe and writes bounded binary chunks itself; children never inherit a log file handle. A refused log destination stops the current child and prevents restart. Direct --log-file uses the same append path, restores the prior output streams on exit, and records startup tracebacks only while the destination remains PRIVATE. Admission is checked when output is appended or a restart is attempted, not by an idle background visibility poll. The daily summary loop wakes every 30 minutes but proves its destination only when it is about to write: an already confirmed day or a send awaiting reconciliation is read without a proof, and a repeated summary state or failure is logged once.
 
 Direct demand_bot CLI startup parses its real arguments and opens the validated private log before importing discord or llmcall. Missing optional dependencies retain their original import error in that log, including windowless execution where both streams began as None. Help and invalid arguments are handled before optional imports. Importing the module keeps its public functions and class available without parsing CLI arguments. PRIVATE admission is renewed for every append, and original streams are restored on exit.
 

@@ -46,6 +46,8 @@ def _parse_args():
 
 def _bootstrap() -> int:
     """Start direct CLI logging before importing the optional runtime dependencies."""
+    from no_console import install_no_console_window_default
+    install_no_console_window_default()
     args = _parse_args()
     output = private_output(args.log_file) if args.log_file else nullcontext()
     with output:
@@ -453,6 +455,8 @@ class DemandBot(discord.Client):
         key = (str(m.channel.id), str(m.id))
         if key in self._direct_completed:
             return {"status": "complete"}
+        if key in getattr(self, "_direct_quarantined", ()):
+            return {"status": "quarantined"}
         entry = self._direct_pending.setdefault(key, {"m": m, "text": clean, "ah": ah})
         if entry.get("processing"):
             return {"status": "pending"}
@@ -460,8 +464,7 @@ class DemandBot(discord.Client):
         try:
             await self._complete_direct(entry)
         except Exception as exc:
-            self.log(f"direct feedback pending: {type(exc).__name__}; observation retained for retry")
-            return {"status": "pending"}
+            return self._direct_failed(key, entry, exc)
         finally:
             entry["processing"] = False
         # Completed persistence and an attempted acknowledgment must not be replayed
@@ -520,24 +523,105 @@ class DemandBot(discord.Client):
             else:
                 self.log(f"[{self.mode}] direct reply suppressed")
 
+    def _direct_failed(self, key, entry, exc):
+        """Back off a failed direct observation; quarantine a persistent privacy hold."""
+        from observation_retry import RetryBackoff
+        from redact import PrivacyReviewRequired
+        backoff = entry.get("backoff")
+        if backoff is None:
+            backoff = entry["backoff"] = RetryBackoff(getattr(self, "interval", 90.0))
+        held = isinstance(exc, PrivacyReviewRequired)
+        if held and backoff.privacy_holds + 1 >= self._privacy_hold_limit():
+            backoff.privacy_holds += 1
+            try:
+                paths = self._quarantine([entry], "direct", type(exc).__name__, backoff)
+            except Exception as failure:
+                if backoff.record_failure("quarantine:" + type(failure).__name__):
+                    self.log(f"privacy quarantine refused: {type(failure).__name__}; "
+                             "direct observation retained for retry")
+                return {"status": "pending"}
+            self._direct_pending.pop(key, None)
+            if not hasattr(self, "_direct_quarantined"):
+                self._direct_quarantined = set()
+            self._direct_quarantined.add(key)
+            self.log(f"direct feedback quarantined after {backoff.privacy_holds} privacy holds: "
+                     f"{paths[0].name}")
+            return {"status": "quarantined"}
+        if backoff.record_failure(type(exc).__name__, privacy_hold=held):
+            self.log(f"direct feedback pending: {type(exc).__name__}; observation retained for retry "
+                     f"(backoff up to {int(backoff.cap_polls * backoff.interval)}s)")
+        return {"status": "pending"}
+
     async def _retry_direct_pending(self):
         for entry in tuple(getattr(self, "_direct_pending", {}).values()):
+            backoff = entry.get("backoff")
+            if backoff is not None and not backoff.ready():
+                continue
             await self._direct_reply(entry["m"], entry["text"], entry["ah"])
+
+    @staticmethod
+    def _privacy_hold_limit():
+        from observation_retry import PRIVACY_HOLD_LIMIT
+        return PRIVACY_HOLD_LIMIT
+
+    def _batch_backoff(self):
+        backoff = getattr(self, "_classify_backoff", None)
+        if backoff is None:
+            from observation_retry import RetryBackoff
+            backoff = self._classify_backoff = RetryBackoff(getattr(self, "interval", 90.0))
+        return backoff
+
+    def _quarantine(self, entries, stage, error_name, backoff):
+        """Move held observations into the PRIVATE quarantine; raises if that is refused."""
+        from observation_retry import quarantine_observation
+        from redact import PrivacyReviewRequired, safe_data
+        paths = []
+        for entry in entries:
+            message = entry.get("message", entry)
+            source = "classification" if stage == "classify" else "observation"
+            if stage != "classify" and "demand" in entry:
+                try:
+                    safe_data(entry["demand"])
+                except PrivacyReviewRequired:
+                    source = "observation"
+                else:
+                    # The observation screens clean again, so the hold came from the
+                    # demand pool's stored rows, which upsert re-screens on every write.
+                    source = "pool"
+            record = {"reason": "privacy_review_required", "stage": stage, "hold_source": source,
+                      "error": error_name, "attempts": backoff.failures + 1,
+                      "privacy_holds": backoff.privacy_holds, "quarantined_at": iso(now_utc()),
+                      "product_id": self.cfg.get("product_id") or self.cfg.get("slug"),
+                      "observation": {**_message_observation(message.get("m")),
+                                      "channel": message.get("channel"),
+                                      "author_hash": message.get("ah"),
+                                      "redacted_text": message.get("text")}}
+            for field in ("context", "verdict", "demand"):
+                if field in entry:
+                    record[field] = entry[field]
+            paths.append(quarantine_observation(self.poolp, record))
+        return paths
 
     async def _classify_loop(self):
         # Keep a failed batch separate from messages arriving during a retry.
         self._pending_batch = getattr(self, "_pending_batch", [])
         while not self.is_closed():
             await asyncio.sleep(self.interval)
+            backoff = self._batch_backoff()
+            stage = "direct"
             try:
                 await self._retry_direct_pending()
                 if not self._pending_batch:
+                    backoff.reset()
                     batch, self.buffer = self.buffer, []
                     self._pending_batch = [{"message": message} for message in batch
                                            if _SIGNAL.search(message["text"])]
                 if not self._pending_batch:
                     continue
+                if not backoff.ready():
+                    continue  # still backing off after a failure; nothing is logged
                 self.classification_status = "processing"
+                stage = "classify"
                 if "verdict" not in self._pending_batch[0]:
                     items = [{"i": i, "channel": entry["message"]["channel"],
                               "text": entry["message"]["text"]}
@@ -550,6 +634,7 @@ class DemandBot(discord.Client):
                     for index, entry in enumerate(self._pending_batch):
                         entry["verdict"] = vmap[index]
                 while self._pending_batch:
+                    stage = "persist"
                     entry = self._pending_batch[0]
                     message, verdict = entry["message"], entry["verdict"]
                     confidence = float(verdict.get("confidence", 0) or 0)
@@ -565,6 +650,7 @@ class DemandBot(discord.Client):
                     # This observation has completed. A later notification failure must
                     # not insert it or acknowledge it again on the next iteration.
                     self._pending_batch.pop(0)
+                    self._batch_recovered(backoff)
                     self.log(f"demand({confidence:.2f}) {action}: {row.get('title', '')[:48]!r} "
                              f"reach={row.get('reach')} score={row.get('final_score')}")
                     await self._ack(message["m"], confidence)
@@ -574,10 +660,42 @@ class DemandBot(discord.Client):
                             f'({row.get("grade", "?")} {row.get("final_score", "?")}, '
                             f'reach {row.get("reach", 0)}, {row.get("taxonomy_track", "?")})')
                 self.classification_status = "ready"
+                self._batch_recovered(backoff)
             except Exception as exc:
                 self.classification_status = "retrying"
-                self.log(f"classification pending: {type(exc).__name__}; "
-                         f"{len(self._pending_batch)} observations retained for retry")
+                self._batch_failed(backoff, stage, exc)
+
+    def _batch_recovered(self, backoff):
+        failures = backoff.reset()
+        if failures:
+            self.log(f"classification recovered after {failures} failed attempts")
+
+    def _batch_failed(self, backoff, stage, exc):
+        """Log state changes only; quarantine observations the privacy screen keeps holding."""
+        from redact import PrivacyReviewRequired
+        name = type(exc).__name__
+        held = isinstance(exc, PrivacyReviewRequired) and stage in ("classify", "persist")
+        if held and backoff.privacy_holds + 1 >= self._privacy_hold_limit():
+            backoff.privacy_holds += 1
+            # A classification hold cannot name one message, so the whole unclassified
+            # batch is held; a persistence hold names the head observation.
+            held_entries = list(self._pending_batch if stage == "classify" else self._pending_batch[:1])
+            try:
+                self._quarantine(held_entries, stage, name, backoff)
+            except Exception as failure:
+                if backoff.record_failure("quarantine:" + type(failure).__name__):
+                    self.log(f"privacy quarantine refused: {type(failure).__name__}; "
+                             f"{len(self._pending_batch)} observations retained for retry")
+                return
+            del self._pending_batch[:len(held_entries)]
+            self.log(f"privacy hold: {len(held_entries)} observations quarantined after "
+                     f"{backoff.privacy_holds} attempts (stage={stage})")
+            backoff.reset()
+            return
+        if backoff.record_failure(name, privacy_hold=held):
+            self.log(f"classification pending: {name}; "
+                     f"{len(self._pending_batch)} observations retained for retry "
+                     f"(backoff up to {int(backoff.cap_polls * backoff.interval)}s)")
 
     def _start_classification(self):
         task = getattr(self, "_classify_task", None)
@@ -625,12 +743,20 @@ class DemandBot(discord.Client):
             self.log(f"note failed: {e!r}")
 
     async def _summary_loop(self):
-        """Post at the configured local hour; unknown sends require reconciliation."""
+        """Post at the configured local hour; unknown sends require reconciliation.
+
+        The 30-minute tick does no PRIVATE proof by itself: _maybe_daily_summary proves
+        the destination only when it is about to write. A repeated failure is logged once.
+        """
+        last_failure = None
         while not self.is_closed():
             try:
                 await self._maybe_daily_summary()
+                last_failure = None
             except Exception as e:
-                self.log(f"summary loop failed: {e!r}")
+                if repr(e) != last_failure:
+                    self.log(f"summary loop failed: {e!r}")
+                last_failure = repr(e)
             await asyncio.sleep(1800)  # re-check every 30 min
 
     def _summary_marker(self):
@@ -649,6 +775,13 @@ class DemandBot(discord.Client):
         hour = now_utc().hour if getattr(self, "summary_hour_uses_utc", False) else now.hour
         if hour < self.summary_hour or not self.post_display or not self.display_id:
             return
+        if getattr(self, "_summary_settled", None) == today:
+            return {"status": "confirmed", "date": today}
+        # Reading the marker is not a DATA write. A day that is already confirmed, or a send
+        # awaiting reconciliation, needs no write, so it must not trigger a PRIVATE proof.
+        settled = self._peek_summary(today)
+        if settled is not None:
+            return settled
         marker = Path(require_private(self._summary_marker())["path"])
         try:
             # Do not block the event loop behind another coroutine holding the
@@ -659,9 +792,10 @@ class DemandBot(discord.Client):
                     if hashlib.sha256(state["body"].encode("utf-8")).hexdigest() != state["content_sha256"]:
                         raise ValueError("daily summary saved content changed")
                     if state["status"] != "confirmed":
-                        self.log("daily summary pending reconciliation")
+                        self._summary_note("daily summary pending reconciliation")
                         return {"status": "pending_reconciliation"}
                     if state["identity"]["date"] == today:
+                        self._summary_confirmed(today)
                         return state
                 body = self._render_summary(today)
                 channel = self.get_channel(self.display_id)
@@ -677,14 +811,43 @@ class DemandBot(discord.Client):
                 except Exception as exc:
                     state["error_type"] = type(exc).__name__
                     atomic_json(marker, state)
-                    self.log("daily summary pending reconciliation")
+                    self._summary_note("daily summary pending reconciliation")
                     return {"status": "pending_reconciliation"}
                 state.update(status="confirmed", message_id=receipt["message_id"])
                 atomic_json(marker, state)
+                self._summary_confirmed(today)
                 return state
         except TimeoutError:
             self.log("daily summary pending: another caller holds the lock")
             return {"status": "pending"}
+
+    def _peek_summary(self, today):
+        """Return the saved state when it needs no write, else None (the proven path decides)."""
+        try:
+            state = json.loads(open(self._summary_marker(), encoding="utf-8").read())
+            body_ok = hashlib.sha256(state["body"].encode("utf-8")).hexdigest() == state["content_sha256"]
+            status, date = state["status"], state["identity"]["date"]
+        except (OSError, ValueError, KeyError, TypeError, AttributeError):
+            return None
+        if not body_ok:
+            return None  # the locked path reports the changed content
+        if status != "confirmed":
+            self._summary_note("daily summary pending reconciliation")
+            return {"status": "pending_reconciliation"}
+        if date == today:
+            self._summary_confirmed(today)
+            return state
+        return None
+
+    def _summary_note(self, text):
+        """Log a summary state once, not on every 30-minute tick."""
+        if getattr(self, "_summary_last_note", None) != text:
+            self._summary_last_note = text
+            self.log(text)
+
+    def _summary_confirmed(self, today):
+        self._summary_settled = today
+        self._summary_last_note = None
 
     def reconcile_daily_summary(self, receipt):
         """Accept identity/content-bound evidence without issuing a send."""
@@ -775,6 +938,8 @@ def _run(args) -> int:
 
 
 def main() -> int:
+    from no_console import install_no_console_window_default
+    install_no_console_window_default()
     args = _parse_args()
     output = private_output(args.log_file) if args.log_file else nullcontext()
     with output:

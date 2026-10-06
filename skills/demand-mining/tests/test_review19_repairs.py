@@ -255,6 +255,8 @@ class Harness:
             "dedup": types.SimpleNamespace(), "verify_gate": types.SimpleNamespace(gate_batch=self.forbidden),
             "push_card": types.SimpleNamespace(), "digest": types.SimpleNamespace(),
             "finalize": types.SimpleNamespace(logical_identity=lambda cfg: {"synthetic": True}),
+            "no_console": types.SimpleNamespace(
+                install_no_console_window_default=lambda: False, no_window_kwargs=lambda: {}),
         }
 
     @staticmethod
@@ -283,6 +285,8 @@ class Harness:
         if name == "data_safety":
             module.git = self.git
             module._companion_proof = self.companion
+            # Every append re-proves under this harness; proof reuse has its own tests.
+            module.PROOF_CACHE_TTL = 0
         return module
 
     def git(self, root, *args, **kwargs):

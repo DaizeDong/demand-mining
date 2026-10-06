@@ -7,6 +7,7 @@ This module does not change that receipt or perform a network visibility query.
 from __future__ import annotations
 
 from contextlib import contextmanager
+import hashlib
 import json
 import importlib.util
 import stat
@@ -40,9 +41,10 @@ def git(root, *args, env=None, allowed=(0,), transport_proof=None):
         current = require_private_push(root, transport_proof["repository"])
         if current != transport_proof:
             raise DestinationError("Git transport changed after backup admission")
+    from no_console import no_window_kwargs
     result = subprocess.run(["git", "-C", str(root), *map(str, args)],
                             capture_output=True, text=True, encoding="utf-8",
-                            env=child_env, timeout=60)
+                            env=child_env, timeout=60, **no_window_kwargs())
     if result.returncode not in allowed:
         # Git stderr can include private file contents or credentials in a URL.
         raise RuntimeError(f"Git {args[0]} failed (exit {result.returncode}) in {root}")
@@ -136,6 +138,115 @@ def _transport_proof(root):
             "repositories": tuple(proof.repositories), "sha256": proof.signature}
 
 
+# A successful companion proof launches about twenty Git processes. Long-running writers
+# (daemon log appends, pool upserts) ask for it many times a minute, so a SUCCESSFUL proof
+# is reused for one repository root while a cheap local signature of every proof input is
+# unchanged, and never for longer than PROOF_CACHE_TTL seconds. A failed proof is never
+# stored and evicts any stored success. Backup pushes always run a fresh proof.
+PROOF_CACHE_TTL = 600.0
+_PROOF_CACHE = {}
+
+
+def clear_proof_cache():
+    _PROOF_CACHE.clear()
+
+
+def _stat_token(path):
+    try:
+        info = os.stat(path)
+    except FileNotFoundError:
+        return None
+    return (info.st_mtime_ns, info.st_size, info.st_ino)
+
+
+def _git_admin_files(root):
+    """Return the repository configuration files that select its remotes."""
+    marker = Path(root) / ".git"
+    if marker.is_dir():
+        return [marker / "config"], ""
+    # A worktree or submodule points at its administration directory from a .git file.
+    text = marker.read_text(encoding="utf-8", errors="replace")
+    pointer = text.strip().removeprefix("gitdir:").strip()
+    admin = Path(pointer) if os.path.isabs(pointer) else Path(root) / pointer
+    files = [admin / "config", admin / "config.worktree", admin / "commondir"]
+    common = admin / "commondir"
+    if common.is_file():
+        value = common.read_text(encoding="utf-8", errors="replace").strip()
+        files.append((Path(value) if os.path.isabs(value) else admin / value) / "config")
+    return files, text
+
+
+def _git_program():
+    """The first git executable on PATH, located without launching anything."""
+    names = ("git.exe", "git.cmd", "git") if os.name == "nt" else ("git",)
+    for directory in os.environ.get("PATH", "").split(os.pathsep):
+        directory = directory.strip().strip('"')
+        if not directory:
+            continue
+        for name in names:
+            candidate = Path(directory) / name
+            if candidate.is_file():
+                return candidate
+    return None
+
+
+def _proof_signature(root):
+    """A no-subprocess fingerprint of the inputs the companion proof reads.
+
+    It covers the repository's own Git configuration, user and system Git configuration,
+    SSH client configuration, the visibility receipt, the pinned guard kit and the whole
+    process environment. Any change forces a fresh proof. Files reached only through a Git
+    include are not listed; a change there is picked up when the entry expires.
+    Returns None when a fingerprint cannot be taken, which disables reuse.
+    """
+    try:
+        home = Path.home()
+        admin_files, pointer = _git_admin_files(root)
+        files = [*admin_files,
+                 os.environ.get("GIT_CONFIG_GLOBAL") or home / ".gitconfig",
+                 Path(os.environ.get("XDG_CONFIG_HOME") or home / ".config") / "git/config",
+                 home / ".pii-guard/visibility.json", home / ".ssh/config",
+                 Path(__file__).resolve().parents[3] / "guards/tools/data_boundary.py",
+                 Path(__file__).resolve().parents[3] / "guards/tools/datadir.py"]
+        program_data = os.environ.get("ProgramData")
+        if program_data:
+            files += [Path(program_data) / "Git/config", Path(program_data) / "ssh/ssh_config"]
+        git_program = _git_program()
+        if git_program is not None:
+            for base in git_program.resolve().parents[:3]:
+                files += [base / "etc/gitconfig", base / "etc/ssh/ssh_config"]
+        files.append("/etc/gitconfig")
+        files.append("/etc/ssh/ssh_config")
+        stats = [(str(item), _stat_token(item)) for item in files]
+        environment = sorted(os.environ.items())
+    except (OSError, ValueError, RuntimeError):
+        return None
+    # The proof seams are part of the identity: replacing either forces a fresh proof.
+    payload = json.dumps([str(root), pointer, stats, environment, id(_companion_proof), id(git)],
+                         sort_keys=True, default=str)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _admitted_transport(root):
+    """Return a current transport proof, reusing a recent success for unchanged inputs."""
+    _verify_context_environment()
+    key = str(root)
+    ttl = PROOF_CACHE_TTL
+    if ttl <= 0:
+        return _transport_proof(root)
+    signature = _proof_signature(root)
+    now = time.monotonic()
+    if signature is not None:
+        cached = _PROOF_CACHE.get(key)
+        if cached is not None and cached[0] == signature and now < cached[1]:
+            return dict(cached[2])
+    _PROOF_CACHE.pop(key, None)
+    transport = _transport_proof(root)  # raises on failure; nothing is stored
+    if signature is not None and _proof_signature(root) == signature:
+        _PROOF_CACHE[key] = (signature, now + ttl, dict(transport))
+    return transport
+
+
 def require_private(path):
     target = _unaliased_path(path)
     try:
@@ -143,7 +254,7 @@ def require_private(path):
         if target.is_relative_to(tool_root):
             raise DestinationError("destination is inside the public tool tree")
         root = _repository_root(target)
-        transport = _transport_proof(root)
+        transport = _admitted_transport(root)
         if not target.is_relative_to(root):
             raise DestinationError("destination escaped its repository")
     except (RuntimeError, OSError) as exc:

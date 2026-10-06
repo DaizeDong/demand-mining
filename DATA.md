@@ -24,6 +24,7 @@ their extension, age or presence in a private repository.
 | `secrets/` | Configured credentials and the stable HMAC salt. Preserve according to the selected private credential backup policy. The salt is not an expiring pseudo-map. |
 | `pool/demands.jsonl` | Product-bound canonical demands and recorded observation identities. No automatic age deletion. |
 | `pool/runs/`, `pool/scheduled/`, `pool/implicit/` | Plans, redacted evidence, manifests, delivery receipts, cursors, caller state and recovery markers. Preserve while delivery, retries, replay prevention or selected final evidence depends on them. |
+| `pool/quarantine/` | Live observations the privacy screen held repeatedly, in ingest-redacted form with the stage and hold source. Preserve until each record is reviewed and replayed or explicitly rejected; there is no age deletion. |
 | `pool/digests/`, `pool/.daily-summary-*.json` | Redacted final digests and live-summary delivery state. Preserve required evidence and unresolved outcomes. |
 | `pool/.last_summary` | Legacy summary marker. Preserve during migration; a date alone does not prove delivery. |
 | `pool/logs/` | Current diagnostic logs. Coordinate rotation with the writer and retain incident evidence; the corpus TTL does not rotate logs. |

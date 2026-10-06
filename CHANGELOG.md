@@ -14,6 +14,9 @@ All notable changes to this project are documented here (Keep a Changelog style)
 
 ### Fixed
 - Include pinned submodules in the manual clone instructions so the DATA verifier is available.
+- **The windowless daemon opened thousands of terminal windows.** Under pythonw.exe every Git launch of the PRIVATE proof got a new console, and the proof ran for every log line and pool write. Every subprocess launch now passes `CREATE_NO_WINDOW`, and the daemon, supervisor and scheduled entry points make it the process-wide default when they have no console, which also covers the guard kit's Git calls.
+- **A held observation was retried every poll forever.** Live retries now back off from one poll to one hour and log only state changes. An observation the privacy screen holds eight times moves to `pool/quarantine/` in the PRIVATE companion instead of being retried or dropped.
+- A successful PRIVATE proof is reused for up to ten minutes while a no-subprocess signature of its inputs is unchanged; failures are never reused and backup pushes always prove fresh. The daily summary loop proves its destination only when it writes.
 
 ## [0.7.1] - 2026-08-06
 ### Fixed

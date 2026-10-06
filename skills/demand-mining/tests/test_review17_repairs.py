@@ -15,6 +15,8 @@ import re
 import types
 import unittest
 
+import observation_retry
+
 ROOT = Path(__file__).parents[3]
 SCRIPTS = ROOT / "skills/demand-mining/scripts"
 FIXTURE = json.loads((Path(__file__).parent / "fixtures/repair_cases.json").read_text(encoding="utf-8"))
@@ -125,6 +127,10 @@ def product():
     run = definitions("run.py", run_scope)
     modules["run"] = run
     modules["redact"] = types.SimpleNamespace(safe_data=copy.deepcopy)
+    # Pure retry policy is admitted as is; the console default is inert in these regressions.
+    modules["observation_retry"] = observation_retry
+    modules["no_console"] = types.SimpleNamespace(
+        install_no_console_window_default=lambda: False, no_window_kwargs=lambda: {})
     gate = definitions("verify_gate.py", dict(common))
     dg = definitions("digest.py", dict(common))
     dg.register_digest_item = lambda *args, **kwargs: None
@@ -202,6 +208,8 @@ class ContextRecoveryTests(unittest.TestCase):
                  "classify_batch": classify, "gen_reply": generate,
                  "pool": types.SimpleNamespace(upsert=persist)}
         module = definitions("demand_bot.py", scope)
+        p.modules["redact"] = types.SimpleNamespace(
+            safe_data=copy.deepcopy, PrivacyReviewRequired=scope["PrivacyReviewRequired"])
         scope.update(classify_batch=classify, gen_reply=generate)
         bot = object.__new__(module.DemandBot)
         bot.cfg, bot.user = p.cfg, None

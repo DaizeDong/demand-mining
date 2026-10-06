@@ -4,6 +4,10 @@
 The child receives stdout/stderr pipes, never a log file descriptor. The supervisor
 checks the destination immediately before appending each chunk, including output
 without a newline. A refused destination stops the child and the supervisor.
+
+The supervisor and the daemon run under pythonw.exe, which has no console. Both make
+CREATE_NO_WINDOW the default for their own children (see no_console.py), and the daemon
+itself is launched with that flag, so no Git proof or helper process opens a window.
 """
 from __future__ import annotations
 
@@ -12,6 +16,7 @@ import os
 import subprocess
 import sys
 import time
+from no_console import install_no_console_window_default, no_window_kwargs
 from data_safety import data_root, require_private
 from private_log import PrivateLog
 
@@ -44,7 +49,7 @@ def _stop_child(child):
 def _run_child(argv, env, log):
     require_private(log.path)
     child = subprocess.Popen(argv, env=env, stdout=subprocess.PIPE,
-                             stderr=subprocess.STDOUT, bufsize=0)
+                             stderr=subprocess.STDOUT, bufsize=0, **no_window_kwargs())
     try:
         while True:
             chunk = child.stdout.read(65536)
@@ -60,6 +65,7 @@ def _run_child(argv, env, log):
 
 
 def main() -> int:
+    install_no_console_window_default()
     ap = argparse.ArgumentParser(description="keep-alive supervisor for demand_bot.py")
     ap.add_argument("--config-dir", required=True, help="PRIVATE companion config directory")
     ap.add_argument("--python", default=sys.executable, help="interpreter to run the daemon with")
