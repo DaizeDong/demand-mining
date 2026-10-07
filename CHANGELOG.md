@@ -4,8 +4,15 @@ All notable changes to this project are documented here (Keep a Changelog style)
 
 ## [Unreleased]
 
+### Storage review threshold
+- Set a 64 MiB companion working-data review threshold. Required observations and
+  recovery state stay protected when the threshold is exceeded.
+
 ### Changed
-- Declare root tracking policy separately from unknown author files and undeclared product metadata.
+- Document explicit companion identity when literal Git configuration cannot
+  establish convention-based discovery; PRIVATE write checks remain required.
+- Declare exact attribution inputs and product context alongside root tracking
+  policy; frozen historical logs and exports require reconciliation before retirement.
 - Route scheduled candidate generation and daemon model work through installed `llmcall`; the local deterministic finalizer owns persistence and delivery.
 - Bind proposed evidence to collected observations and distinguish completed classification with no candidates from a failed handoff.
 - Require verified PRIVATE companion storage before initialization and real DATA writes; preserve ledger writes and expose missing prerequisites.

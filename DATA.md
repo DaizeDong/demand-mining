@@ -1,5 +1,9 @@
 # Demand Mining storage
 
+For an existing verified PRIVATE companion, `.companion` may contain the single
+line `demand-mining` to identify convention-based discovery when literal Git
+configuration is insufficient. The marker does not replace write admission.
+
 Real configuration, observations, run artifacts and credentials belong in a
 versioned PRIVATE companion repository. They must never be written inside this
 public source repository, including ignored paths. Runtime writers verify the
@@ -106,3 +110,23 @@ enabling writers. Verify the destination's current PRIVATE proof, then run
 delivery and checkpoint state before a new collection. Restore the HMAC salt
 with the pool that used it so author identities remain stable. A completed local
 test or an old receipt does not establish a successful current delivery.
+
+## Reviewed legacy imports and context
+
+The two declared historical attribution mappings remain on hold for lossless
+attribution and restoration review. Candidate or pool overlap does not prove
+reconstruction, and their filenames do not select the raw or pseudonym-map TTL.
+Per-product `product.json` context is retained until needed identity, positioning
+and restoration information is reconciled with current configuration. Storage
+ownership does not establish a current reader or authorize product collection.
+
+The frozen `data/logs/legacy-user-root-20261006/` import declares only its
+observed daemon, EOD and supervisor diagnostic filename families. These are
+legacy process material rather than live pool state. They stay on hold until
+task bindings, unresolved incidents, pending recovery and unique evidence have
+been reviewed; the retired class does not authorize removal. No runtime writer
+should append to that import. The separate legacy output and derived pool dump
+import is also retired on hold until restoration obligations are closed and
+necessary current conclusions and references are retained. Its PRIVATE
+revision and reviewed maintenance receipt supply restoration provenance;
+neither import is a live pool, a delivery ledger or part of automatic expiry.
