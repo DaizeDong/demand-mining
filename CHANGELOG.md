@@ -5,9 +5,9 @@ All notable changes to this project are documented here (Keep a Changelog style)
 ## [Unreleased]
 
 ### Process ownership
-- The daemon declares its model calls as owned work (`LLMCALL_WINDOWS_TREE_OWNERSHIP=1`
-  unless the launcher sets it): on Windows each client's whole process tree ends with
-  the call, so a timed-out or finished call leaves no orphaned helpers.
+- The daemon's model calls need no ownership declaration: llmcall 0.3.0 owns every
+  background call's process tree on Windows, so a timed-out or finished call leaves
+  no orphaned helpers.
 
 ### Storage review threshold
 - Set a 64 MiB companion working-data review threshold. Required observations and
