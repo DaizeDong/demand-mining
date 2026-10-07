@@ -1,7 +1,18 @@
 {
   "schema_version": 1,
   "tool": "demand-mining",
+  "max_bytes": 67108864,
   "artifacts": [
+    {
+      "artifact_id": "companion-identity",
+      "path_pattern": ".companion",
+      "purpose": "Explicit companion identity when Git configuration cannot establish convention-based discovery.",
+      "schema": "One UTF-8 line containing demand-mining.",
+      "producer": "Operator initializing an already verified PRIVATE companion.",
+      "consumer_or_final_deliverable": "Shared Guards companion resolver.",
+      "retention_rule": {"class": "core", "rule": "Keep while convention-based consumers use this identity; the marker never replaces PRIVATE visibility or write-admission checks."},
+      "rebuild_or_restore": "Restore the verified companion revision or recreate the tool identity after checking the destination."
+    },
     {
       "artifact_id": "setup_reference_0",
       "path_pattern": "README.md",
@@ -1703,6 +1714,97 @@
       "retention_rule": {
         "class": "core",
         "rule": "Preserve the selected tracking policy while collection or interpretation depends on it; change or retire it only after its source and policy dependencies are reconciled."
+      }
+    },
+    {
+      "artifact_id": "reviewed-legacy-tmp-demand",
+      "path_pattern": "data/logs/legacy-tmp-demand-20261006/*",
+      "purpose": "Temporary preservation of historical output and a derived pool dump during legacy restoration review.",
+      "schema": "Historical text and derived pool JSON; never a current pool or delivery ledger.",
+      "producer": "Reviewed legacy-directory maintenance.",
+      "consumer_or_final_deliverable": "Operator review of unresolved restoration obligations and selected current conclusions; no runtime consumer.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Hold until legacy review and restoration obligations are closed and necessary current conclusions are retained with their exact references. Then review these obsolete outputs for retirement; this declaration neither removes files nor permits more copies or live consumption."
+      },
+      "rebuild_or_restore": "Restore exact bytes from the PRIVATE companion revision identified by the reviewed maintenance receipt; preserve that revision and receipt until restoration obligations are closed."
+    },
+    {
+      "artifact_id": "legacy-attribution-20260906",
+      "path_pattern": "data/authors_20260906.json",
+      "purpose": "Original historical attribution mapping retained while unique attribution is unresolved.",
+      "schema": "Historical JSON mapping; schema and generating corpus are not revalidated by inventory.",
+      "producer": "Earlier collection preparation; the original generating corpus is unavailable.",
+      "consumer_or_final_deliverable": "Operator attribution and restoration review of retained collection evidence.",
+      "rebuild_or_restore": "Restore exact PRIVATE mapping bytes; pool or candidate overlap is not lossless reconstruction proof.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "Hold this exact mapping until necessary attribution and restoration references are losslessly preserved or explicitly terminated. No raw-corpus or pseudonym-map TTL applies merely from its filename; no new runtime writes to this legacy path."
+      }
+    },
+    {
+      "artifact_id": "legacy-attribution-20260907",
+      "path_pattern": "data/authors_20260907.json",
+      "purpose": "Original historical attribution mapping retained while unique attribution is unresolved.",
+      "schema": "Historical JSON mapping; schema and generating corpus are not revalidated by inventory.",
+      "producer": "Earlier collection preparation; the original generating corpus is unavailable.",
+      "consumer_or_final_deliverable": "Operator attribution and restoration review of retained collection evidence.",
+      "rebuild_or_restore": "Restore exact PRIVATE mapping bytes; pool or candidate overlap is not lossless reconstruction proof.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "Hold this exact mapping until necessary attribution and restoration references are losslessly preserved or explicitly terminated. No raw-corpus or pseudonym-map TTL applies merely from its filename; no new runtime writes to this legacy path."
+      }
+    },
+    {
+      "artifact_id": "product-context",
+      "path_pattern": "products/*/product.json",
+      "purpose": "Per-product identity, positioning and human context retained for interpretation and restoration.",
+      "schema": "Legacy product JSON; applicable identity and context fields require private reconciliation with current configuration.",
+      "producer": "Earlier per-product setup.",
+      "consumer_or_final_deliverable": "Operator product-context and restoration review; a current automatic file reader has not been proved.",
+      "rebuild_or_restore": "Restore original product context from PRIVATE history; registry wiring cannot reconstruct all context.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "Preserve necessary identity, context and restoration evidence until reconciled with current per-product configuration or explicitly terminated. This declaration does not add a runtime reader or authorize collection for a product."
+      }
+    },
+    {
+      "artifact_id": "legacy-user-root-daemon",
+      "path_pattern": "data/logs/legacy-user-root-20261006/daemon-????-??-??.log",
+      "purpose": "Imported historical daemon diagnostics isolated from current pool state.",
+      "schema": "Historical runtime text log; contents are not inspected by inventory.",
+      "producer": "Earlier user-root runtime; reviewed legacy-directory migration.",
+      "consumer_or_final_deliverable": "Operator incident and dependency review; not a live queue or delivery receipt.",
+      "rebuild_or_restore": "Keep exact PRIVATE bytes until necessary incident or recovery evidence is selected; a new run cannot reproduce these logs.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Frozen diagnostic filename family outside the current pool/logs writer namespace. Hold until actual task bindings, unresolved incidents, pending recovery and unique final evidence are checked. This class supplies no removal authorization or automatic TTL; no new runtime writes to the import."
+      }
+    },
+    {
+      "artifact_id": "legacy-user-root-eod",
+      "path_pattern": "data/logs/legacy-user-root-20261006/eod-????-??-??.log",
+      "purpose": "Imported historical eod diagnostics isolated from current pool state.",
+      "schema": "Historical runtime text log; contents are not inspected by inventory.",
+      "producer": "Earlier user-root runtime; reviewed legacy-directory migration.",
+      "consumer_or_final_deliverable": "Operator incident and dependency review; not a live queue or delivery receipt.",
+      "rebuild_or_restore": "Keep exact PRIVATE bytes until necessary incident or recovery evidence is selected; a new run cannot reproduce these logs.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Frozen diagnostic filename family outside the current pool/logs writer namespace. Hold until actual task bindings, unresolved incidents, pending recovery and unique final evidence are checked. This class supplies no removal authorization or automatic TTL; no new runtime writes to the import."
+      }
+    },
+    {
+      "artifact_id": "legacy-user-root-supervisor",
+      "path_pattern": "data/logs/legacy-user-root-20261006/supervisor.log",
+      "purpose": "Imported historical supervisor diagnostics isolated from current pool state.",
+      "schema": "Historical runtime text log; contents are not inspected by inventory.",
+      "producer": "Earlier user-root runtime; reviewed legacy-directory migration.",
+      "consumer_or_final_deliverable": "Operator incident and dependency review; not a live queue or delivery receipt.",
+      "rebuild_or_restore": "Keep exact PRIVATE bytes until necessary incident or recovery evidence is selected; a new run cannot reproduce these logs.",
+      "retention_rule": {
+        "class": "retired",
+        "rule": "Frozen diagnostic filename family outside the current pool/logs writer namespace. Hold until actual task bindings, unresolved incidents, pending recovery and unique final evidence are checked. This class supplies no removal authorization or automatic TTL; no new runtime writes to the import."
       }
     }
   ],
