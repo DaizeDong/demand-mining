@@ -32,6 +32,7 @@
     "skills/demand-mining/tests/test_storage_boundary.py",
     "skills/demand-mining/tests/test_run_contract.py",
     "skills/demand-mining/tests/test_scheduled_failure.py",
+    "skills/demand-mining/tests/test_register_task_arguments.py",
     "skills/demand-mining/tests/test_review15_repairs.py",
     "skills/demand-mining/tests/test_review18_repairs.py",
     "skills/demand-mining/tests/test_ledger_pipeline.py",
