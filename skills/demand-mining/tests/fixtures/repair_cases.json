@@ -731,5 +731,24 @@
     "title": "csv export",
     "track": "integrations",
     "why": "retry incomplete exports"
+  },
+  "windows_arguments": {
+    "config": "C:\\Synthetic Config\\",
+    "invalid": [
+      "nul\u0000argument",
+      "carriage\rreturn",
+      "line\nfeed"
+    ],
+    "python": "C:\\Synthetic Runtime\\python.exe",
+    "valid": [
+      "plain",
+      "C:\\Synthetic Workspace\\python.exe",
+      "C:\\Synthetic Workspace\\",
+      "text\"quoted",
+      "two\\\\\"quotes",
+      "",
+      "ends\\"
+    ],
+    "wrapper": "C:\\Synthetic Workspace\\wrapper.ps1"
   }
 }

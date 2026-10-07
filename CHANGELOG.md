@@ -20,6 +20,8 @@ All notable changes to this project are documented here (Keep a Changelog style)
 - Explain the limits of structured redaction and separate model interpretation from reproducible admission decisions.
 
 ### Fixed
+- Preserve scheduled-task argument boundaries for spaces, embedded quotes and
+  trailing backslashes; reject NUL, carriage return and newline characters.
 - Include pinned submodules in the manual clone instructions so the DATA verifier is available.
 - **The windowless daemon opened thousands of terminal windows.** Under pythonw.exe every Git launch of the PRIVATE proof got a new console, and the proof ran for every log line and pool write. Every subprocess launch now passes `CREATE_NO_WINDOW`, and the daemon, supervisor and scheduled entry points make it the process-wide default when they have no console, which also covers the guard kit's Git calls.
 - **A held observation was retried every poll forever.** Live retries now back off from one poll to one hour and log only state changes. An observation the privacy screen holds eight times moves to `pool/quarantine/` in the PRIVATE companion instead of being retried or dropped.
