@@ -940,9 +940,6 @@ def _run(args) -> int:
 def main() -> int:
     from no_console import install_no_console_window_default
     install_no_console_window_default()
-    # Unattended work: llmcall owns each client's whole process tree, so a timed-out or finished
-    # call leaves no orphaned helpers behind. setdefault keeps an explicit "0" from the launcher.
-    os.environ.setdefault("LLMCALL_WINDOWS_TREE_OWNERSHIP", "1")
     args = _parse_args()
     output = private_output(args.log_file) if args.log_file else nullcontext()
     with output:
