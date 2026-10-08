@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Require stable card identity for standalone sends and retain one durable owner per product, card and new/update event. Confirmed retries reuse their receipt; ambiguous attempts require reconciliation without automatic resend.
+- Preserve standalone rendering previews without private initialization and declare the exact private event state, receipt and transient lock paths.
 - Keep standalone retention tests aligned with the shared artifact proof interface while testing real source ownership and native deletion protections with generated data.
 - Unify companion selection across settings, initialization, diagnostics and runtime DATA; reject conflicting selectors.
 - Enforce declared artifact ownership and persistence through the pinned Guards write-admission API.

@@ -2022,6 +2022,47 @@
         "class": "rebuildable",
         "rule": "Keep while a process owns the lock; inspect ownership before cleaning stale files."
       }
+    },
+    {
+      "artifact_id": "standalone-card-state",
+      "path_pattern": "pool/card-deliveries/*/state.json",
+      "purpose": "Durable ownership and actual receipt evidence for a standalone card new/update event.",
+      "schema": "finalize.deliver_event and reconcile_event; exact product/card/event identity, optional explicit update revision and rendered content SHA256.",
+      "producer": "push_card.push_card via finalize.deliver_event or explicit reconcile_event.",
+      "consumer_or_final_deliverable": "Standalone replay suppression and receipt reconciliation without scheduled ledger or watermark mutation.",
+      "rebuild_or_restore": "Restore the matching state and receipt together; unresolved attempts must never be automatically resent.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "No automatic TTL. Keep while card event replay or delivery reconciliation can depend on this evidence."
+      }
+    },
+    {
+      "artifact_id": "standalone-card-receipt",
+      "path_pattern": "pool/card-deliveries/*/receipt.json",
+      "purpose": "Durable ownership and actual receipt evidence for a standalone card new/update event.",
+      "schema": "finalize.deliver_event and reconcile_event; exact product/card/event identity, optional explicit update revision and rendered content SHA256.",
+      "producer": "push_card.push_card via finalize.deliver_event or explicit reconcile_event.",
+      "consumer_or_final_deliverable": "Standalone replay suppression and receipt reconciliation without scheduled ledger or watermark mutation.",
+      "rebuild_or_restore": "Restore the matching state and receipt together; unresolved attempts must never be automatically resent.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "No automatic TTL. Keep while card event replay or delivery reconciliation can depend on this evidence."
+      }
+    },
+    {
+      "artifact_id": "standalone-card-coordination",
+      "path_pattern": "pool/card-deliveries/*/.lock",
+      "purpose": "Exclusive coordination for one standalone card delivery event.",
+      "schema": "OS lock file; durable evidence lives in adjacent declared JSON records.",
+      "producer": "data_safety.file_lock",
+      "consumer_or_final_deliverable": "Concurrent standalone send and reconciliation callers.",
+      "rebuild_or_restore": "Recreate when the producer acquires its OS lock.",
+      "persistence": "transient",
+      "transient_reason": "Process-owned lock; never a durable delivery receipt.",
+      "retention_rule": {
+        "class": "rebuildable",
+        "rule": "Keep while a process owns the lock; inspect ownership before cleaning stale files."
+      }
     }
   ],
   "protected_paths": [
@@ -2034,6 +2075,7 @@
     "pool/quarantine/**",
     "pool/retention/**",
     "secrets/**",
-    ".demand-backup.lock"
+    ".demand-backup.lock",
+    "pool/card-deliveries/**"
   ]
 }

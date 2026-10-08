@@ -51,12 +51,16 @@ first registered product. A missing selected directory is an error; it does not 
 
 ## Schema, `products/<slug>/priority.json` (tunable surface), E1
 
-Real runs require a nonempty `product_id` and an IANA `timezone` (for example `UTC`). The
+Scheduled and live runs require a nonempty `product_id` and an IANA `timezone` (for example `UTC`). The
 initializer fills the selected product slug and UTC; review both before the doctor. Other tunables
 below deep-merge over `DEFAULT_CONFIG`.
 
-Delivery and dedup require `SCHEDULE_DB_PATH` or `ledger.db_path` pointing to an existing,
+Scheduled delivery and dedup require `SCHEDULE_DB_PATH` or `ledger.db_path` pointing to an existing,
 nonempty PRIVATE schedule-reminder store. Initialize it with schedule-reminder first.
+Standalone `push_card.py` delivery instead uses the configured product identity and its
+PRIVATE `pool/card-deliveries/` state. It needs no ledger or timezone and cannot infer the
+product from the card. Its stable identity, replay and reconciliation rules are described in
+[the runtime contract](docs/runtime-contract.md).
 Discord collection additionally needs the selected registry product's `discord_channels` and
 `discord_token_ref`, an accessible credential and the Message Content Intent. A stable pseudonym
 salt must come from `DEMAND_MINING_PSEUDONYM_SALT` or the selected companion's secret file.
