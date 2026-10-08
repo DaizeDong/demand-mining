@@ -27,7 +27,7 @@ their extension, age or presence in a private repository.
 | `registry.json`, flat or per-product priority/taxonomy files, `competitors.json` | Current product identity, collection wiring and policy. Preserve the versions needed to interpret pending work. |
 | `secrets/` | Configured credentials and the stable HMAC salt. Preserve according to the selected private credential backup policy. The salt is not an expiring pseudo-map. |
 | `pool/demands.jsonl` | Product-bound canonical demands and recorded observation identities. No automatic age deletion. |
-| `pool/runs/`, `pool/scheduled/`, `pool/implicit/` | Plans, redacted evidence, manifests, delivery receipts, cursors, caller state and recovery markers. Preserve while delivery, retries, replay prevention or selected final evidence depends on them. |
+| `pool/runs/`, `pool/scheduled/`, `pool/implicit/` | Plans, redacted evidence, manifests, delivery receipts, cursors, caller state and recovery markers. Run bundles include the exact `archive/digests/<year>/<date>.md` delivered content. Preserve while delivery, retries, replay prevention or selected final evidence depends on them. |
 | `pool/quarantine/` | Live observations the privacy screen held repeatedly, in ingest-redacted form with the stage and hold source. Preserve until each record is reviewed and replayed or explicitly rejected; there is no age deletion. |
 | `pool/digests/`, `pool/.daily-summary-*.json` | Redacted final digests and live-summary delivery state. Preserve required evidence and unresolved outcomes. |
 | `pool/.last_summary` | Legacy summary marker. Preserve during migration; a date alone does not prove delivery. |
@@ -130,3 +130,16 @@ import is also retired on hold until restoration obligations are closed and
 necessary current conclusions and references are retained. Its PRIVATE
 revision and reviewed maintenance receipt supply restoration provenance;
 neither import is a live pool, a delivery ledger or part of automatic expiry.
+
+
+## Runtime write admission
+
+The pinned Guards `authorize_artifact_write` API checks each produced file against this
+source's storage.contract.json, the exact PRIVATE companion root and current Git ignore
+policy. Undeclared, ambiguous, retired or ignored versioned destinations fail before a
+write. Structural parent directories grant no permission to their future contents.
+Atomic staging lives in the narrow `.staging/` patterns declared by the source, with
+explicit transient persistence and operation-bound retention; it does not replace durable
+recovery records. Selected credential backup stays under the companion's A/B policy.
+
+Run, scheduled, implicit, quarantine, digest and summary records are versioned recovery data. Local OS locks and backup index files are transient. Backup preflights every declared artifact before staging; ignored recovery data fails visibly and must be corrected in the companion ignore policy.

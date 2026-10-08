@@ -10,7 +10,10 @@
       "schema": "One UTF-8 line containing demand-mining.",
       "producer": "Operator initializing an already verified PRIVATE companion.",
       "consumer_or_final_deliverable": "Shared Guards companion resolver.",
-      "retention_rule": {"class": "core", "rule": "Keep while convention-based consumers use this identity; the marker never replaces PRIVATE visibility or write-admission checks."},
+      "retention_rule": {
+        "class": "core",
+        "rule": "Keep while convention-based consumers use this identity; the marker never replaces PRIVATE visibility or write-admission checks."
+      },
       "rebuild_or_restore": "Restore the verified companion revision or recreate the tool identity after checking the destination."
     },
     {
@@ -191,9 +194,11 @@
       "consumer_or_final_deliverable": "Concurrent writers and recovery.",
       "rebuild_or_restore": "Reacquire through the owning runtime; a persistent lock file alone is not evidence of activity.",
       "retention_rule": {
-        "class": "core",
-        "rule": "Never select through age cleanup. Coordinate any separate lock-file retirement with stopped writers and reconciled recovery state."
-      }
+        "class": "rebuildable",
+        "rule": "Keep during the owning operation; remove stale files only after checking process ownership."
+      },
+      "persistence": "transient",
+      "transient_reason": "Local OS coordination; recovery state is stored separately in durable run and retention records."
     },
     {
       "artifact_id": "business_locks_1",
@@ -204,9 +209,11 @@
       "consumer_or_final_deliverable": "Concurrent writers and recovery.",
       "rebuild_or_restore": "Reacquire through the owning runtime; a persistent lock file alone is not evidence of activity.",
       "retention_rule": {
-        "class": "core",
-        "rule": "Never select through age cleanup. Coordinate any separate lock-file retirement with stopped writers and reconciled recovery state."
-      }
+        "class": "rebuildable",
+        "rule": "Keep during the owning operation; remove stale files only after checking process ownership."
+      },
+      "persistence": "transient",
+      "transient_reason": "Local OS coordination; recovery state is stored separately in durable run and retention records."
     },
     {
       "artifact_id": "business_locks_2",
@@ -217,9 +224,11 @@
       "consumer_or_final_deliverable": "Concurrent writers and recovery.",
       "rebuild_or_restore": "Reacquire through the owning runtime; a persistent lock file alone is not evidence of activity.",
       "retention_rule": {
-        "class": "core",
-        "rule": "Never select through age cleanup. Coordinate any separate lock-file retirement with stopped writers and reconciled recovery state."
-      }
+        "class": "rebuildable",
+        "rule": "Keep during the owning operation; remove stale files only after checking process ownership."
+      },
+      "persistence": "transient",
+      "transient_reason": "Local OS coordination; recovery state is stored separately in durable run and retention records."
     },
     {
       "artifact_id": "live_summary_state_0",
@@ -245,45 +254,6 @@
       "retention_rule": {
         "class": "core",
         "rule": "Keep unresolved outcomes and replay-prevention identities. No automatic age deletion or conversion of legacy dates to delivery proof."
-      }
-    },
-    {
-      "artifact_id": "durable_run_state_0",
-      "path_pattern": "pool/runs/**",
-      "purpose": "Finalization bundles, frozen identities, manifests, delivery receipts, source cursors and recovery coordination.",
-      "schema": "skills/demand-mining/scripts/finalize.py and scheduled.py; docs/runtime-contract.md.",
-      "producer": "Finalizer and scheduled caller.",
-      "consumer_or_final_deliverable": "Run recovery, artifact verification, delivery reconciliation, replay prevention and selected final evidence.",
-      "rebuild_or_restore": "Restore each consistent bundle and its exact manifests/receipts with the shared ledger. Resume the saved identity after reconciliation.",
-      "retention_rule": {
-        "class": "core",
-        "rule": "No corpus TTL. Keep pending states, checkpoint markers and artifacts used by retries, ledgers or retained evidence; retire only after all dependent work is reconciled."
-      }
-    },
-    {
-      "artifact_id": "durable_run_state_1",
-      "path_pattern": "pool/scheduled/**",
-      "purpose": "Finalization bundles, frozen identities, manifests, delivery receipts, source cursors and recovery coordination.",
-      "schema": "skills/demand-mining/scripts/finalize.py and scheduled.py; docs/runtime-contract.md. Existing caller.json and failed backup objects add enum-only error_stage and error_category beside error_type; no raw error message or traceback.",
-      "producer": "Finalizer and scheduled caller.",
-      "consumer_or_final_deliverable": "Run recovery, artifact verification, delivery reconciliation, replay prevention and selected final evidence.",
-      "rebuild_or_restore": "Restore each consistent bundle and its exact manifests/receipts with the shared ledger. Resume the saved identity after reconciliation.",
-      "retention_rule": {
-        "class": "core",
-        "rule": "No corpus TTL. Keep pending states, checkpoint markers and artifacts used by retries, ledgers or retained evidence; retire only after all dependent work is reconciled."
-      }
-    },
-    {
-      "artifact_id": "durable_run_state_2",
-      "path_pattern": "pool/implicit/**",
-      "purpose": "Finalization bundles, frozen identities, manifests, delivery receipts, source cursors and recovery coordination.",
-      "schema": "skills/demand-mining/scripts/finalize.py and scheduled.py; docs/runtime-contract.md.",
-      "producer": "Finalizer and scheduled caller.",
-      "consumer_or_final_deliverable": "Run recovery, artifact verification, delivery reconciliation, replay prevention and selected final evidence.",
-      "rebuild_or_restore": "Restore each consistent bundle and its exact manifests/receipts with the shared ledger. Resume the saved identity after reconciliation.",
-      "retention_rule": {
-        "class": "core",
-        "rule": "No corpus TTL. Keep pending states, checkpoint markers and artifacts used by retries, ledgers or retained evidence; retire only after all dependent work is reconciled."
       }
     },
     {
@@ -490,9 +460,11 @@
       "consumer_or_final_deliverable": "Safe expiry, changed-file detection and the latest cleanup outcome.",
       "rebuild_or_restore": "Preserve registry identity; rebuild a stale plan from current admitted metadata. Never assume a prior plan authorizes changed bytes.",
       "retention_rule": {
-        "class": "core",
-        "rule": "Keep current control records and unresolved maintenance state; replace current plan/latest receipt rather than accumulating daily report histories."
-      }
+        "class": "rebuildable",
+        "rule": "Keep during the owning operation; remove stale files only after checking process ownership."
+      },
+      "persistence": "transient",
+      "transient_reason": "Local OS coordination; recovery state is stored separately in durable run and retention records."
     },
     {
       "artifact_id": "product_competitor_watchlist",
@@ -1805,6 +1777,250 @@
       "retention_rule": {
         "class": "retired",
         "rule": "Frozen diagnostic filename family outside the current pool/logs writer namespace. Hold until actual task bindings, unresolved incidents, pending recovery and unique final evidence are checked. This class supplies no removal authorization or automatic TTL; no new runtime writes to the import."
+      }
+    },
+    {
+      "artifact_id": "atomic-staging",
+      "path_pattern": ".staging/atomic-*.tmp",
+      "purpose": "Private atomic replacement staging",
+      "schema": "Producer-owned ordinary file; never executable configuration.",
+      "producer": "data_safety.atomic_bytes",
+      "consumer_or_final_deliverable": "Atomic publication of a declared Demand artifact",
+      "rebuild_or_restore": "Recreate through the producer after resolving an interrupted operation.",
+      "retention_rule": {
+        "class": "rebuildable",
+        "rule": "Keep while the owning operation is active; inspect interrupted operations before removing residual files."
+      },
+      "persistence": "transient",
+      "transient_reason": "Local transaction coordination or atomic staging; the committed destination is the recoverable record."
+    },
+    {
+      "artifact_id": "backup-index",
+      "path_pattern": ".demand-backup-index-*",
+      "purpose": "Isolated Git staging index and its lock",
+      "schema": "Producer-owned ordinary file; never executable configuration.",
+      "producer": "backup._backup_locked",
+      "consumer_or_final_deliverable": "Scoped backup without disturbing the operator index",
+      "rebuild_or_restore": "Recreate through the producer after resolving an interrupted operation.",
+      "retention_rule": {
+        "class": "rebuildable",
+        "rule": "Keep while the owning operation is active; inspect interrupted operations before removing residual files."
+      },
+      "persistence": "transient",
+      "transient_reason": "Local transaction coordination or atomic staging; the committed destination is the recoverable record."
+    },
+    {
+      "artifact_id": "durable_run_state_0-0",
+      "path_pattern": "pool/runs/*/plan.json",
+      "purpose": "Finalization bundles, frozen identities, manifests, delivery receipts, source cursors and recovery coordination.",
+      "schema": "skills/demand-mining/scripts/finalize.py and scheduled.py; docs/runtime-contract.md.",
+      "producer": "Finalizer and scheduled caller.",
+      "consumer_or_final_deliverable": "Run recovery, artifact verification, delivery reconciliation, replay prevention and selected final evidence.",
+      "rebuild_or_restore": "Restore each consistent bundle and its exact manifests/receipts with the shared ledger. Resume the saved identity after reconciliation.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "No corpus TTL. Keep pending states, checkpoint markers and artifacts used by retries, ledgers or retained evidence; retire only after all dependent work is reconciled."
+      }
+    },
+    {
+      "artifact_id": "durable_run_state_0-1",
+      "path_pattern": "pool/runs/*/state.json",
+      "purpose": "Finalization bundles, frozen identities, manifests, delivery receipts, source cursors and recovery coordination.",
+      "schema": "skills/demand-mining/scripts/finalize.py and scheduled.py; docs/runtime-contract.md.",
+      "producer": "Finalizer and scheduled caller.",
+      "consumer_or_final_deliverable": "Run recovery, artifact verification, delivery reconciliation, replay prevention and selected final evidence.",
+      "rebuild_or_restore": "Restore each consistent bundle and its exact manifests/receipts with the shared ledger. Resume the saved identity after reconciliation.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "No corpus TTL. Keep pending states, checkpoint markers and artifacts used by retries, ledgers or retained evidence; retire only after all dependent work is reconciled."
+      }
+    },
+    {
+      "artifact_id": "durable_run_state_0-2",
+      "path_pattern": "pool/runs/*/cards.json",
+      "purpose": "Finalization bundles, frozen identities, manifests, delivery receipts, source cursors and recovery coordination.",
+      "schema": "skills/demand-mining/scripts/finalize.py and scheduled.py; docs/runtime-contract.md.",
+      "producer": "Finalizer and scheduled caller.",
+      "consumer_or_final_deliverable": "Run recovery, artifact verification, delivery reconciliation, replay prevention and selected final evidence.",
+      "rebuild_or_restore": "Restore each consistent bundle and its exact manifests/receipts with the shared ledger. Resume the saved identity after reconciliation.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "No corpus TTL. Keep pending states, checkpoint markers and artifacts used by retries, ledgers or retained evidence; retire only after all dependent work is reconciled."
+      }
+    },
+    {
+      "artifact_id": "durable_run_state_0-3",
+      "path_pattern": "pool/runs/*/manifest.json",
+      "purpose": "Finalization bundles, frozen identities, manifests, delivery receipts, source cursors and recovery coordination.",
+      "schema": "skills/demand-mining/scripts/finalize.py and scheduled.py; docs/runtime-contract.md.",
+      "producer": "Finalizer and scheduled caller.",
+      "consumer_or_final_deliverable": "Run recovery, artifact verification, delivery reconciliation, replay prevention and selected final evidence.",
+      "rebuild_or_restore": "Restore each consistent bundle and its exact manifests/receipts with the shared ledger. Resume the saved identity after reconciliation.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "No corpus TTL. Keep pending states, checkpoint markers and artifacts used by retries, ledgers or retained evidence; retire only after all dependent work is reconciled."
+      }
+    },
+    {
+      "artifact_id": "durable_run_state_0-4",
+      "path_pattern": "pool/runs/*/receipt.json",
+      "purpose": "Finalization bundles, frozen identities, manifests, delivery receipts, source cursors and recovery coordination.",
+      "schema": "skills/demand-mining/scripts/finalize.py and scheduled.py; docs/runtime-contract.md.",
+      "producer": "Finalizer and scheduled caller.",
+      "consumer_or_final_deliverable": "Run recovery, artifact verification, delivery reconciliation, replay prevention and selected final evidence.",
+      "rebuild_or_restore": "Restore each consistent bundle and its exact manifests/receipts with the shared ledger. Resume the saved identity after reconciliation.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "No corpus TTL. Keep pending states, checkpoint markers and artifacts used by retries, ledgers or retained evidence; retire only after all dependent work is reconciled."
+      }
+    },
+    {
+      "artifact_id": "durable_run_state_0-5",
+      "path_pattern": "pool/runs/*/cursor.json",
+      "purpose": "Finalization bundles, frozen identities, manifests, delivery receipts, source cursors and recovery coordination.",
+      "schema": "skills/demand-mining/scripts/finalize.py and scheduled.py; docs/runtime-contract.md.",
+      "producer": "Finalizer and scheduled caller.",
+      "consumer_or_final_deliverable": "Run recovery, artifact verification, delivery reconciliation, replay prevention and selected final evidence.",
+      "rebuild_or_restore": "Restore each consistent bundle and its exact manifests/receipts with the shared ledger. Resume the saved identity after reconciliation.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "No corpus TTL. Keep pending states, checkpoint markers and artifacts used by retries, ledgers or retained evidence; retire only after all dependent work is reconciled."
+      }
+    },
+    {
+      "artifact_id": "durable_run_state_1-0",
+      "path_pattern": "pool/scheduled/*/active.json",
+      "purpose": "Finalization bundles, frozen identities, manifests, delivery receipts, source cursors and recovery coordination.",
+      "schema": "skills/demand-mining/scripts/finalize.py and scheduled.py; docs/runtime-contract.md. Existing caller.json and failed backup objects add enum-only error_stage and error_category beside error_type; no raw error message or traceback.",
+      "producer": "Finalizer and scheduled caller.",
+      "consumer_or_final_deliverable": "Run recovery, artifact verification, delivery reconciliation, replay prevention and selected final evidence.",
+      "rebuild_or_restore": "Restore each consistent bundle and its exact manifests/receipts with the shared ledger. Resume the saved identity after reconciliation.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "No corpus TTL. Keep pending states, checkpoint markers and artifacts used by retries, ledgers or retained evidence; retire only after all dependent work is reconciled."
+      }
+    },
+    {
+      "artifact_id": "durable_run_state_1-1",
+      "path_pattern": "pool/scheduled/*/checkpoint-pending.json",
+      "purpose": "Finalization bundles, frozen identities, manifests, delivery receipts, source cursors and recovery coordination.",
+      "schema": "skills/demand-mining/scripts/finalize.py and scheduled.py; docs/runtime-contract.md. Existing caller.json and failed backup objects add enum-only error_stage and error_category beside error_type; no raw error message or traceback.",
+      "producer": "Finalizer and scheduled caller.",
+      "consumer_or_final_deliverable": "Run recovery, artifact verification, delivery reconciliation, replay prevention and selected final evidence.",
+      "rebuild_or_restore": "Restore each consistent bundle and its exact manifests/receipts with the shared ledger. Resume the saved identity after reconciliation.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "No corpus TTL. Keep pending states, checkpoint markers and artifacts used by retries, ledgers or retained evidence; retire only after all dependent work is reconciled."
+      }
+    },
+    {
+      "artifact_id": "durable_run_state_1-2",
+      "path_pattern": "pool/scheduled/*/*/handoff.json",
+      "purpose": "Finalization bundles, frozen identities, manifests, delivery receipts, source cursors and recovery coordination.",
+      "schema": "skills/demand-mining/scripts/finalize.py and scheduled.py; docs/runtime-contract.md. Existing caller.json and failed backup objects add enum-only error_stage and error_category beside error_type; no raw error message or traceback.",
+      "producer": "Finalizer and scheduled caller.",
+      "consumer_or_final_deliverable": "Run recovery, artifact verification, delivery reconciliation, replay prevention and selected final evidence.",
+      "rebuild_or_restore": "Restore each consistent bundle and its exact manifests/receipts with the shared ledger. Resume the saved identity after reconciliation.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "No corpus TTL. Keep pending states, checkpoint markers and artifacts used by retries, ledgers or retained evidence; retire only after all dependent work is reconciled."
+      }
+    },
+    {
+      "artifact_id": "durable_run_state_1-3",
+      "path_pattern": "pool/scheduled/*/*/caller.json",
+      "purpose": "Finalization bundles, frozen identities, manifests, delivery receipts, source cursors and recovery coordination.",
+      "schema": "skills/demand-mining/scripts/finalize.py and scheduled.py; docs/runtime-contract.md. Existing caller.json and failed backup objects add enum-only error_stage and error_category beside error_type; no raw error message or traceback.",
+      "producer": "Finalizer and scheduled caller.",
+      "consumer_or_final_deliverable": "Run recovery, artifact verification, delivery reconciliation, replay prevention and selected final evidence.",
+      "rebuild_or_restore": "Restore each consistent bundle and its exact manifests/receipts with the shared ledger. Resume the saved identity after reconciliation.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "No corpus TTL. Keep pending states, checkpoint markers and artifacts used by retries, ledgers or retained evidence; retire only after all dependent work is reconciled."
+      }
+    },
+    {
+      "artifact_id": "durable_run_state_2-0",
+      "path_pattern": "pool/implicit/*/active.json",
+      "purpose": "Finalization bundles, frozen identities, manifests, delivery receipts, source cursors and recovery coordination.",
+      "schema": "skills/demand-mining/scripts/finalize.py and scheduled.py; docs/runtime-contract.md.",
+      "producer": "Finalizer and scheduled caller.",
+      "consumer_or_final_deliverable": "Run recovery, artifact verification, delivery reconciliation, replay prevention and selected final evidence.",
+      "rebuild_or_restore": "Restore each consistent bundle and its exact manifests/receipts with the shared ledger. Resume the saved identity after reconciliation.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "No corpus TTL. Keep pending states, checkpoint markers and artifacts used by retries, ledgers or retained evidence; retire only after all dependent work is reconciled."
+      }
+    },
+    {
+      "artifact_id": "durable_run_state_2-1",
+      "path_pattern": "pool/implicit/*/completed.json",
+      "purpose": "Finalization bundles, frozen identities, manifests, delivery receipts, source cursors and recovery coordination.",
+      "schema": "skills/demand-mining/scripts/finalize.py and scheduled.py; docs/runtime-contract.md.",
+      "producer": "Finalizer and scheduled caller.",
+      "consumer_or_final_deliverable": "Run recovery, artifact verification, delivery reconciliation, replay prevention and selected final evidence.",
+      "rebuild_or_restore": "Restore each consistent bundle and its exact manifests/receipts with the shared ledger. Resume the saved identity after reconciliation.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "No corpus TTL. Keep pending states, checkpoint markers and artifacts used by retries, ledgers or retained evidence; retire only after all dependent work is reconciled."
+      }
+    },
+    {
+      "artifact_id": "run-archive-digest",
+      "path_pattern": "pool/runs/*/archive/digests/????/????-??-??.md",
+      "purpose": "Exact private Markdown delivered or referenced by a finalization run.",
+      "schema": "Markdown produced by digest.write_digest_file with an ISO date and four-digit year directory.",
+      "producer": "finalize.finalize via digest.write_digest_file.",
+      "consumer_or_final_deliverable": "Delivery, replay verification and incident recovery for the matching run identity.",
+      "rebuild_or_restore": "Restore the exact digest with its adjacent run plan, manifest, delivery receipt and ledger identity.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "Keep while retained run evidence or pending delivery and recovery references depend on it. No automatic TTL or retirement before dependent work is reconciled."
+      }
+    },
+    {
+      "artifact_id": "runs-coordination",
+      "path_pattern": "pool/runs/*/.lock",
+      "purpose": "Local exclusive transaction coordination",
+      "schema": "OS lock file; never a recovery record.",
+      "producer": "data_safety.file_lock",
+      "consumer_or_final_deliverable": "Cooperating runs writers",
+      "rebuild_or_restore": "Recreate when the producer acquires its OS lock.",
+      "persistence": "transient",
+      "transient_reason": "Durable recovery lives in adjacent declared JSON records; lock state is process-local.",
+      "retention_rule": {
+        "class": "rebuildable",
+        "rule": "Keep while a process owns the lock; inspect ownership before cleaning stale files."
+      }
+    },
+    {
+      "artifact_id": "scheduled-coordination",
+      "path_pattern": "pool/scheduled/*/.lock",
+      "purpose": "Local exclusive transaction coordination",
+      "schema": "OS lock file; never a recovery record.",
+      "producer": "data_safety.file_lock",
+      "consumer_or_final_deliverable": "Cooperating scheduled writers",
+      "rebuild_or_restore": "Recreate when the producer acquires its OS lock.",
+      "persistence": "transient",
+      "transient_reason": "Durable recovery lives in adjacent declared JSON records; lock state is process-local.",
+      "retention_rule": {
+        "class": "rebuildable",
+        "rule": "Keep while a process owns the lock; inspect ownership before cleaning stale files."
+      }
+    },
+    {
+      "artifact_id": "implicit-coordination",
+      "path_pattern": "pool/implicit/*/.lock",
+      "purpose": "Local exclusive transaction coordination",
+      "schema": "OS lock file; never a recovery record.",
+      "producer": "data_safety.file_lock",
+      "consumer_or_final_deliverable": "Cooperating implicit writers",
+      "rebuild_or_restore": "Recreate when the producer acquires its OS lock.",
+      "persistence": "transient",
+      "transient_reason": "Durable recovery lives in adjacent declared JSON records; lock state is process-local.",
+      "retention_rule": {
+        "class": "rebuildable",
+        "rule": "Keep while a process owns the lock; inspect ownership before cleaning stale files."
       }
     }
   ],

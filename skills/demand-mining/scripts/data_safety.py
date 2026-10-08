@@ -138,11 +138,9 @@ def _transport_proof(root):
             "repositories": tuple(proof.repositories), "sha256": proof.signature}
 
 
-# A successful companion proof launches about twenty Git processes. Long-running writers
-# (daemon log appends, pool upserts) ask for it many times a minute, so a SUCCESSFUL proof
-# is reused for one repository root while a cheap local signature of every proof input is
-# unchanged, and never for longer than PROOF_CACHE_TTL seconds. A failed proof is never
-# stored and evicts any stored success. Backup pushes always run a fresh proof.
+# Non-writing preflight callers may reuse a successful transport proof while its
+# local inputs are unchanged. Artifact writers independently obtain fresh shared
+# admission; this cache never replaces that proof. Backup pushes also prove fresh.
 PROOF_CACHE_TTL = 600.0
 _PROOF_CACHE = {}
 
@@ -273,17 +271,10 @@ def require_private_push(root, repository):
 
 
 def data_root():
-    from lib import find_config_dir
-    override = os.environ.get("DEMAND_MINING_DATA_DIR")
-    if override is not None:
-        if not override.strip():
-            raise DestinationError("DEMAND_MINING_DATA_DIR is empty")
-        root = Path(override).expanduser().absolute()
-    else:
-        config = find_config_dir()
-        if config is None:
-            raise DestinationError("DATA is uninitialized; configure a PRIVATE companion repository")
-        root = config / "pool"
+    from config_paths import data_directory
+    root = data_directory()
+    if root is None:
+        raise DestinationError("DATA is uninitialized; configure a PRIVATE companion repository")
     require_private(root)
     return root
 
@@ -298,22 +289,38 @@ def sync_directory(path):
 
 
 def atomic_bytes(path, content):
-    admission = require_private(path)
+    admission = authorize_write(path)
     path = Path(admission["path"])
     path.parent.mkdir(parents=True, exist_ok=True)
-    fd, name = tempfile.mkstemp(prefix="." + path.name + ".", dir=path.parent)
+    import uuid
+    name = Path(admission["root"]) / ".staging" / ("atomic-" + uuid.uuid4().hex + ".tmp")
+    authorize_write(name)
+    name.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(name, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    temporary_identity = os.fstat(fd)
     try:
         with os.fdopen(fd, "wb") as handle:
             handle.write(content)
             handle.flush()
             os.fsync(handle.fileno())
-        if require_private(path)["transport"] != admission["transport"]:
+        if authorize_write(path)["artifact_publication"] != admission["artifact_publication"]:
             raise DestinationError("DATA companion changed before atomic publication")
+        authorize_write(name)
+        candidate = name.lstat()
+        if not stat.S_ISREG(candidate.st_mode) or candidate.st_nlink != 1 or not os.path.samestat(temporary_identity, candidate):
+            raise DestinationError("DATA temporary file changed identity before publication")
         os.replace(name, path)
         sync_directory(path.parent)
     finally:
         if os.path.exists(name):
-            os.unlink(name)
+            try:
+                candidate = _unaliased_path(name).lstat()
+                if not os.path.samestat(temporary_identity, candidate):
+                    raise DestinationError("temporary cleanup refused after identity changed")
+                os.unlink(name)
+            except (OSError, RuntimeError):
+                import sys
+                print("DATA temporary cleanup refused; inspect the retained staging file", file=sys.stderr)
     return path
 
 
@@ -325,7 +332,7 @@ def atomic_json(path, value):
 @contextmanager
 def file_lock(path, timeout=30.0, *, create=True):
     """OS-owned exclusive lock; process exit releases it, contention never bypasses it."""
-    path = Path(require_private(path)["path"])
+    path = Path((authorize_write(path) if create else require_private(path))["path"])
     if create:
         path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a+b" if create else "r+b") as handle:
@@ -356,3 +363,35 @@ def file_lock(path, timeout=30.0, *, create=True):
             else:
                 import fcntl
                 fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
+def _storage_contract():
+    """Load the shared source-contract authority from this consumer's pinned submodule."""
+    import importlib.util
+    import sys
+    source = Path(__file__).resolve().parents[3] / "guards/tools/storage_contract.py"
+    name = "demand_mining_storage_contract"
+    if name in sys.modules:
+        return sys.modules[name]
+    spec = importlib.util.spec_from_file_location(name, source)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    try:
+        spec.loader.exec_module(module)
+    except (OSError, ImportError):
+        sys.modules.pop(name, None)
+        raise
+    return module
+
+
+def authorize_write(path):
+    """Admit a declared artifact with fresh PRIVATE proof and versioning eligibility."""
+    proof = require_private(path)
+    target, root = Path(proof["path"]), Path(proof["root"])
+    source = Path(__file__).resolve().parents[3]
+    try:
+        admission = _storage_contract().authorize_artifact_write(source, root, target.relative_to(root).as_posix())
+    except (ValueError, RuntimeError) as exc:
+        raise DestinationError("artifact write refused: " + str(exc)) from exc
+    proof["artifact_publication"] = (tuple(admission.proof.repositories), admission.proof.signature)
+    return proof

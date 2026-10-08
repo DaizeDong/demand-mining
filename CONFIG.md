@@ -12,18 +12,9 @@ This file is the authoritative config contract (config-spec E1). It is the canon
 > accepts `products[]` (and also `tools[]`/`entries[]` for forward-compat). Everything else matches the
 > spec (Mode B secrets, env-var discovery, deterministic init).
 
-## Discovery convention (how the skill finds your config), E2
+## Discovery convention (E2)
 
-`lib.py:find_config_dir()` resolves the config dir in this exact order; the first that exists wins:
-
-1. `$DEMAND_MINING_CONFIG`, environment variable (recommended; location-independent).
-2. `~/.demand-mining-config/`, dotfile-in-home fallback.
-3. `~/.config/demand-mining-config/`, XDG-style fallback (Linux/macOS).
-
-If none resolves, pure offline helpers can use `lib.py:DEFAULT_CONFIG`. Initialization,
-real collection and DATA writes require a configured, versioned PRIVATE companion and its
-verified visibility receipt. Explicit invalid overrides are errors and never fall through to
-defaults. Loaded tunables are **deep-merged over** `DEFAULT_CONFIG`.
+`DEMAND_MINING_CONFIG` selects the companion root; `DEMAND_MINING_CONFIG_DIR` is its lower-priority alias. `DEMAND_MINING_DATA_DIR` may select the supported DATA directory in that same companion. Conflicting CONFIG and DATA selections, empty selectors and explicit missing paths fail before any write. With no explicit selector, the pinned Guards resolver checks a proven sibling companion, `~/.demand-mining-config`, then its legacy `~/.demand-mining-data` convention. There is no separate XDG search. Settings and DATA share this selection. `--config-dir` on the doctor selects one companion in isolation from inherited selectors; restore normal environment selection before running the product. Runtime state lives at `<companion>/pool`; DATA_DIR must name that exact pool directory.
 
 ## Layouts (two supported)
 
@@ -35,12 +26,13 @@ defaults. Loaded tunables are **deep-merged over** `DEFAULT_CONFIG`.
   products/<slug>/priority.json # scoring / push / delegation / privacy overrides
   products/<slug>/taxonomy.json # taxonomy[] override (optional)
   competitors.json              # competitor watchlist (delegation lane 3, optional)
-  secrets/                      # Mode B — gitignored, never committed
+  secrets/                      # selected PRIVATE credential backup policy
 ```
 
-`load_config()` reads the FIRST product in `registry.json` whose `products/<slug>/` dir exists.
+`DEMAND_MINING_PRODUCT` selects a registered slug. Without it, `load_config()` selects the
+first registered product. A missing selected directory is an error; it does not skip to another product.
 
-**(B) Flat**, point `$DEMAND_MINING_CONFIG` straight at a single-product dir (no registry):
+**(B) Flat**, keep one product's files at the companion root selected by `$DEMAND_MINING_CONFIG` (no registry). Runtime DATA still lives in that companion's `pool/`:
 
 ```
 <config-dir>/
@@ -59,8 +51,17 @@ defaults. Loaded tunables are **deep-merged over** `DEFAULT_CONFIG`.
 
 ## Schema, `products/<slug>/priority.json` (tunable surface), E1
 
-Every key is **optional** (deep-merged over `DEFAULT_CONFIG`). Types/examples below mirror
-`lib.py:DEFAULT_CONFIG`.
+Real runs require a nonempty `product_id` and an IANA `timezone` (for example `UTC`). The
+initializer fills the selected product slug and UTC; review both before the doctor. Other tunables
+below deep-merge over `DEFAULT_CONFIG`.
+
+Delivery and dedup require `SCHEDULE_DB_PATH` or `ledger.db_path` pointing to an existing,
+nonempty PRIVATE schedule-reminder store. Initialize it with schedule-reminder first.
+Discord collection additionally needs the selected registry product's `discord_channels` and
+`discord_token_ref`, an accessible credential and the Message Content Intent. A stable pseudonym
+salt must come from `DEMAND_MINING_PSEUDONYM_SALT` or the selected companion's secret file.
+The config doctor checks product identity and schema; scheduled preflight checks its selected
+collection/delivery dependencies without making a model call. See docs/runtime-contract.md.
 
 | Key                              | Type                  | Example / default                                            |
 | -------------------------------- | --------------------- | ------------------------------------------------------------ |
@@ -115,9 +116,11 @@ competitor records (slug/name/url) the SKILL's deep-dive layer reads.
 
 ## Secrets, Mode B (E6)
 
-The companion config repo is **separate and private**. `secrets/*` is **gitignored**, real values
-never enter git; back them up out-of-band (cloud sync / encrypted drive). Neither this skill repo nor
-the config repo ever echoes a secret value. Secrets used by demand-mining:
+The companion is separate and PRIVATE. The template defaults to Mode B: ignored secrets
+need a separate protected backup and must be restored before use. A selected Mode A may version
+credentials in verified PRIVATE Git and restore them from that private history. Declare the mode
+in `secrets/README.md` and align its ignore rules. Neither mode permits credentials in public source
+or printed output. Secrets used by demand-mining:
 
 | Secret                  | Where                                                                    | Notes                                              |
 | ----------------------- | ------------------------------------------------------------------------ | -------------------------------------------------- |

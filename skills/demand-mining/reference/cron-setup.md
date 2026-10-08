@@ -13,7 +13,9 @@ Pending runs are resumed before starting a new day. Historical digest registrati
 not proof that missed source messages were collected.
 
 Register with register-task.ps1 at an appropriate local trigger time after the
-config doctor and scheduled.py --preflight succeed. Registration is an explicit
+config doctor and scheduled.py --preflight succeed. Registration fixes the
+interpreter: pass -Python with the python.exe that has llmcall installed, or the
+script records the python your shell resolves; the Windows Store alias is refused. Registration is an explicit
 operator action; running a doctor never creates a task or sends a notification.
 The scheduled caller reports incomplete status through its exit code and private
 caller state. It does not issue a second message to report a failed send.

@@ -97,7 +97,7 @@ def test_private_log_cannot_append_through_hardlink_to_public_file(native_storag
 
 def test_plain_private_log_still_appends(native_storage):
     private, _, _ = native_storage
-    log = private / 'daemon.log'
+    log = private / 'pool/logs/daemon.log'
     with PrivateLog(log) as stream:
         stream.write('synthetic first\n')
         stream.write('synthetic second\n')
@@ -106,7 +106,7 @@ def test_plain_private_log_still_appends(native_storage):
 
 def test_repeated_atomic_write_supports_a_long_data_path(native_storage):
     private, _, _ = native_storage
-    directory = private
+    directory = private / 'pool/logs'
     while len(str(directory/'state.json')) < 321:
         directory = directory / ('a' * 60)
     target = directory / 'state.json'
@@ -120,7 +120,7 @@ def test_repeated_atomic_write_supports_a_long_data_path(native_storage):
 def test_nearest_nested_repository_remains_authoritative(native_storage, visibility):
     private, _, repository = native_storage
     nested = repository(private/'nested', 'nested-vault', visibility)
-    target = nested/'deep/state.json'
+    target = nested/'pool/runs/synthetic/state.json'
     if visibility == 'PUBLIC':
         with pytest.raises(data_safety.DestinationError):
             data_safety.atomic_json(target, {'synthetic': True})

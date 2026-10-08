@@ -16,7 +16,9 @@
     "Enforced by tools/data_boundary.py in .githooks and in CI."
   ],
   "_audited": "Real writers now validate actual destinations against a verified PRIVATE repository before corpus, pool, ledger, archive, receipt, run-state, cursor, daemon-log or backup writes. Explicit invalid configuration fails closed. Source data remains empty because each writer resolves outside the public consumer and cannot use a repository-local fallback.",
-  "data": [],
+  "data": [
+    ".staging/"
+  ],
   "data_sealed": [
     "skills/demand-mining/scripts/corpus_today.json",
     "skills/demand-mining/scripts/dump_general.txt",
@@ -36,7 +38,8 @@
     "skills/demand-mining/tests/test_review15_repairs.py",
     "skills/demand-mining/tests/test_review18_repairs.py",
     "skills/demand-mining/tests/test_ledger_pipeline.py",
-    "skills/demand-mining/tests/test_review19_repairs.py"
+    "skills/demand-mining/tests/test_review19_repairs.py",
+    "skills/demand-mining/tests/test_no_console_and_backoff.py"
   ],
   "_data_home": "PRIVATE companion pool/ by default, overridden by DEMAND_MINING_DATA_DIR; every actual destination is verified before writes. See docs/runtime-contract.md."
 }

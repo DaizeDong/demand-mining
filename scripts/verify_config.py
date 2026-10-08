@@ -1,20 +1,9 @@
 #!/usr/bin/env python3
-"""Doctor for demand-mining's companion config (config-spec E3). Resolves the config dir via the
-documented discovery order (identical to scripts/lib.py:find_config_dir), validates it against the
-contract in CONFIG.md, and prints PASS/FAIL per check naming exactly what is missing.
-Exit 0 = ready, 1 = not ready, 2 = usage error.
+"""Validate the selected companion configuration for demand-mining.
 
-Discovery order (config-spec E2):
-  1. $DEMAND_MINING_CONFIG   2. ~/.demand-mining-config/   3. ~/.config/demand-mining-config/
-
-Accepts BOTH supported layouts:
-  * per-product: registry.json{schema_version, skill, products:[{slug}]} -> products/<slug>/...
-  * flat:        <dir>/priority.json (or watchlist.json) [+ taxonomy.json]
-The registry variant is products[]; tools[]/entries[] are also accepted for forward-compat.
-
-Usage:
-  python verify_config.py [--skill <name>] [--config-dir <dir>]
-Stdlib only. Never echoes secret values (only presence).
+Selection and required fields are defined in CONFIG.md and config.contract.json.
+Explicit CLI paths isolate environment selection. Runtime uses the same pinned Guards
+companion discovery; invalid selectors never fall through to another companion.
 """
 import argparse
 import json
@@ -49,16 +38,11 @@ def detect_skill():
 
 
 def discover(skill, override):
-    if override:
-        return os.path.abspath(os.path.expanduser(override)), "explicit (--config-dir)"
-    val = os.environ.get(env_var(skill))
-    if val is not None:
-        return os.path.abspath(os.path.expanduser(val)), "env:%s" % env_var(skill)
-    for d in (os.path.expanduser("~/.%s-config" % skill),
-              os.path.expanduser("~/.config/%s-config" % skill)):
-        if os.path.isdir(d):
-            return d, "default:%s" % d
-    return None, None
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                  "skills", "demand-mining", "scripts"))
+    from config_paths import companion_root
+    selected = companion_root(override)
+    return (str(selected), "shared companion selection") if selected is not None else (None, None)
 
 
 def main():
@@ -69,7 +53,11 @@ def main():
 
     skill = a.skill or detect_skill() or DEFAULT_SKILL
 
-    cfg, how = discover(skill, a.config_dir)
+    try:
+        cfg, how = discover(skill, a.config_dir)
+    except (OSError, ValueError, RuntimeError) as exc:
+        print("NOT READY: " + str(exc))
+        return 1
     print("Config doctor for skill '%s'" % skill)
     print("Discovery env var: %s" % env_var(skill))
     if not cfg:
@@ -78,6 +66,7 @@ def main():
               % env_var(skill))
         return 1
     print("  resolved via %s -> %s" % (how, cfg))
+    print("RESOLVED: " + cfg)
     print("-" * 60)
 
     results = []
@@ -92,17 +81,18 @@ def main():
     from finalize import logical_identity
     from lib import load_config
     from redact import privacy_coverage
-    os.environ[env_var(skill)] = cfg
-    for label, probe in (
-            ("config PRIVATE destination", lambda: require_private(cfg)),
-            ("DATA PRIVATE destination", data_root),
-            ("configured product and IANA timezone", lambda: logical_identity(load_config())),
-            ("working directory readable/writable", lambda: os.access(cfg, os.R_OK | os.W_OK))):
-        try:
-            value = probe()
-            check(label, bool(value))
-        except (OSError, ValueError, RuntimeError) as exc:
-            check(label, False, str(exc))
+    from config_paths import selected_environment
+    with selected_environment(cfg):
+        for label, probe in (
+                ("config PRIVATE destination", lambda: require_private(cfg)),
+                ("DATA PRIVATE destination", data_root),
+                ("configured product and IANA timezone", lambda: logical_identity(load_config())),
+                ("working directory readable/writable", lambda: os.access(cfg, os.R_OK | os.W_OK))):
+            try:
+                value = probe()
+                check(label, bool(value))
+            except (OSError, ValueError, RuntimeError) as exc:
+                check(label, False, str(exc))
     coverage = privacy_coverage()
     for label in ("covered", "uncovered", "unchecked"):
         print("Privacy %s: %s" % (label, ", ".join(coverage[label])))
@@ -224,12 +214,20 @@ def main():
 
     check("secrets/ dir present", os.path.isdir(os.path.join(cfg, "secrets")))
 
+    from config_paths import storage_mode
+    try:
+        mode = storage_mode(cfg)
+        check("credential storage mode", True, mode)
+    except (OSError, ValueError) as exc:
+        mode = None
+        check("credential storage mode", False, str(exc))
     gi = os.path.join(cfg, ".gitignore")
     gi_ok = os.path.isfile(gi)
     check(".gitignore present", gi_ok)
-    if gi_ok:
-        txt = open(gi, "r", encoding="utf-8", errors="replace").read()
-        check(".gitignore blocks secrets (secrets/* + *.env)",
+    if mode == "B" and gi_ok:
+        with open(gi, encoding="utf-8") as stream:
+            txt = stream.read()
+        check("Mode B .gitignore blocks secrets (secrets/* + *.env)",
               "secrets/" in txt and "*.env" in txt)
 
     # self-contained check (E5): no absolute-path leakage in committed config files.

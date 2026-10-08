@@ -1,8 +1,18 @@
 # Changelog
 
-All notable changes to this project are documented here (Keep a Changelog style).
-
 ## [Unreleased]
+
+- Unify companion selection across settings, initialization, diagnostics and runtime DATA; reject conflicting selectors.
+- Enforce declared artifact ownership and persistence through the pinned Guards write-admission API.
+- Align setup, required fields and recovery documentation with supported capabilities.
+- Require versionable recovery artifacts before backup and keep local coordination/staging separate from durable state.
+- Declare the exact per-run archived Markdown digest alongside its JSON recovery records so finalization can publish the complete owned bundle.
+
+### Scheduled interpreter
+- `register-task.ps1` fixes the EOD interpreter at registration: `-Python`, or else the `python` the registering shell resolves, is written into the task action as an absolute path, so the scheduled run no longer depends on the task's PATH. Both it and `wrapper.ps1` refuse the Windows Store `python` alias, which under Task Scheduler opens the Store or hangs instead of running.
+- Resolve the selected interpreter before rejecting the Store alias, covering explicit, relative and PATH-selected interpreter paths. Isolated native tests cover task arguments and wrapper exit propagation without registering a task.
+- Preserve spaces, quotes and trailing backslashes again at the wrapper-to-Python boundary, where Windows PowerShell's native argument conversion previously joined separate values.
+
 
 ### Process ownership
 - The daemon's model calls need no ownership declaration: llmcall 0.3.0 owns every
@@ -30,7 +40,7 @@ All notable changes to this project are documented here (Keep a Changelog style)
 - Include pinned submodules in the manual clone instructions so the DATA verifier is available.
 - **The windowless daemon opened thousands of terminal windows.** Under pythonw.exe every Git launch of the PRIVATE proof got a new console, and the proof ran for every log line and pool write. Every subprocess launch now passes `CREATE_NO_WINDOW`, and the daemon, supervisor and scheduled entry points make it the process-wide default when they have no console, which also covers the guard kit's Git calls.
 - **A held observation was retried every poll forever.** Live retries now back off from one poll to one hour and log only state changes. An observation the privacy screen holds eight times moves to `pool/quarantine/` in the PRIVATE companion instead of being retried or dropped.
-- A successful PRIVATE proof is reused for up to ten minutes while a no-subprocess signature of its inputs is unchanged; failures are never reused and backup pushes always prove fresh. The daily summary loop proves its destination only when it writes.
+- Artifact writes now use fresh shared Guards admission; the bounded transport cache remains only a preflight optimization and cannot authorize a write. Backup pushes always prove fresh. The daily summary loop proves its destination only when it writes.
 
 ## [0.7.1] - 2026-08-06
 ### Fixed

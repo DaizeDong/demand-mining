@@ -253,8 +253,22 @@ def test_signature_change_forces_a_fresh_proof(companion, monkeypatch, change):
     assert companion.state["proofs"] == 2
 
 
-def test_revocation_is_caught_at_the_next_write_inside_the_ttl(companion):
-    path = companion.root / "daemon.log"
+def test_revocation_is_caught_at_the_next_write_inside_the_ttl(companion, monkeypatch):
+    def prove(directory, *args):
+        proof = data_safety._transport_proof(directory)
+        return types.SimpleNamespace(root=proof["root"], repositories=proof["repositories"],
+                                     signature=proof["sha256"])
+    def read(snapshot, *args):
+        if args == ("rev-parse", "--verify", "HEAD"):
+            return types.SimpleNamespace(returncode=0, stdout="synthetic-head")
+        if args[:4] == ("check-ignore", "--no-index", "-q", "--"):
+            return types.SimpleNamespace(returncode=1, stdout="")
+        raise AssertionError("unapproved synthetic artifact Git command")
+    boundary = types.SimpleNamespace(prove_private_companion=prove,
+                                     read_private_companion_git=read,
+                                     GitError=data_safety.DestinationError)
+    monkeypatch.setattr(data_safety._storage_contract(), "load_boundary", lambda: boundary)
+    path = companion.root / "pool/logs/daemon.log"
     with PrivateLog(path) as log:
         log.write("synthetic first line\n")
         companion.revoke()
@@ -262,8 +276,8 @@ def test_revocation_is_caught_at_the_next_write_inside_the_ttl(companion):
             log.write("synthetic second line\n")
     assert path.read_text(encoding="utf-8") == "synthetic first line\n"
     with pytest.raises(data_safety.DestinationError):
-        data_safety.atomic_json(companion.root / "state.json", {"synthetic": True})
-    assert not (companion.root / "state.json").exists()
+        data_safety.atomic_json(companion.root / "pool/runs/synthetic/state.json", {"synthetic": True})
+    assert not (companion.root / "pool/runs/synthetic/state.json").exists()
 
 
 def test_negative_control_without_signature_change_the_cache_hides_an_in_memory_flip(companion):

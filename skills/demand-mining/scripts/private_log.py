@@ -20,7 +20,8 @@ class PrivateLog:
         self.closed = False
         self.failure = None
         try:
-            admitted = require_private(self.path)
+            from data_safety import authorize_write
+            admitted = authorize_write(self.path)
             Path(admitted["path"]).parent.mkdir(parents=True, exist_ok=True)
         except Exception as exc:
             self._stop(exc)
@@ -37,7 +38,8 @@ class PrivateLog:
         if not value:
             return 0
         try:
-            admitted = require_private(self.path)
+            from data_safety import authorize_write
+            admitted = authorize_write(self.path)
             options = {} if self.binary else {"encoding": "utf-8", "newline": ""}
             with open(admitted["path"], "ab" if self.binary else "a", **options) as stream:
                 count = stream.write(value)

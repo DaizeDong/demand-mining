@@ -1,25 +1,9 @@
 #!/usr/bin/env python3
-"""Initialize a spec-conformant companion config repo for demand-mining (config-spec E3/E4).
+"""Initialize synthetic configuration templates for demand-mining.
 
-Generic + deterministic. Stamps an empty, conformant config skeleton using the skill's actual
-**per-product** layout (registry.json -> products[] -> products/<slug>/{priority,taxonomy}.json),
-Mode B secrets gitignored. Re-running with the same args produces byte-identical output ,
-template-driven, no interactive divergence (E4). Stdlib only; never writes/echoes secrets.
-
-Discovery convention (mirrors scripts/lib.py:find_config_dir, also in CONFIG.md E2). The config dir
-resolves from, in order:
-  1. $DEMAND_MINING_CONFIG
-  2. ~/.demand-mining-config/        (dotfile fallback)
-  3. ~/.config/demand-mining-config/ (XDG fallback)
-
-Usage:
-  python init_config.py [--skill <name>] [--out <dir>] [--product <slug>] [--mode B] [--force]
-
---skill    skill name; default auto-detected from the nearest .claude-plugin/plugin.json,
-           else "demand-mining".
---out      target dir; default = ~/.<skill>-config/.
---product  if given, also stamps products/<slug>/{priority.json,taxonomy.json} starter overrides
-           and registers the slug in registry.json (deterministic minimal content).
+Selection and required fields are defined in CONFIG.md and config.contract.json.
+Explicit CLI paths isolate environment selection. Runtime uses the same pinned Guards
+companion discovery; invalid selectors never fall through to another companion.
 """
 import argparse
 import json
@@ -29,7 +13,7 @@ import sys
 DEFAULT_SKILL = "demand-mining"
 
 GITIGNORE = """\
-# Secrets gate (config-spec E6 / Mode B), real values never enter git.
+# Secrets gate (config-spec E6 / Mode B), Mode B excludes credential values from this backup.
 secrets/*
 !secrets/README.md
 !secrets/.gitkeep
@@ -50,8 +34,8 @@ claude.json
 SECRETS_README = """\
 # secrets/, Mode B (gitignored)
 
-Real secret values live here and are **gitignored** (see ../.gitignore). They never enter git.
-Back them up out-of-band (cloud sync / encrypted drive). Restore on a new machine by copying the
+Real secret values live here and are **gitignored** (see ../.gitignore). This is the default Mode B policy, not a prohibition on verified PRIVATE backup.
+Back them up out-of-band under Mode B. An explicitly selected Mode A may instead version them only in a verified PRIVATE repository and restore from that history. Restore on a new machine by copying the
 files back into this directory, then re-running `scripts/verify_config.py`.
 
 Active storage mode: **B** (gitignored + out-of-band backup). Files MUST be UTF-8 without BOM.
@@ -140,7 +124,10 @@ def main():
     a = ap.parse_args()
 
     skill = a.skill or detect_skill() or DEFAULT_SKILL
-    out = a.out or default_dir(skill)
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                  "skills", "demand-mining", "scripts"))
+    from config_paths import companion_root
+    out = a.out or companion_root() or default_dir(skill)
     out = os.path.abspath(os.path.expanduser(out))
     slug = a.product
     if slug and not __import__("re").fullmatch(r"[a-zA-Z0-9_-]+", slug):
@@ -155,11 +142,16 @@ def main():
 
     # registry.json, per-product variant; deterministic, no machine-specific content (E4/E5).
     registry = {"schema_version": 1, "skill": skill,
-                "products": ([{"slug": slug}] if slug else [])}
+                "products": ([{"slug": slug}] if slug else []), "mode": a.mode}
     write(os.path.join(out, "registry.json"), dumps(registry), a.force)
-    write(os.path.join(out, ".gitignore"), GITIGNORE, a.force)
+    ignore = GITIGNORE if a.mode == "B" else "# Mode A: version credentials only in this verified PRIVATE companion.\n/.staging/\n.demand-backup-index-*\n"
+    write(os.path.join(out, ".gitignore"), ignore, a.force)
     write(os.path.join(out, "products", ".gitkeep"), "", a.force)
-    write(os.path.join(out, "secrets", "README.md"), SECRETS_README, a.force)
+    policy = SECRETS_README if a.mode == "B" else (
+        "# Private credential backup\n\nActive storage mode: A\n\n"
+        "Version credentials only in the verified PRIVATE companion. Restore from its history; "
+        "rotated credentials must be renewed with their provider. Never print secret values.\n")
+    write(os.path.join(out, "secrets", "README.md"), policy, a.force)
     write(os.path.join(out, "secrets", ".gitkeep"), "", a.force)
 
     if slug:

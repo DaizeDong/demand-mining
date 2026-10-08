@@ -29,3 +29,7 @@ later changes on main without inventing another release.
   before applying calibration changes. Keep candidate development separate from held-out evaluation.
 
 These are remaining capabilities or acceptance requirements, not descriptions of an active deployment.
+
+## Configuration and storage acceptance
+
+Companion selection and write admission use the source contracts. Synthetic regressions cover conflicting roots, absent setup and undeclared or ignored writes. Current provider connectivity, delivery and restore success require separate operational evidence. Shared-bot demand taps, automatic public-demand ingestion and competitor collection remain deferred integrations; manual external evidence must carry independent provenance. No empty template, static document check or path classification establishes readiness or authorizes deletion.
