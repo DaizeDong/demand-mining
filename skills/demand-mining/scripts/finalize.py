@@ -187,6 +187,122 @@ def _receipt(value, identity, content_sha256):
             "message_id": str(value["message_id"]), "content_sha256": content_sha256}
 
 
+def _event_identity(identity):
+    fields = {"product_id", "card_id", "event"}
+    if (not isinstance(identity, dict) or set(identity) not in (fields, fields | {"revision"})
+            or identity.get("event") not in {"new", "update"}
+            or any(not isinstance(identity.get(key), str) or not identity[key].strip()
+                   for key in ("product_id", "card_id"))):
+        raise ValueError("invalid standalone card event identity")
+    if "revision" in identity and (identity["event"] != "update"
+            or not isinstance(identity["revision"], str) or not identity["revision"].strip()):
+        raise ValueError("invalid standalone update revision")
+    return dict(identity)
+
+
+def _event_paths(identity):
+    from data_safety import authorize_write
+    directory = data_root() / "card-deliveries" / digest(identity)
+    state_path, receipt_path = directory / "state.json", directory / "receipt.json"
+    for path in (state_path, receipt_path):
+        authorize_write(path)
+    return state_path, receipt_path
+
+
+def _load_event(state_path):
+    state = _load(state_path)
+    identity = _event_identity(state.get("identity"))
+    content_hash = state.get("content_sha256")
+    if (state.get("schema_version") != 1 or state.get("phase") not in {"delivery_unknown", "complete"}
+            or not isinstance(content_hash, str) or len(content_hash) != 64
+            or any(char not in "0123456789abcdef" for char in content_hash)):
+        raise ValueError("invalid durable card delivery state")
+    expected, receipt_path = _event_paths(identity)
+    if state_path != expected:
+        raise ValueError("card delivery state path differs from its identity")
+    delivery = state.get("delivery")
+    if state["phase"] == "delivery_unknown":
+        if (not isinstance(delivery, dict) or delivery.get("status") != "unknown"
+                or delivery.get("identity") != identity or delivery.get("content_sha256") != content_hash):
+            raise ValueError("saved unknown card delivery contradicts its identity or content")
+    else:
+        _receipt(delivery, identity, content_hash)
+    receipt = _receipt(_load(receipt_path), identity, content_hash) if receipt_path.exists() else None
+    if state["phase"] == "complete" and (receipt is None or receipt != delivery):
+        raise ValueError("completed card delivery has missing or contradictory receipt")
+    return state, receipt
+
+
+def _event_result(state_path, state):
+    complete = state["phase"] == "complete"
+    return {"ok": complete, "status": "complete" if complete else "pending_reconciliation",
+            "identity": state["identity"], "delivery": state["delivery"], "state_path": str(state_path)}
+
+
+def deliver_event(identity, message):
+    """Own one standalone new/update event; ambiguous attempts never resend automatically."""
+    identity = _event_identity(identity)
+    if not isinstance(message, str) or not message:
+        raise ValueError("card delivery requires nonempty rendered content")
+    if any(pc.has_pii(value) for value in (message, *identity.values())):
+        raise ValueError("egress DLP blocked standalone card identity or content")
+    content_hash = hashlib.sha256(message.encode("utf-8")).hexdigest()
+    state_path, receipt_path = _event_paths(identity)
+    with file_lock(state_path.parent / ".lock"):
+        if state_path.exists():
+            state, receipt = _load_event(state_path)
+            if state["identity"] != identity or state["content_sha256"] != content_hash:
+                raise ValueError("card event identity already owns different content")
+            if receipt is not None and state["phase"] == "delivery_unknown":
+                state.update(phase="complete", delivery=receipt)
+                atomic_json(state_path, state)
+            return _event_result(state_path, state)
+        if receipt_path.exists():
+            raise ValueError("card delivery receipt exists without its owning state")
+        state = {"schema_version": 1, "identity": identity, "content_sha256": content_hash,
+                 "phase": "delivery_unknown", "delivery": {"status": "unknown", "identity": identity,
+                                                            "content_sha256": content_hash}}
+        atomic_json(state_path, state)
+        try:
+            with pc.delivery_context(identity):
+                delivered = pc.deliver(message, dry_run=False)
+            if isinstance(delivered, tuple) and len(delivered) == 2:
+                ok, detail = delivered
+                if not ok:
+                    raise ValueError("adapter did not confirm card delivery")
+            else:
+                detail = delivered
+            if isinstance(detail, str):
+                detail = json.loads(detail)
+            receipt = _receipt(detail, identity, content_hash)
+        except Exception as exc:
+            state["delivery"]["error_type"] = type(exc).__name__
+            atomic_json(state_path, state)
+            return _event_result(state_path, state)
+        atomic_json(receipt_path, receipt)
+        state.update(phase="complete", delivery=receipt)
+        atomic_json(state_path, state)
+        return _event_result(state_path, state)
+
+
+def reconcile_event(state_path, adapter_receipt):
+    """Accept bound evidence for one attempted standalone card event without sending."""
+    from data_safety import authorize_write
+    state_path = Path(authorize_write(state_path)["path"])
+    with file_lock(state_path.parent / ".lock"):
+        state, saved = _load_event(state_path)
+        receipt = _receipt(adapter_receipt, state["identity"], state["content_sha256"])
+        if saved is not None and saved != receipt:
+            raise ValueError("confirmed card delivery receipt cannot be replaced")
+        if state["phase"] == "complete":
+            return saved
+        if saved is None:
+            atomic_json(state_path.with_name("receipt.json"), receipt)
+        state.update(phase="complete", delivery=receipt)
+        atomic_json(state_path, state)
+        return receipt
+
+
 def _pending(plan, state, state_path):
     return {**plan["result"], "status": "pending_reconciliation", "ok": False,
             "attempt_id": state["attempt_id"], "delivery": state["delivery"],

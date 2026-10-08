@@ -18,8 +18,8 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install pytest
-      - name: Standalone retention and entrypoint tests
-        run: python -X utf8 -m pytest skills/demand-mining/tests/test_retention.py -q
+      - name: Standalone retention and delivery entrypoint tests
+        run: python -X utf8 -m pytest skills/demand-mining/tests/test_retention.py skills/demand-mining/tests/test_standalone_push.py -q
       - name: Validate storage contract with the pinned shared checker
         if: runner.os == 'Linux'
         shell: bash

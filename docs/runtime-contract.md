@@ -246,6 +246,45 @@ Configured adapters receive `DEMAND_MINING_DELIVERY_IDENTITY` and
 `DEMAND_MINING_DELIVERY_CONTENT_SHA256` and must return those bindings in their
 receipt. An identity-less receipt or plain exit-zero string is insufficient.
 
+The standalone `push_card.py` CLI reads one JSON card from standard input.
+A real send requires a stable `demand_id`, `canonical_key` or `id`, in that
+precedence order. Nonempty strings retain their exact spelling; nonzero integer
+IDs use their decimal spelling. Titles and content hashes never substitute for
+card identity. The configured `product_id` or `slug` owns the event; a card cannot
+select another product. `DEMAND_MINING_DRYRUN=1` previews rendering without
+requiring an initialized companion or reserving an event.
+
+Standalone events are identified by product, card ID and `new` versus `update`
+(`_update: true` in CLI input), plus an optional explicit update revision. The same event with the same rendered bytes returns
+its saved result. Different bytes for an existing event fail visibly; changing
+content does not create permission to resend it. The event records contain an
+immutable content hash, pending state and actual confirmed receipt under
+`pool/card-deliveries/<identity-sha256>/` in the PRIVATE companion. A process lock
+serializes send and reconciliation callers. This owner has no scheduled ledger,
+digest or watermark side effects, and it does not deduplicate against a scheduled
+digest or live-bot summary.
+
+For successive updates to the same card, keep its stable card ID and pass
+`--revision release-1`, then `--revision release-2` for the next independent update.
+The API equivalent is `push_card(card, update=True, revision="release-1")`.
+Revisions must be nonempty strings and retain their exact spelling. Reuse the same
+revision when retrying that update; different rendered bytes under that revision
+fail. Omitting the token retains the original immutable `new` or `update` event.
+A revision is valid only for an update. The caller selects it explicitly; the
+sender never invents one from the time or content hash.
+
+An API caller already inside `delivery_context(identity)` keeps that caller-owned
+delivery path. It does not initialize standalone state or accept a standalone
+revision; the caller remains responsible for its own delivery lifecycle.
+
+A standalone timeout, nonzero adapter exit or unbound receipt remains
+`pending_reconciliation`; retrying the CLI does not send again. Given verified
+actual receipt evidence, `finalize.reconcile_event(state_path, actual_receipt)`
+validates the saved identity and content hash and completes that event without
+sending. A confirmed receipt cannot be replaced, including when a crash left
+its state pending. Missing or contradictory durable evidence fails closed.
+Restore the state and receipt together; deleting them removes replay evidence.
+
 The finalizer durably records unknown delivery before calling the adapter. An
 exception, timeout or missing receipt remains `pending_reconciliation` and never
 causes automatic resend. If interruption left a confirmed receipt on disk before

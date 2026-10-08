@@ -17,6 +17,7 @@ The Discord token is NEVER read or echoed here, the relay owns the token; this s
 """
 from __future__ import annotations
 
+import argparse
 import json
 import hashlib
 from contextlib import contextmanager
@@ -185,21 +186,56 @@ def deliver(message: str, dry_run: bool = False) -> tuple[bool, str]:
         return False, {"status": "unknown", "error_type": type(e).__name__}
 
 
-def push_card(card: dict, update: bool = False, dry_run: bool = False) -> dict:
+def push_card(card: dict, update: bool = False, dry_run: bool = False, *, revision: str | None = None) -> dict:
+    caller_owns_delivery = _DELIVERY_IDENTITY.get() is not None
+    if revision is not None and (caller_owns_delivery or not update
+                                 or not isinstance(revision, str) or not revision.strip()):
+        raise ValueError("revision requires a standalone update and a nonempty stable string token")
     leaked = dlp_scan(card)
     if leaked:
         return {"ok": False, "detail": f"egress DLP blocked: PII in {leaked}",
                 "embed_errors": [], "embed": None}
     embed = build_embed(card, update)
     errs = validate_embed(embed)
-    ok, detail = deliver(render_text(card, update), dry_run=dry_run)
-    return {"ok": ok, "detail": detail, "embed_errors": errs, "embed": embed}
+    message = render_text(card, update)
+    preview = dry_run or bool(os.environ.get("DEMAND_MINING_DRYRUN"))
+    if preview or caller_owns_delivery:
+        ok, detail = deliver(message, dry_run=preview)
+        return {"ok": ok, "detail": detail, "embed_errors": errs, "embed": embed}
+    identity = None
+    for key in ("demand_id", "canonical_key", "id"):
+        value = card.get(key)
+        if isinstance(value, str) and value.strip():
+            identity = value
+            break
+        if type(value) is int and value != 0:
+            identity = str(value)
+            break
+    if identity is None:
+        return {"ok": False, "detail": "stable card identity required: demand_id, canonical_key or id",
+                "embed_errors": errs, "embed": embed}
+    from lib import load_config
+    from finalize import deliver_event
+    cfg = load_config()
+    product = cfg.get("product_id") or cfg.get("slug")
+    if not isinstance(product, str) or not product.strip():
+        raise ValueError("configure product_id before standalone card delivery")
+    if card.get("product_id") not in (None, product):
+        raise ValueError("card product_id differs from the configured product")
+    event_identity = {"product_id": product, "card_id": identity, "event": "update" if update else "new"}
+    if revision is not None:
+        event_identity["revision"] = revision
+    result = deliver_event(event_identity, message)
+    return {**result, "detail": result["delivery"], "embed_errors": errs, "embed": embed}
 
 
-def main() -> int:
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(description="Deliver one card from standard input with durable replay protection.")
+    parser.add_argument("--revision", help="stable token for a distinct update; requires _update: true in the card")
+    args = parser.parse_args(argv)
     data = json.loads(sys.stdin.buffer.read().decode("utf-8-sig", "replace") or "{}")
     res = push_card(data, update=bool(data.get("_update")),
-                    dry_run=bool(os.environ.get("DEMAND_MINING_DRYRUN")))
+                    dry_run=bool(os.environ.get("DEMAND_MINING_DRYRUN")), revision=args.revision)
     print(json.dumps(res, ensure_ascii=False))
     return 0 if res["ok"] else 1
 
