@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Keep standalone retention tests aligned with the shared artifact proof interface while testing real source ownership and native deletion protections with generated data.
 - Unify companion selection across settings, initialization, diagnostics and runtime DATA; reject conflicting selectors.
 - Enforce declared artifact ownership and persistence through the pinned Guards write-admission API.
 - Align setup, required fields and recovery documentation with supported capabilities.
