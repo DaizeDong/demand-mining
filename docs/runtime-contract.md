@@ -64,29 +64,21 @@ A malformed or aliased boundary cannot fall back to an outer private repository.
 Runtime destinations refuse symbolic links, junctions and hardlinked files. Atomic
 writes recheck the current proof immediately before replacing their destination.
 
-### Proof reuse
+### Fresh artifact admission
 
-A full companion proof launches about twenty Git processes. Every DATA write still
-asks for admission, but a SUCCESSFUL proof for one repository root is reused while
-two conditions hold: a cheap local signature of the proof inputs is unchanged, and
-the proof is younger than ten minutes (`PROOF_CACHE_TTL` in `data_safety.py`). The
-signature needs no subprocess. It covers the destination repository's Git
-configuration (including a worktree's administration and common directories),
-user and system Git configuration, SSH client configuration, the visibility
-receipt, the pinned guard files, the whole process environment and the proof
-seams. Changing any of them, such as a remote URL edit or a receipt refresh that
-marks the companion PUBLIC, forces a fresh proof at the next write, and a refused
-proof stops that write. A failed proof is never stored and evicts a stored success.
-Path checks (aliases, hardlinks, the containing Git boundary, the public tool tree)
-still run on every call. Backup pushes never reuse a proof.
+Every durable write and transient lock/staging creation calls the pinned Guards
+artifact authorizer. It reloads the source storage contract, requires exactly one
+active owner, checks the actual containing companion and proves its publication
+routes PRIVATE with current Git configuration. Versioned artifacts must also be
+eligible for Git tracking. A cached read/preflight transport proof never replaces
+this fresh artifact proof, including before atomic replacement and log appends.
+Backup pushes likewise obtain a fresh transport proof.
 
-This relaxes the shared guard's advice that callers repeat the proof before each
-write. The reason is the 2026-10-05 incident: a windowless daemon ran the full proof
-for every log line and pool write, launched tens of thousands of Git processes and
-opened a terminal window for each. The residual exposure is bounded: a change that
-alters none of the signed inputs, for example a file reached only through a Git
-`include`, is seen when the reused proof expires, at most ten minutes later.
-Setting `PROOF_CACHE_TTL` to 0 restores a full proof per write.
+The older transport helper retains a bounded cache for non-writing preflight
+callers. Its result alone does not authorize an artifact write. No ten-minute
+admission window applies to the atomic writer or log append path. Fresh checks add
+local Git-process overhead; offline regressions exercise that behavior but do not
+establish live daemon throughput or latency.
 
 ### Windowless child processes
 
@@ -307,7 +299,7 @@ evidence for each actionable demand, ordered by the same priority as the queue.
 Literal JSON records preserve extension fields and keep embedded markup inside
 the record. Delivered headlines retain their concise summary format.
 
-Daemon and supervisor logs renew PRIVATE destination admission before every append, through the bounded proof reuse described under Configuration and DATA. The supervisor reads child stdout and stderr through a pipe and writes bounded binary chunks itself; children never inherit a log file handle. A refused log destination stops the current child and prevents restart. Direct --log-file uses the same append path, restores the prior output streams on exit, and records startup tracebacks only while the destination remains PRIVATE. Admission is checked when output is appended or a restart is attempted, not by an idle background visibility poll. The daily summary loop wakes every 30 minutes but proves its destination only when it is about to write: an already confirmed day or a send awaiting reconciliation is read without a proof, and a repeated summary state or failure is logged once.
+Daemon and supervisor logs renew PRIVATE destination admission before every append, through the fresh artifact admission described under Configuration and DATA. The supervisor reads child stdout and stderr through a pipe and writes bounded binary chunks itself; children never inherit a log file handle. A refused log destination stops the current child and prevents restart. Direct --log-file uses the same append path, restores the prior output streams on exit, and records startup tracebacks only while the destination remains PRIVATE. Admission is checked when output is appended or a restart is attempted, not by an idle background visibility poll. The daily summary loop wakes every 30 minutes but proves its destination only when it is about to write: an already confirmed day or a send awaiting reconciliation is read without a proof, and a repeated summary state or failure is logged once.
 
 Direct demand_bot CLI startup parses its real arguments and opens the validated private log before importing discord or llmcall. Missing optional dependencies retain their original import error in that log, including windowless execution where both streams began as None. Help and invalid arguments are handled before optional imports. Importing the module keeps its public functions and class available without parsing CLI arguments. PRIVATE admission is renewed for every append, and original streams are restored on exit.
 

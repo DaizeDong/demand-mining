@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "repository_kind": "skill",
+  "configuration": "settings",
+  "rationale": "The skill consumes selected private configuration and needs domain-specific readiness validation.",
+  "documentation": [
+    "CONFIG.md",
+    "DATA.md",
+    "README.md",
+    "README_CN.md"
+  ],
+  "settings": {
+    "schema_document": "CONFIG.md",
+    "discovery_document": "CONFIG.md",
+    "environment": "DEMAND_MINING_CONFIG",
+    "aliases": [
+      "DEMAND_MINING_CONFIG_DIR",
+      "DEMAND_MINING_DATA_DIR"
+    ],
+    "precedence": [
+      "explicit CLI companion",
+      "DEMAND_MINING_CONFIG",
+      "DEMAND_MINING_CONFIG_DIR",
+      "DEMAND_MINING_DATA_DIR (same companion only)",
+      "proven sibling companion",
+      "~/.demand-mining-config",
+      "legacy ~/.demand-mining-data"
+    ],
+    "required_fields": [
+      "product_id",
+      "timezone"
+    ],
+    "initializer": {
+      "path": "scripts/init_config.py",
+      "args": [
+        "--out",
+        "{output}"
+      ]
+    },
+    "doctor": {
+      "path": "scripts/verify_config.py",
+      "args": []
+    }
+  }
+}

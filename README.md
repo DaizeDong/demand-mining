@@ -113,9 +113,7 @@ private** companion config repo. Full contract: [CONFIG.md](CONFIG.md). Pure off
 can use `skills/demand-mining/scripts/lib.py:DEFAULT_CONFIG` without configuration. Real
 collection, initialization and writes require the private repository prerequisites below.
 
-- **Mount (discovery order):** `$DEMAND_MINING_CONFIG` → `~/.demand-mining-config/` →
-  `~/.config/demand-mining-config/`. The first existing directory wins. Defaults support pure
-  offline helpers; they do not authorize a real run or a DATA write.
+- **Mount:** `DEMAND_MINING_CONFIG` → `DEMAND_MINING_CONFIG_DIR` → shared Guards discovery. `DEMAND_MINING_DATA_DIR` must belong to the same companion. See [CONFIG.md](CONFIG.md#discovery-convention-e2) for the exact layout and fallback order.
 - **First time:** Create or clone the private companion repository, configure its origin,
   and prepare the verified PRIVATE visibility receipt before running the initializer.
   See [Configuration and DATA](docs/runtime-contract.md#configuration-and-data).
@@ -126,8 +124,12 @@ collection, initialization and writes require the private repository prerequisit
   python scripts/verify_config.py                  # doctor: PASS/FAIL, names gaps
   ```
 - **Switch configs (hot-swap):** point the env var at another config dir, configs are self-contained,
-  no other change: `export DEMAND_MINING_CONFIG=~/configs/work` ↔ `~/configs/personal`.
-- **Secrets:** Mode B, `secrets/*` is gitignored and never enters git; back up out-of-band. The
+  clear or update the DATA override with it: `export DEMAND_MINING_CONFIG=~/configs/work` ↔ `~/configs/personal`.
+- **Required setup:** review `product_id` and IANA `timezone`, attach an existing private ledger,
+  and configure Discord channels/token reference plus a stable pseudonym salt for collection.
+  See CONFIG.md and the runtime contract before the doctor or scheduled preflight.
+- **Secrets:** Mode B is the template default and needs out-of-band backup. A selected Mode A
+  may version credentials in verified PRIVATE Git and restore from that history. The
   pseudonym salt may instead come from `$DEMAND_MINING_PSEUDONYM_SALT`.
 
 ## Limitations

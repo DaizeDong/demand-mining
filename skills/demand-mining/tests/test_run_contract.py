@@ -43,6 +43,16 @@ def private_repo(tmp_path, monkeypatch):
     monkeypatch.setattr(data_safety, "git", synthetic_git)
     monkeypatch.setattr(data_safety, "_companion_proof", lambda directory: types.SimpleNamespace(
         root=str(root), repositories=("example/demand-mining-config",), signature="synthetic-proof"))
+    def artifact_git(snapshot, *args):
+        if args == ("rev-parse", "--verify", "HEAD"):
+            return types.SimpleNamespace(returncode=0, stdout="synthetic-head")
+        if args[:4] == ("check-ignore", "--no-index", "-q", "--"):
+            return types.SimpleNamespace(returncode=1, stdout="")
+        raise AssertionError("unapproved synthetic artifact Git command")
+    artifact_boundary = types.SimpleNamespace(
+        prove_private_companion=lambda directory, *args: data_safety._companion_proof(directory),
+        read_private_companion_git=artifact_git, GitError=data_safety.DestinationError)
+    monkeypatch.setattr(data_safety._storage_contract(), "load_boundary", lambda: artifact_boundary)
     monkeypatch.setenv("DEMAND_MINING_CONFIG", str(root))
     monkeypatch.delenv("DEMAND_MINING_DRYRUN", raising=False)
     # Default deny of the external send seam, including before a failing assertion.
@@ -243,7 +253,8 @@ def test_overlapping_callers_finish_once(private_repo, cfg, cases, monkeypatch):
 
 @pytest.mark.parametrize("seeded", [False, True])
 def test_file_lock_excludes_contender_and_releases_after_exception(private_repo, seeded):
-    path = private_repo / "exclusive.lock"
+    path = private_repo / "pool/runs/synthetic/.lock"
+    path.parent.mkdir(parents=True)
     if seeded:
         path.write_bytes(b"0")
     with pytest.raises(ValueError, match="synthetic owner failure"):
@@ -290,7 +301,8 @@ def test_git_failure_is_visible_and_optional_locks_cannot_be_enabled(tmp_path, m
 @pytest.mark.parametrize("verb", ["read-tree", "add", "diff", "commit", "push"])
 def test_backup_failure_stops_later_steps(private_repo, monkeypatch, verb):
     import backup
-    path = private_repo / "synthetic-result.json"
+    path = private_repo / "pool/runs/synthetic/state.json"
+    path.parent.mkdir(parents=True)
     path.write_text("{}", encoding="utf-8")
     calls = []
 
@@ -315,7 +327,7 @@ def test_backup_failure_stops_later_steps(private_repo, monkeypatch, verb):
 
 def test_backup_rejects_directory_pathspec(private_repo):
     import backup
-    with pytest.raises(ValueError, match="regular file"):
+    with pytest.raises((ValueError, data_safety.DestinationError), match="regular file|artifact write refused"):
         backup.backup([private_repo])
 
 
@@ -568,7 +580,7 @@ def test_bot_context_privacy_is_checked_before_return(bot_module, service_cases)
 
 def test_bot_daily_summary_unknown_send_is_reconcilable(private_repo, cfg, bot_module):
     bot = bot_module.DemandBot.__new__(bot_module.DemandBot)
-    bot.cfg, bot.poolp = cfg, str(private_repo / "demands.jsonl")
+    bot.cfg, bot.poolp = cfg, str(private_repo / "pool/demands.jsonl")
     bot.post_display, bot.display_id, bot.summary_hour = True, 2, 0
     bot.get_channel = lambda channel_id: object()
     bot.log = lambda message: None
@@ -592,7 +604,7 @@ def test_bot_daily_summary_unknown_send_is_reconcilable(private_repo, cfg, bot_m
 
 def test_bot_summary_groups_timestamps_by_configured_local_day(private_repo, cfg, bot_module, monkeypatch):
     bot = bot_module.DemandBot.__new__(bot_module.DemandBot)
-    bot.cfg, bot.poolp = cfg, str(private_repo / "demands.jsonl")
+    bot.cfg, bot.poolp = cfg, str(private_repo / "pool/demands.jsonl")
     row = {"title": "CSV export", "last_seen": "2026-03-09T01:30:00Z"}
     monkeypatch.setattr(bot_module.pool, "load", lambda path, *, product_id: [row])
     monkeypatch.setattr(bot_module.pool, "ranked", lambda path, *, product_id: [row])
@@ -661,7 +673,7 @@ def test_intervening_implicit_input_cannot_erase_an_earlier_receipt(private_repo
 
 def test_summary_channel_absence_does_not_poison_delivery_state(private_repo, cfg, bot_module):
     bot = bot_module.DemandBot.__new__(bot_module.DemandBot)
-    bot.cfg, bot.poolp = cfg, str(private_repo / "demands.jsonl")
+    bot.cfg, bot.poolp = cfg, str(private_repo / "pool/demands.jsonl")
     bot.post_display, bot.display_id, bot.summary_hour = True, 2, 0
     bot.log = lambda text: None
     bot._render_summary = lambda day: "CSV export needs retries."
@@ -682,7 +694,7 @@ def test_summary_accepts_slug_and_keeps_legacy_utc_hour(private_repo, cfg, bot_m
     bot = bot_module.DemandBot.__new__(bot_module.DemandBot)
     bot.cfg = {**cfg, "slug": cfg["product_id"]}
     bot.cfg.pop("product_id")
-    bot.poolp = str(private_repo / "demands.jsonl")
+    bot.poolp = str(private_repo / "pool/demands.jsonl")
     bot.post_display, bot.display_id, bot.summary_hour = True, 2, 3
     bot.summary_hour_uses_utc = True
     bot.log = lambda text: None
