@@ -12,12 +12,14 @@ import pytest
 import data_safety
 import dedup
 from private_log import PrivateLog, PrivateLogError
+from native_fixture import native_reminder, require_reminder_source, run_native_reminder
 
-REMINDER = Path.home() / '.claude/skills/schedule-reminder/scripts/reminder.py'
+REMINDER = None
 
 
 @pytest.fixture
 def native_storage(tmp_path, monkeypatch):
+    reminder_source = require_reminder_source()
     for key in list(os.environ):
         if key.upper().startswith(('GIT_', 'DEMAND_MINING_', 'SCHEDULE_')):
             monkeypatch.delenv(key, raising=False)
@@ -49,8 +51,7 @@ def native_storage(tmp_path, monkeypatch):
             key: {'v': value} for key, value in receipts.items()}}), encoding='utf-8')
         return path
 
-    from native_fixture import native_reminder
-    monkeypatch.setattr(sys.modules[__name__], 'REMINDER', native_reminder(tmp_path, REMINDER))
+    monkeypatch.setattr(sys.modules[__name__], 'REMINDER', native_reminder(tmp_path, reminder_source))
     private = repository(tmp_path/'private', 'private-vault', 'PRIVATE')
     public = repository(tmp_path/'public', 'public-tool', 'PUBLIC')
     return private, public, repository
@@ -59,7 +60,6 @@ def native_storage(tmp_path, monkeypatch):
 @pytest.mark.parametrize('verb', ['init', 'list'])
 def test_missing_shared_database_is_never_created(native_storage, verb):
     private, _, _ = native_storage
-    assert REMINDER.is_file(), 'native regression requires the staged schedule-reminder CLI'
     missing = private / 'missing-shared.db'
     client = dedup.LedgerClient(cmd=[sys.executable, '-B', str(REMINDER)],
                                 db_path=str(missing), product_id='synthetic-product')
@@ -70,11 +70,9 @@ def test_missing_shared_database_is_never_created(native_storage, verb):
 
 def test_explicitly_initialized_shared_database_remains_usable(native_storage):
     private, _, _ = native_storage
-    assert REMINDER.is_file(), 'native regression requires the staged schedule-reminder CLI'
     db = private / 'existing-shared.db'
     command = [sys.executable, '-B', str(REMINDER)]
-    initialized = subprocess.run([*command, '--db', str(db), 'init'],
-                                 capture_output=True, text=True, check=True)
+    initialized = run_native_reminder(command, '--db', str(db), 'init')
     assert json.loads(initialized.stdout)['ok'] is True and db.stat().st_size > 0
     client = dedup.LedgerClient(cmd=command, db_path=str(db), product_id='synthetic-product')
     assert client.init()['ok'] is True

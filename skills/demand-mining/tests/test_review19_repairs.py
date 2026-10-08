@@ -44,15 +44,15 @@ class Harness:
         self.files, self.opens, self.writes, self.children, self.proofs = {}, [], [], [], []
         self.modules = {}
         self.root = CASES["private_root"]
-        self.dirs = {self.root, self.root + "/logs", self.root + "/.git"}
+        self.dirs = {self.root, self.root + "/pool", self.root + "/pool/logs", self.root + "/.git"}
         self.sys = types.SimpleNamespace(**vars(sys))
         self.sys.stdout, self.sys.stderr = io.StringIO(), io.StringIO()
         self.original_streams = self.sys.stdout, self.sys.stderr
         self.args = types.SimpleNamespace(
             config_dir=self.root, python="synthetic-python", mode="dry", interval=90,
-            display_interval=300, log_dir=self.root + "/logs", min_backoff=1.0,
+            display_interval=300, log_dir=self.root + "/pool/logs", min_backoff=1.0,
             max_backoff=4.0, dry_run=True, run_seconds=0,
-            log_file=self.root + "/logs/direct.log")
+            log_file=self.root + "/pool/logs/direct.log")
         self.files[self.root + "/priority.json"] = json.dumps(CASES["config"]).encode()
         self.files[self.root + "/registry.json"] = json.dumps(CASES["registry"]).encode()
         self.files[self.root + "/synthetic-token.txt"] = CASES["synthetic_token"].encode()
@@ -94,6 +94,10 @@ class Harness:
                 return self
             def absolute(self):
                 return self
+            def relative_to(self, other):
+                return MemoryPath(str(PurePosixPath(self.value).relative_to(str(other))))
+            def as_posix(self):
+                return self.value
             def is_relative_to(self, other):
                 return self.value == str(other) or self.value.startswith(str(other).rstrip("/") + "/")
             def is_dir(self):
@@ -247,6 +251,8 @@ class Harness:
             "discord": types.SimpleNamespace(Client=Client,
                 Intents=types.SimpleNamespace(default=lambda: types.SimpleNamespace())),
             "llmcall": types.SimpleNamespace(call=self.forbidden),
+            "config_paths": types.SimpleNamespace(
+                companion_root=lambda: self.Path(self.root), data_directory=self.forbidden),
             "redact": types.SimpleNamespace(redact=lambda value: {"redacted": value},
                 safe_data=copy.deepcopy, safe_text=lambda value: value, has_pii=lambda value: False,
                 pseudonymize=lambda value: "synthetic-author", PrivacyReviewRequired=RuntimeError,
@@ -285,9 +291,18 @@ class Harness:
         if name == "data_safety":
             module.git = self.git
             module._companion_proof = self.companion
+            module._storage_contract = lambda: types.SimpleNamespace(
+                authorize_artifact_write=self.log_admission)
             # Every append re-proves under this harness; proof reuse has its own tests.
             module.PROOF_CACHE_TTL = 0
         return module
+
+    def log_admission(self, source, root, relative):
+        # The in-memory harness admits only its generated log fixtures. Other tests
+        # exercise the real source-contract parser and native Git publication proof.
+        if str(root) != self.root or relative not in CASES["log_paths"]:
+            raise ValueError("undeclared synthetic log artifact")
+        return types.SimpleNamespace(proof=self.companion(root))
 
     def git(self, root, *args, **kwargs):
         if args == ("rev-parse", "--show-toplevel"):
@@ -376,12 +391,20 @@ class ScoringPathTests(unittest.TestCase):
 
 
 class CurrentLogAdmissionTests(unittest.TestCase):
+    def test_undeclared_log_is_refused_before_any_open(self):
+        h = Harness()
+        h.args.log_file = h.root + "/pool/undeclared.log"
+        _, bot = h.logging()
+        self.assertEqual(h.invoke(bot.main), "stopped")
+        self.assertFalse(h.opens)
+        self.assertFalse(h.writes)
+
     def test_supervisor_preserves_all_private_child_bytes_and_uses_pipe(self):
         h = Harness()
         supervisor, _ = h.logging()
         self.assertEqual(h.invoke(supervisor.main), "controlled-stop")
         expected = b"".join(x.encode() for x in CASES["child_chunks"]) + bytes.fromhex(CASES["binary_tail_hex"])
-        self.assertEqual(h.files[h.root + "/logs/daemon-2026-01-15.log"], expected)
+        self.assertEqual(h.files[h.root + "/pool/logs/daemon-2026-01-15.log"], expected)
         self.assertGreaterEqual(len(h.proofs), len(h.writes))
         self.assertTrue(all(state == "PRIVATE" for _, _, state in h.writes))
         self.assertIs(h.children[0].stdout.closed, True)
@@ -393,7 +416,7 @@ class CurrentLogAdmissionTests(unittest.TestCase):
         self.assertTrue(h.children[0].terminated or h.children[0].killed)
         self.assertEqual(len(h.children), 1)
         self.assertTrue(all(state == "PRIVATE" for _, _, state in h.writes))
-        self.assertEqual(h.files[h.root + "/logs/daemon-2026-01-15.log"], CASES["child_chunks"][0].encode())
+        self.assertEqual(h.files[h.root + "/pool/logs/daemon-2026-01-15.log"], CASES["child_chunks"][0].encode())
 
     def test_supervisor_revocation_after_exit_and_before_restart_is_current(self):
         for behavior in ("revoke-after-child", "revoke-before-restart"):
@@ -409,7 +432,7 @@ class CurrentLogAdmissionTests(unittest.TestCase):
         h = Harness("launch-error")
         supervisor, _ = h.logging()
         self.assertEqual(h.invoke(supervisor.main), "controlled-stop")
-        text = h.files[h.root + "/logs/supervisor.log"].decode()
+        text = h.files[h.root + "/pool/logs/supervisor.log"].decode()
         self.assertIn(CASES["startup_error"], text)
         self.assertIn("launch failed", text)
         self.assertIn("restarting", text)

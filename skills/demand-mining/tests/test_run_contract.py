@@ -385,7 +385,6 @@ def test_explicit_empty_completion_keeps_collection_evidence(private_repo, cfg, 
 
 def test_scheduled_proposal_uses_shared_agent_interface(cfg, cases, monkeypatch):
     import scheduled
-    import llmcall
     calls = []
 
     def call(prompt, **kwargs):
@@ -393,7 +392,9 @@ def test_scheduled_proposal_uses_shared_agent_interface(cfg, cases, monkeypatch)
         return types.SimpleNamespace(error=None, data={"classification": "complete",
                                                      "candidates": [cases["candidate"]]})
 
-    monkeypatch.setattr(llmcall, "call", call)
+    llmcall = types.ModuleType("llmcall")
+    llmcall.call = call
+    monkeypatch.setitem(sys.modules, "llmcall", llmcall)
     evidence = cases["candidate"]["evidence"][0]
     corpus = {"channels": {"feedback": [{
         "text": cases["private_text"] + " " + cases["product_text"],

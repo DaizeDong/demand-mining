@@ -44,12 +44,19 @@ def transport(tmp_path, monkeypatch):
     monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
     clean_env = dict(os.environ)
     subprocess.run(["git", "-C", str(root), "init", "-q"], check=True, capture_output=True)
+    subprocess.run(["git", "-C", str(root), "-c", "user.name=Synthetic Fixture",
+                    "-c", "user.email=user1@example.com", "commit", "--allow-empty",
+                    "-m", "synthetic baseline"], env=clean_env, check=True, capture_output=True)
     base_config = (root / ".git/config").read_bytes()
     state = {"url": REVIEW["transport"][0]["url"], "config": [], "calls": []}
     receipt = profile / "visibility.json"
     receipt.write_text(json.dumps({"_refreshed": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "example/demand-mining-config": "PRIVATE", "example/other-config": "PRIVATE"}), encoding="utf-8")
     api = data_safety._guard_api()
+    ssh_config = profile / "ssh_config"
+    ssh_config.write_text("Host github.com\n    HostName github.com\n    User git\n"
+                          "    StrictHostKeyChecking yes\n", encoding="utf-8")
+    monkeypatch.setattr(api, "_ssh_config_paths", lambda: [str(ssh_config)])
 
     def companion(directory):
         (root / ".git/config").write_bytes(base_config)
@@ -62,6 +69,10 @@ def transport(tmp_path, monkeypatch):
         return api.prove_private_companion(directory, visibility_map=receipt)
 
     monkeypatch.setattr(data_safety, "_companion_proof", companion)
+    artifact_boundary = types.SimpleNamespace(
+        prove_private_companion=lambda directory, *args: companion(directory),
+        read_private_companion_git=api.read_private_companion_git, GitError=api.GitError)
+    monkeypatch.setattr(data_safety._storage_contract(), "load_boundary", lambda: artifact_boundary)
     return root, state
 
 
@@ -71,7 +82,7 @@ def test_data_write_binds_effective_transport(transport, monkeypatch, case):
     state.update(copy.deepcopy(case))
     for key, value in case["env"].items():
         monkeypatch.setenv(key, value)
-    destination = root / "pool/result.json"
+    destination = root / "pool/runs/synthetic/state.json"
     if case["allowed"]:
         data_safety.atomic_json(destination, {"synthetic": True})
         assert destination.is_file()
@@ -91,12 +102,18 @@ def test_push_rechecks_transport_after_admission(transport, monkeypatch):
 
 @pytest.mark.parametrize("mode", ["discovered", "explicit-config", "explicit-salt"])
 def test_salt_discovery_matches_preflight_across_fresh_states(tmp_path, monkeypatch, mode):
-    directory = tmp_path / "config"
+    import config_paths
+    profile = tmp_path / "profile"
+    directory = profile / ".demand-mining-config"
     (directory / "secrets").mkdir(parents=True)
     (directory / "secrets/pseudonym_hmac_salt").write_text(REVIEW["salt"], encoding="utf-8")
-    monkeypatch.delenv("DEMAND_MINING_CONFIG", raising=False)
-    monkeypatch.delenv("DEMAND_MINING_PSEUDONYM_SALT", raising=False)
-    monkeypatch.setattr(lib, "CONFIG_FALLBACKS", [str(directory)])
+    monkeypatch.setenv("HOME", str(profile))
+    monkeypatch.setenv("USERPROFILE", str(profile))
+    for name in ("DEMAND_MINING_CONFIG", "DEMAND_MINING_CONFIG_DIR",
+                 "DEMAND_MINING_DATA_DIR", "DEMAND_MINING_PSEUDONYM_SALT"):
+        monkeypatch.delenv(name, raising=False)
+    config_paths.resolver()
+    monkeypatch.setattr(config_paths, "ROOT", tmp_path / "source")
     if mode == "explicit-config":
         monkeypatch.setenv("DEMAND_MINING_CONFIG", str(directory))
     elif mode == "explicit-salt":
@@ -316,11 +333,27 @@ def test_backup_uses_current_transport_proof_at_actual_launcher(tmp_path, monkey
     root = tmp_path / "companion"
     root.mkdir()
     (root / ".git").mkdir()
-    record = root / "record.json"
+    record = root / "pool/runs/synthetic/state.json"
+    record.parent.mkdir(parents=True)
     record.write_text(json.dumps(REVIEW["backup_record"]), encoding="utf-8")
     state = {"config": "", "pushes": 0}
     monkeypatch.setattr(data_safety, "_companion_proof", lambda directory: types.SimpleNamespace(
         root=str(root), repositories=("example/demand-mining-config",), signature=state["config"]))
+
+    def artifact_git(snapshot, *args):
+        if args == ("rev-parse", "--verify", "HEAD"):
+            return types.SimpleNamespace(returncode=0, stdout="synthetic-head")
+        if args == ("check-ignore", "--no-index", "-q", "--", record.relative_to(root).as_posix()):
+            return types.SimpleNamespace(returncode=1, stdout="")
+        if (len(args) == 5 and args[:4] == ("check-ignore", "--no-index", "-q", "--")
+                and re.fullmatch(r"\.demand-backup-index-[0-9a-f]{32}(?:\.lock)?", args[4])):
+            return types.SimpleNamespace(returncode=1, stdout="")
+        raise AssertionError("unapproved synthetic artifact Git command")
+
+    artifact_boundary = types.SimpleNamespace(
+        prove_private_companion=lambda directory, *args: data_safety._companion_proof(directory),
+        read_private_companion_git=artifact_git, GitError=data_safety.DestinationError)
+    monkeypatch.setattr(data_safety._storage_contract(), "load_boundary", lambda: artifact_boundary)
 
     def child(argv, **kwargs):
         args = argv[3:]

@@ -150,7 +150,9 @@ def test_installer_negative_control_with_console_or_off_windows(platform, window
     assert popen(["git"]).creationflags == 0
 
 
-def test_console_detection_falls_back_to_the_interpreter_name():
+def test_console_detection_falls_back_to_the_interpreter_name(monkeypatch):
+    import ntpath
+    monkeypatch.setattr(no_console, "os", types.SimpleNamespace(path=ntpath))
     assert no_console.console_missing("win32", r"C:\Python\pythonw.exe", lambda: None) is True
     assert no_console.console_missing("win32", r"C:\Python\python.exe", lambda: None) is False
     assert no_console.console_missing("linux", "pythonw.exe", lambda: 0) is False
