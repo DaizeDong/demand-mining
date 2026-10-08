@@ -1,7 +1,7 @@
 """T5, schedule-reminder base round-trip (real subprocess) + full offline pipeline.
 
-The ledger tests use the REAL reminder.py contract (subprocess, temp DB), if it is not present
-they skip (the offline pipeline tests still run). Asserts: canonical_key UPSERT is idempotent
+The ledger tests require an explicit real schedule-reminder checkout (subprocess, temp DB).
+The offline pipeline tests need no external checkout. Asserts: canonical_key UPSERT is idempotent
 (no double item across re-runs), ext.x_demand_mining_* round-trips (MUST-PRESERVE), source
 isolation, and that PII in the raw input never reaches the pushed/archived card.
 """
@@ -19,16 +19,15 @@ from lib import load_config
 import dedup as dd
 import run as R
 import push_card
+from native_fixture import native_reminder, require_reminder_source, run_native_reminder
 
 CFG = load_config()
-REMINDER = Path.home() / ".claude/skills/schedule-reminder/scripts/reminder.py"
-have_base = REMINDER.is_file()
-ledger_only = pytest.mark.skipif(not have_base, reason="schedule-reminder base not installed")
 
 
 @pytest.fixture
 def native_ledger(tmp_path, monkeypatch):
     """Use real Git, the real reminder CLI and a synthetic local visibility receipt."""
+    reminder_source = require_reminder_source()
     case = json.loads((Path(__file__).parent / "fixtures/repair_cases.json").read_text())["native_ledger"]
     profile = tmp_path / "profile"
     receipt_dir = profile / ".pii-guard"
@@ -58,13 +57,12 @@ def native_ledger(tmp_path, monkeypatch):
 
     monkeypatch.setattr(push_card, "deliver", confirm)
     cfg = {**CFG, **case["config"]}
-    from native_fixture import native_reminder
-    launcher = native_reminder(tmp_path, REMINDER)
+    launcher = native_reminder(tmp_path, reminder_source)
     client = dd.LedgerClient(cmd=[sys.executable, str(launcher)],
                              db_path=str(companion / "t.db"), product_id=cfg["product_id"])
     # The shared store is initialized explicitly by its own CLI, before Demand attaches.
-    subprocess.run([sys.executable, str(launcher), "--db", client.db_path, "init"],
-                   check=True, capture_output=True)
+    initialized = run_native_reminder(client.cmd, "--db", client.db_path, "init")
+    assert json.loads(initialized.stdout)["ok"] is True and Path(client.db_path).stat().st_size > 0
     client.init()
     return client, cfg, str(companion / "pool"), sends
 
@@ -109,7 +107,6 @@ def test_offline_empty_day_low_quality():
 
 
 # ---------------------------------------------------------------- base round-trip (real subprocess)
-@ledger_only
 def test_ledger_roundtrip_idempotent(native_ledger):
     lc, cfg, archive, sends = native_ledger
     cand = _cand("dark mode", "reduce eye strain at night", "ui-ux", ["discord", "reddit"])
@@ -131,7 +128,6 @@ def test_ledger_roundtrip_idempotent(native_ledger):
     assert lc.get_watermark() == first["identity"]["source_window"]["end"]
 
 
-@ledger_only
 def test_ledger_ext_namespace_preserved(native_ledger):
     lc, cfg, archive, _ = native_ledger
     cand = _cand("slack alerts", "get notified in slack", "integrations", ["discord", "reddit"])
@@ -149,7 +145,6 @@ def test_ledger_ext_namespace_preserved(native_ledger):
     assert all("user-1" not in str(a) for a in ext.get(dd.EXT + "authors", []))
 
 
-@ledger_only
 def test_ledger_source_isolation(native_ledger):
     lc, cfg, archive, _ = native_ledger
     # write a foreign-source item directly; our list_active(source=demand-mining) must not see it
