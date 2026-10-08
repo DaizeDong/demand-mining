@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import sys
 import subprocess
+from types import SimpleNamespace
 
 import pytest
 
@@ -38,6 +39,24 @@ def storage(tmp_path, monkeypatch):
         return {"path": str(path), "root": str(root), "transport": {"synthetic": True}}
 
     monkeypatch.setattr(data_safety, "require_private", private)
+    proof = SimpleNamespace(root=str(root), repositories=("example/retention-config",),
+                            signature="synthetic-private-proof")
+
+    def prove(directory, *args):
+        private(directory)
+        return proof
+
+    def read(snapshot, *args):
+        if args == ("rev-parse", "--verify", "HEAD"):
+            return SimpleNamespace(returncode=0, stdout="synthetic-head")
+        if args[:4] == ("check-ignore", "--no-index", "-q", "--"):
+            return SimpleNamespace(returncode=1, stdout="")
+        raise AssertionError("unapproved synthetic artifact Git command")
+
+    boundary = SimpleNamespace(prove_private_companion=prove,
+                               read_private_companion_git=read,
+                               GitError=data_safety.DestinationError)
+    monkeypatch.setattr(data_safety._storage_contract(), "load_boundary", lambda: boundary)
     cases = json.loads((Path(__file__).parent / "fixtures/repair_cases.json").read_text(encoding="utf-8"))["retention"]
     cfg = copy.deepcopy(lib.DEFAULT_CONFIG)
 
@@ -242,3 +261,11 @@ def test_native_delete_does_not_need_optional_powershell_modules(storage, monkey
     monkeypatch.setenv("PSModulePath", str(root / "missing-powershell-modules"))
     assert retention.enforce(root, cfg, now=NOW)["status"] == "applied"
     assert not target.exists()
+
+
+def test_retention_fixture_keeps_real_source_ownership(storage):
+    retention, root, cfg, cases, write = storage
+    target = root / "undeclared/synthetic.json"
+    with pytest.raises(data_safety.DestinationError, match="exactly one owner"):
+        data_safety.atomic_json(target, {})
+    assert not target.parent.exists()
