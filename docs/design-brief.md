@@ -4,6 +4,10 @@
 > `CodesResearch/_skill-builds/06-demand-mining/ARCHITECTURE.md` (7-lane research synthesis,
 > 2026-06-25). This brief is the auditable rationale summary.
 
+This is the original design record. References to planned integrations and evaluation targets
+are not current deployment claims; use [ROADMAP.md](../ROADMAP.md) and
+[PHILOSOPHY.md](../PHILOSOPHY.md) for current capability and rationale.
+
 ## Best references (match-or-beat)
 
 - **daily-hotspots**, the structural twin (thin orchestration over the schedule-reminder base +

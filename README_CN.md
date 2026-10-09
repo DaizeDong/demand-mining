@@ -1,11 +1,11 @@
 # demand-mining
 
-已发布产品的每日用户需求挖掘 + 竞品/热点追踪 + EOD 头脑风暴 + RICE/Kano 量化迭代排序。
+面向已发布产品维护者的需求分析工具：采集 Discord 反馈，归并重复需求，用 RICE、Opportunity、WSJF 和 Kano 生成每日迭代建议队列。
 
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-orange?style=flat)](https://docs.anthropic.com/en/docs/claude-code)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/status-v0.7.1%20demand%20workflow-green?style=flat)](ROADMAP.md)
-[![Languages](https://img.shields.io/badge/Languages-EN%20%2F%20CN-blue?style=flat)](#languages)
+[![Languages](https://img.shields.io/badge/Languages-EN%20%2F%20CN-blue?style=flat)](#语言)
 [![Roadmap](https://img.shields.io/badge/Roadmap-v0.7.1-purple?style=flat)](ROADMAP.md)
 
 [English](README.md) | [中文版](README_CN.md)
@@ -30,12 +30,12 @@ CLI 完成。自动采集竞品变更以及与其他技能联动调研仍是待�
 
 ## 它是什么(不是什么)
 
-**是：** 单个已发布产品的每日需求雷达。摄取产品社群信号(Discord),抽取真实需求(显性 + 隐性，
-JTBD 还原),跨日去重 + 按独立人累计强度入池，三轴正交排序(RICE 定顺序 / Opportunity 定强度 /
-WSJF 定紧迫 / Kano 定性质),产出 EOD 头脑风暴 + 量化迭代方向队列。
+Discord REST tap 和 gateway daemon 采集产品社群反馈。流程从中提取显性与隐性的 JTBD 需求，
+跨日去重，按独立作者累计证据，并生成包含 Quick-win 和 Big-bet 两类建议的 EOD 汇总。
 
-自带的 Discord tap 和 daemon 负责需求反馈采集。批处理通过 `schedule-reminder` CLI 操作提醒，
-daemon 还会维护私有需求池。热点和竞品自动采集仍待接入；本工具不提供通用调研引擎。
+批处理通过 `schedule-reminder` CLI 操作提醒，daemon 另行维护私有需求池。
+共享 bot 监听、热点和竞品自动采集仍待接入。手动调研可使用 `daily-hotspots` 或 `market-intel`，
+纳入的外部证据必须保留独立来源。
 
 ## 定时运行流程
 
@@ -57,8 +57,7 @@ NEW、SUPPRESS 或 RESURFACE。发送前先固定计划并核对产物；收到�
 或账号提及，完整证据保存在 PRIVATE 存储中。重试复用已保存的计划和确认回执；发送结果不明时，
 必须用经过核验的回执完成核对，才能继续完成同一次运行。备份状态单独记录。
 
-ledger 操作通过 `schedule-reminder` CLI 完成，daemon 另行维护自己的私有需求池。共享 bot 监听、
-热点和竞品自动采集仍待接入。恢复与存储细节见[运行契约](docs/runtime-contract.md)。
+身份、恢复和回执要求见[运行契约](docs/runtime-contract.md)。
 
 ## 安装
 
@@ -75,16 +74,14 @@ git clone --recurse-submodules https://github.com/DaizeDong/demand-mining.git ~/
 ## 快速开始
 
 ```bash
-# 离线预览——跑完整确定性尾链,不写库不联网
+# 离线预览：执行确定性处理，不写入、不联网
 python skills/demand-mining/scripts/run.py --in candidates.json --dry-run --no-ledger
 
-# 真实 EOD(headless,经调度 wrapper)
+# 完成下方私有配置和预检后，注册 EOD 任务
 powershell -ExecutionPolicy Bypass -File skills/demand-mining/scripts/register-task.ps1 -Time 21:53
 ```
 
-`candidates.json` 向确定性流水线提供候选需求簇，调用方需要附上来源证据。
-竞品自动采集和外部热点集成仍待实现。gate 依次执行
-redact → score → dedup → verify → push → pool → digest → watermark。
+`candidates.json` 提供候选需求簇及其来源证据。采集、持久化和凭回执完成的过程见上方定时运行流程。
 
 ## 如何触发
 
@@ -92,7 +89,7 @@ redact → score → dedup → verify → push → pool → digest → watermark
 
 ## 示例输出
 
-**推送到 Discord**, 每日一条排序「需求头条」(top ≤5 合格需求),不再逐需求发卡片：
+**推送到 Discord**, 每日一条排序「需求头条」(top ≤5 可推送需求),不再逐需求发卡片：
 
 ```
 📊 **需求头条** · 2026-07-15

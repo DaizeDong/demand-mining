@@ -6,14 +6,10 @@ allowed-tools: Read, Glob, Grep, Bash, Agent, Skill, WebSearch, WebFetch
 
 # demand-mining
 
-> Governing principle (full text in `PHILOSOPHY.md`): **LLM proposes, a deterministic gate
-> disposes, and the gate guards privacy first.** The model reads Discord sessions, recovers
-> intent + JTBD, and proposes scores; the Python gate (`run.py` + `verify_gate.py`) makes the
-> final fail-closed ruling, and `redact.py` strips PII *before the model ever sees the text*.
-
-A daily **demand radar** for a *shipped* product. It owns the *seam*, Discord ingest → demand
-extraction → dedup/clustering → three-axis quantified ranking → EOD brainstorm → archive/push,
-and **delegates every deep job** to its sister skills. It never re-implements an engine.
+This skill analyzes feedback for a shipped product: Discord collection and redaction, JTBD
+extraction, cross-day demand grouping, quantitative ranking, EOD review and authorized delivery.
+The model proposes interpretations; `run.py` and `verify_gate.py` apply deterministic admission
+rules. Read [PHILOSOPHY.md](../../PHILOSOPHY.md) for the rationale and privacy limits.
 
 ## When to use / when to stop
 
@@ -37,8 +33,8 @@ and **delegates every deep job** to its sister skills. It never re-implements an
    Discord channels via the bot token (config: `registry.json` `discord_channels` + `discord_token_ref`;
    Message Content Intent required) and emits a REDACTED corpus. The scheduler freezes the window from the prior completed cutoff; direct manual collection accepts
    `--since-hours`, while `--full` is an explicit backfill. Bots/webhooks/empty are skipped. The token is never
-   printed. If the tap is not wired it exits with an init hint (never silently reads nothing). This is
-   the ONLY collection path, the model does not read Discord directly.
+   printed. An unwired tap exits with an initialization hint. This is the scheduled collection path;
+   the daemon separately owns live collection. The model receives the collected redacted corpus.
 1. **Redact-on-ingest (FIRST, always)**, `reference/privacy.md`. `pull_discord.py` already ran every
    raw message through `redact.py` (NFKC-normalized, so full-width/homoglyph obfuscation can't smuggle PII past it)
    BEFORE any LLM/embedding sees it: Tier1 regex+Luhn (email/phone/card/URL/IP/discord-id/handle),
@@ -46,7 +42,7 @@ and **delegates every deep job** to its sister skills. It never re-implements an
    author pseudonym. Local person/address patterns supplement these rules; unsupported personal
    context is visibly held for review. The doctor names remaining coverage gaps. Only redacted
    text flows downstream; the pool stores distilled items, never raw conversation.
-2. **Extract demand**, `reference/extract.md`. Stage A: 8-label mutually-exclusive intent (context
+2. **Extract demand**, `reference/extract.md`. Stage A: classification using 8 intent labels (context
    LLM, NOT keyword chitchat filtering). Stage B: session disentanglement by thread/reference
    chains (never time-window slicing) → JTBD four forces (Anxiety/Habit = the implicit goldmine) →
    three-layer translation (literal→job→emotion; never排期 the literal feature) → opinion-unit
@@ -62,12 +58,13 @@ and **delegates every deep job** to its sister skills. It never re-implements an
    **Opportunity/ODI** (demand strength) · **WSJF** (urgency; competitor-just-shipped = highest) ·
    **Kano** gate (must-be missing → Tier0, score-decoupled). 2D tier matrix; argue bands not points.
 5. **Need pool + cross-day evolution**, `reference/dedup-pool.md`. `dedup.py` over the
-   schedule-reminder base: two-gate dedup (cosine≥0.83 ∧ simhash≤3, 0.78-0.83 → human review),
-   canonical_key UPSERT, distinct-author intensity (anti-stuffing, no time decay), NEW/SUPPRESS/
-   RESURFACE.
+   schedule-reminder base: exact canonical identity or guarded nonexact matching, with the
+   0.78-0.83 candidate band reserved for review. Preserve product-scoped keys, distinct-author
+   intensity without time decay, and NEW/SUPPRESS/RESURFACE state. Use the reference for the
+   implemented similarity conditions.
 6. **EOD digest + brainstorm**, `reference/eod-brainstorm.md`. `verify_gate.py` (≥1 internal
    evidence + egress DLP, fail-closed) → `digest.py` Quick-win/Big-bet split + iteration queue.
-   Delivery is **one ranked 'headlines' message/day** (`digest.build_headlines`: top ≤5 archivable
+   Delivery is **one ranked 'headlines' message/day** (`digest.build_headlines`: top ≤5 push-eligible
    demands, each `**N.【立即·刚需】标题**` + 人话摘要(why+建议) + `grade final_score · RICE · N证据`),
    NOT a Discord embed per demand. The full markdown (every field + evidence) is the archived digest
    file, pointed at by a **plain-text** hint. Unlike daily-hotspots the headline carries **no url**:
@@ -92,7 +89,7 @@ python scripts/run.py --in candidates.json --dry-run --no-ledger   # offline pre
    distilled demand items + HMAC pseudonyms, never raw chat. Structured PII (email/phone/card/
    secret/id/url/ip/handle) is stripped fail-closed (NFKC-normalized against obfuscation). Local
    person/address patterns redact supported forms; unsupported personal context is held for review.
-   Unique placeholders, never collapsed. The HMAC salt lives in gitignored secrets (Mode B).
+   Keep unique placeholders and a stable HMAC salt under the selected PRIVATE credential policy.
 2. **Never send user words to a third party.** Delegated queries to market-intel / web carry only
    non-private topics (feature name, competitor name), never a user's raw message (privacy + injection).
 3. **Job over feature.** Never排期 a literal feature ask; force an inferred JTBD job + 5-Whys.
@@ -104,14 +101,25 @@ python scripts/run.py --in candidates.json --dry-run --no-ledger   # offline pre
 6. **Cross-day**: already-pushed demands SUPPRESS (count, don't re-push) unless a material change
    RESURFACEs them. Watermark is written **only after** the full run succeeds (atomic, at-least-once).
 7. **Never** read the schedule-reminder DB directly / put it on OneDrive (WAL corruption), CLI +
-   local NTFS only. Never open a 2nd Discord bot; never re-run the hotspots fan-out; never CronCreate.
+   local NTFS only. Use the configured Discord collection owner; do not create an additional bot.
+   Do not repeat the hotspots fan-out or use in-session CronCreate for persistent scheduling.
 
 ## Config
 
-The tunable surface is the per-product companion repo (`demand-mining-config`, **Mode B**, secrets
-gitignored). Probe order: `$DEMAND_MINING_CONFIG` → `~/.demand-mining-config/` →
-`~/.config/demand-mining-config/`. Absent → built-in defaults (`scripts/lib.py:DEFAULT_CONFIG`).
-Tuning RICE weights / thresholds / Kano map = editing `products/<slug>/priority.json`, zero code.
+Use [CONFIG.md](../../CONFIG.md) for companion selection and required product fields.
+`DEMAND_MINING_CONFIG` takes precedence over `DEMAND_MINING_CONFIG_DIR`, followed by shared
+Guards discovery. `DEMAND_MINING_DATA_DIR` must select that companion's exact `pool/` directory.
+Invalid explicit selections fail; there is no XDG or public-repository fallback.
+
+Offline helpers may use `scripts/lib.py:DEFAULT_CONFIG`. Collection and writes require an
+initialized, verified PRIVATE companion, product identity, timezone, selected ledger and stable
+pseudonym salt as required by the chosen capability. Tune per-product policy in
+`products/<slug>/priority.json`. Follow [DATA.md](../../DATA.md) for artifact ownership and
+retention, and [the runtime contract](../../docs/runtime-contract.md) for recovery.
+
+A real empty day requires completed collection and classification. Reuse the saved logical
+identity, plan and receipt on retry. An uncertain send requires receipt reconciliation before
+completion; backup failure remains separate from delivery success.
 
 ## Progressive loading
 

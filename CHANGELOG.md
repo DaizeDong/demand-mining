@@ -3,12 +3,14 @@
 ## [Unreleased]
 
 ### Documentation
-- Replace the tall README Mermaid charts with compact color PNGs in both languages, with Graphviz sources and a shared rendering script.
+- Consolidate configuration, storage and recovery guidance under their authoritative references;
+  align entry documents with implemented collection, receipt and retry behavior. Preserve released
+  history, research rationale and existing diagram assets.
+- Provide matching English and Chinese workflow diagrams for collection, evidence checks, ranking, authorized delivery and receipt-based completion as compact color PNGs, with Graphviz sources and a shared rendering script.
 
 ### Fixed
 - The skill description in `SKILL.md` is now a quoted YAML string. Its unquoted `: ` made strict frontmatter parsers reject the file, so profile sync marked the skill unsupported.
 
-- Add matching English and Chinese README flowcharts for scheduled demand collection, evidence checks, ranking, authorized delivery and receipt-based completion.
 - Require stable card identity for standalone sends and retain one durable owner per product, card and new/update event. Confirmed retries reuse their receipt; ambiguous attempts require reconciliation without automatic resend.
 - Preserve standalone rendering previews without private initialization and declare the exact private event state, receipt and transient lock paths.
 - Keep standalone retention tests aligned with the shared artifact proof interface while testing real source ownership and native deletion protections with generated data.
@@ -17,6 +19,13 @@
 - Align setup, required fields and recovery documentation with supported capabilities.
 - Require versionable recovery artifacts before backup and keep local coordination/staging separate from durable state.
 - Declare the exact per-run archived Markdown digest alongside its JSON recovery records so finalization can publish the complete owned bundle.
+
+- Preserve scheduled-task argument boundaries for spaces, embedded quotes and
+  trailing backslashes; reject NUL, carriage return and newline characters.
+- Include pinned submodules in the manual clone instructions so the DATA verifier is available.
+- **The windowless daemon opened thousands of terminal windows.** Under pythonw.exe every Git launch of the PRIVATE proof got a new console, and the proof ran for every log line and pool write. Every subprocess launch now passes `CREATE_NO_WINDOW`, and the daemon, supervisor and scheduled entry points make it the process-wide default when they have no console, which also covers the guard kit's Git calls.
+- **A held observation was retried every poll forever.** Live retries now back off from one poll to one hour and log only state changes. An observation the privacy screen holds eight times moves to `pool/quarantine/` in the PRIVATE companion instead of being retried or dropped.
+- Artifact writes now use fresh shared Guards admission; the bounded transport cache remains only a preflight optimization and cannot authorize a write. Backup pushes always prove fresh. The daily summary loop proves its destination only when it writes.
 
 ### Scheduled interpreter
 - `register-task.ps1` fixes the EOD interpreter at registration: `-Python`, or else the `python` the registering shell resolves, is written into the task action as an absolute path, so the scheduled run no longer depends on the task's PATH. Both it and `wrapper.ps1` refuse the Windows Store `python` alias, which under Task Scheduler opens the Store or hangs instead of running.
@@ -43,14 +52,6 @@
 - Require verified PRIVATE companion storage before initialization and real DATA writes; preserve ledger writes and expose missing prerequisites.
 - Refresh the roadmap against the shipped tap/daemon and remaining external integrations; describe daemon modes without asserting an active deployment.
 - Explain the limits of structured redaction and separate model interpretation from reproducible admission decisions.
-
-### Fixed
-- Preserve scheduled-task argument boundaries for spaces, embedded quotes and
-  trailing backslashes; reject NUL, carriage return and newline characters.
-- Include pinned submodules in the manual clone instructions so the DATA verifier is available.
-- **The windowless daemon opened thousands of terminal windows.** Under pythonw.exe every Git launch of the PRIVATE proof got a new console, and the proof ran for every log line and pool write. Every subprocess launch now passes `CREATE_NO_WINDOW`, and the daemon, supervisor and scheduled entry points make it the process-wide default when they have no console, which also covers the guard kit's Git calls.
-- **A held observation was retried every poll forever.** Live retries now back off from one poll to one hour and log only state changes. An observation the privacy screen holds eight times moves to `pool/quarantine/` in the PRIVATE companion instead of being retried or dropped.
-- Artifact writes now use fresh shared Guards admission; the bounded transport cache remains only a preflight optimization and cannot authorize a write. Backup pushes always prove fresh. The daily summary loop proves its destination only when it writes.
 
 ## [0.7.1] - 2026-08-06
 ### Fixed

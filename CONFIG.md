@@ -115,8 +115,9 @@ collection/delivery dependencies without making a model call. See docs/runtime-c
 | `keywords` | array of str | yes      | `["slow","crash","timeout","卡","崩"]`   |
 | `enabled`  | bool         | yes      | `true`                                   |
 
-`competitors.json` (optional), competitor watchlist consumed by delegation lane 3; free-form list of
-competitor records (slug/name/url) the SKILL's deep-dive layer reads.
+`competitors.json` is an optional list of competitor records (slug/name/url) for explicitly
+requested manual research. Automated collection and archive ingestion remain deferred; see
+[external evidence](skills/demand-mining/reference/delegation.md).
 
 ## Secrets, Mode B (E6)
 
@@ -129,7 +130,7 @@ or printed output. Secrets used by demand-mining:
 | Secret                  | Where                                                                    | Notes                                              |
 | ----------------------- | ------------------------------------------------------------------------ | -------------------------------------------------- |
 | Pseudonym HMAC salt     | env `DEMAND_MINING_PSEUDONYM_SALT` **or** `secrets/pseudonym_hmac_salt`  | drives `redact.py` HMAC pseudonyms; never log it.  |
-| Discord bot credentials | shared via the `auto-support` single-bot relay (`push.channel`)          | not stored here when the shared relay supplies it. |
+| Discord credentials | collection token selected by `discord_token_ref`; delivery credentials owned by the configured relay | Collection and delivery have separate credential owners. |
 | Product code root path  | `@DEFERRED`                                                              | reserved; not required for the EOD pipeline today. |
 
 ## Clock seam (deterministic replay)
@@ -160,8 +161,8 @@ python skills/demand-mining/scripts/scheduled.py --preflight  # current interpre
 
 ## Switching between two configs (hot-swap), E5
 
-A config dir is self-contained (no hardcoded absolute paths). Keep as many as you like and switch by
-repointing the env var, no other change:
+Switch the selected companion by repointing the environment variable and clearing or updating
+any DATA override to that companion's exact `pool/` directory:
 
 ```bash
 export DEMAND_MINING_CONFIG=~/configs/work       # config A
