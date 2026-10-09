@@ -37,6 +37,41 @@ WSJF 定紧迫 / Kano 定性质),产出 EOD 头脑风暴 + 量化迭代方向队
 自带的 Discord tap 和 daemon 负责需求反馈采集。批处理通过 `schedule-reminder` CLI 操作提醒，
 daemon 还会维护私有需求池。热点和竞品自动采集仍待接入；本工具不提供通用调研引擎。
 
+## 定时运行流程
+
+启用定时推送前，先授权所用的 relay 和发送目的地。定时运行不会逐次暂停询问；本地收尾程序负责
+核对已保存的产物和发送回执。
+
+```mermaid
+flowchart TD
+    collect["采集本次时间窗口内的 Discord 消息<br/>文本脱敏并为作者生成假名"]
+    propose["llmcall 提出候选需求簇"]
+    ground["将引文绑定到采集证据<br/>合并 canonical key 完全相同的候选"]
+    score["计算 RICE、Opportunity 和 WSJF<br/>应用 Kano 规则"]
+    dedup["对照该产品的 ledger 跨日去重<br/>NEW / SUPPRESS / RESURFACE"]
+    gate{"证据与隐私检查通过？"}
+    stop["报告失败<br/>不写完成水位"]
+    prepare["保存 ledger 变更和私有日报<br/>固定计划并核对产物"]
+    send["检查外发内容的隐私<br/>通过 relay 发送已授权的头条"]
+    complete["记录已确认的发送状态<br/>写入完成水位"]
+    pending["等待核对发送回执<br/>不自动重发"]
+
+    collect --> propose --> ground --> score --> dedup --> gate
+    gate -->|未通过| stop
+    gate -->|通过，也允许有效空日| prepare
+    prepare --> send
+    send -->|收到匹配的确认回执| complete
+    send -->|发送失败或结果不明| pending
+    complete -->|调用方完成后进入下一窗口| collect
+```
+
+只有采集和分类都成功完成，才允许输出空日报。采集、模型或校验失败仍按失败处理。头条不含 URL
+或账号提及，完整证据保存在 PRIVATE 存储中。重试复用已保存的计划和确认回执；发送结果不明时，
+必须用经过核验的回执完成核对，才能继续完成同一次运行。备份状态单独记录。
+
+ledger 操作通过 `schedule-reminder` CLI 完成，daemon 另行维护自己的私有需求池。共享 bot 监听、
+热点和竞品自动采集仍待接入。恢复与存储细节见[运行契约](docs/runtime-contract.md)。
+
 ## 安装
 
 ```
