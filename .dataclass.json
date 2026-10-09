@@ -16,6 +16,7 @@
     "Enforced by tools/data_boundary.py in .githooks and in CI."
   ],
   "_audited": "Real writers now validate actual destinations against a verified PRIVATE repository before corpus, pool, ledger, archive, receipt, run-state, cursor, daemon-log or backup writes. Explicit invalid configuration fails closed. Source data remains empty because each writer resolves outside the public consumer and cannot use a repository-local fallback.",
+  "_readme_diagrams": "TOOL: docs/diagrams/*.dot, *.png and render.py describe the shipped workflow using public code and documentation; they contain no real-run observations.",
   "data": [
     ".staging/"
   ],
