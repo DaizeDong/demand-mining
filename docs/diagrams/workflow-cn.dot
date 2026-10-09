@@ -1,0 +1,35 @@
+// Scheduled demand workflow. Render both languages with: python docs/diagrams/render.py
+digraph workflow {
+  graph [rankdir=LR, bgcolor="white", pad=0.16, nodesep=0.30, ranksep=0.25,
+         fontname="Microsoft YaHei", splines=polyline];
+  node [shape=box, style="rounded,filled", fontname="Microsoft YaHei", fontsize=15,
+        penwidth=1.6, margin="0.13,0.10", fontcolor="#0f172a"];
+  edge [fontname="Microsoft YaHei", fontsize=11, penwidth=1.4, arrowsize=0.7,
+        color="#64748b", fontcolor="#475569"];
+
+  collect [label=<<b>采集与脱敏</b><br/><font point-size="11">Discord 窗口<br/>作者假名</font>>,
+           fillcolor="#eef2ff", color="#6366f1"];
+  analyze [label=<<b>分析与排序</b><br/><font point-size="11">llmcall · 证据<br/>评分 · 跨日去重</font>>,
+           fillcolor="#f1f5f9", color="#475569"];
+  gate [label=<<b>准入检查</b><br/><font point-size="11">证据 · 隐私<br/>允许有效空日</font>>,
+        fillcolor="#fef9c3", color="#ca8a04"];
+  persist [label=<<b>保存私有产物</b><br/><font point-size="11">ledger · 日报<br/>固定计划</font>>,
+           fillcolor="#e0f2fe", color="#0284c7"];
+  relay [label=<<b>已授权 relay</b><br/><font point-size="11">检查外发隐私</font>>,
+         fillcolor="#f1f5f9", color="#475569"];
+  complete [label=<<b>收到确认回执</b><br/><font point-size="11">完成 · 写入水位</font>>,
+            fillcolor="#dcfce7", color="#16a34a"];
+  stop [label=<<b>停止并报错</b><br/><font point-size="11">不写完成水位</font>>,
+        fillcolor="#fff1f2", color="#e11d48"];
+  pending [label=<<b>等待核对回执</b><br/><font point-size="11">核验后再继续<br/>不自动重发</font>>,
+           fillcolor="#fef9c3", color="#ca8a04"];
+
+  collect -> analyze -> gate;
+  gate -> persist [label="通过", color="#0284c7"];
+  gate -> stop [label="失败", color="#e11d48", fontcolor="#be123c"];
+  persist -> relay -> complete;
+  relay -> pending [label="失败 /\n结果不明", color="#ca8a04", fontcolor="#a16207"];
+
+  { rank=same; persist; stop; }
+  { rank=same; complete; pending; }
+}

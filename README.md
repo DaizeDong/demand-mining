@@ -49,28 +49,17 @@ and competitor collection remain deferred integrations; the tool does not implem
 Before enabling scheduled delivery, authorize its relay and destination. A scheduled run does not
 pause for interactive approval; the local finalizer checks the saved artifacts and delivery receipt.
 
-```mermaid
-flowchart TD
-    collect["Collect the scheduled Discord window<br/>Redact text and pseudonymize authors"]
-    propose["llmcall proposes demand clusters"]
-    ground["Ground quotes in collected evidence<br/>Merge exact canonical duplicates"]
-    score["Compute RICE, Opportunity and WSJF<br/>Apply Kano rules"]
-    dedup["Compare the product ledger across days<br/>NEW / SUPPRESS / RESURFACE"]
-    gate{"Evidence and privacy checks pass?"}
-    stop["Report failure<br/>No completion watermark"]
-    prepare["Save ledger changes and private digest<br/>Freeze the plan and check artifacts"]
-    send["Check outbound privacy<br/>Send authorized headlines via relay"]
-    complete["Record confirmed sent state<br/>Write the completion watermark"]
-    pending["Await receipt reconciliation<br/>No automatic resend"]
+<p align="center">
+  <a href="docs/diagrams/workflow-en.png"><img src="docs/diagrams/workflow-en.png" width="760" alt="Scheduled demand workflow: collect and redact, analyze and rank, check admission, save private artifacts, send through the authorized relay, and complete with a confirmed receipt or await reconciliation."></a>
+</p>
 
-    collect --> propose --> ground --> score --> dedup --> gate
-    gate -->|No| stop
-    gate -->|Yes, including a valid empty day| prepare
-    prepare --> send
-    send -->|Matching confirmed receipt| complete
-    send -->|Failed or unknown result| pending
-    complete -->|Next window after caller completion| collect
-```
+[Diagram source](docs/diagrams/workflow-en.dot) · [Render PNGs](docs/diagrams/render.py)
+
+Analysis uses `llmcall` to propose demand clusters, binds quotes to collected evidence and merges
+exact canonical-key duplicates. RICE, Opportunity and WSJF scoring applies Kano rules; comparison
+with the product ledger assigns NEW, SUPPRESS or RESURFACE across days. The saved plan is frozen
+and its artifacts checked before delivery. A matching confirmed receipt permits the completion
+watermark; the caller must finish before the next collection window.
 
 An empty day is valid only after collection and classification finish successfully. Collection,
 model or validation failures remain failures. Headlines contain no URLs or handles; full evidence

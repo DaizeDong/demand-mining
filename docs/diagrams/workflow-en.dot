@@ -1,0 +1,35 @@
+// Scheduled demand workflow. Render both languages with: python docs/diagrams/render.py
+digraph workflow {
+  graph [rankdir=LR, bgcolor="white", pad=0.16, nodesep=0.30, ranksep=0.25,
+         fontname="Arial", splines=polyline];
+  node [shape=box, style="rounded,filled", fontname="Arial", fontsize=15,
+        penwidth=1.6, margin="0.13,0.10", fontcolor="#0f172a"];
+  edge [fontname="Arial", fontsize=11, penwidth=1.4, arrowsize=0.7,
+        color="#64748b", fontcolor="#475569"];
+
+  collect [label=<<b>Collect +<br/>redact</b><br/><font point-size="11">Discord window<br/>Author pseudonyms</font>>,
+           fillcolor="#eef2ff", color="#6366f1"];
+  analyze [label=<<b>Analyze +<br/>rank</b><br/><font point-size="11">llmcall · evidence<br/>Scores · dedup</font>>,
+           fillcolor="#f1f5f9", color="#475569"];
+  gate [label=<<b>Admission<br/>gate</b><br/><font point-size="11">Evidence · privacy<br/>Valid empty day</font>>,
+        fillcolor="#fef9c3", color="#ca8a04"];
+  persist [label=<<b>Private<br/>artifacts</b><br/><font point-size="11">Ledger · digest<br/>Frozen plan</font>>,
+           fillcolor="#e0f2fe", color="#0284c7"];
+  relay [label=<<b>Authorized<br/>relay</b><br/><font point-size="11">Outbound<br/>privacy</font>>,
+         fillcolor="#f1f5f9", color="#475569"];
+  complete [label=<<b>Confirmed<br/>receipt</b><br/><font point-size="11">Completion<br/>watermark</font>>,
+            fillcolor="#dcfce7", color="#16a34a"];
+  stop [label=<<b>Stop +<br/>report</b><br/><font point-size="11">No watermark</font>>,
+        fillcolor="#fff1f2", color="#e11d48"];
+  pending [label=<<b>Await<br/>receipt</b><br/><font point-size="11">Reconcile to resume<br/>No automatic resend</font>>,
+           fillcolor="#fef9c3", color="#ca8a04"];
+
+  collect -> analyze -> gate;
+  gate -> persist [label="pass", color="#0284c7"];
+  gate -> stop [label="fail", color="#e11d48", fontcolor="#be123c"];
+  persist -> relay -> complete;
+  relay -> pending [label="failed /\nunknown", color="#ca8a04", fontcolor="#a16207"];
+
+  { rank=same; persist; stop; }
+  { rank=same; complete; pending; }
+}

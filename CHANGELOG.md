@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Documentation
+- Replace the tall README Mermaid charts with compact color PNGs in both languages, with Graphviz sources and a shared rendering script.
+
 ### Fixed
 - The skill description in `SKILL.md` is now a quoted YAML string. Its unquoted `: ` made strict frontmatter parsers reject the file, so profile sync marked the skill unsupported.
 

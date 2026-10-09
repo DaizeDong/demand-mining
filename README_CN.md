@@ -42,28 +42,16 @@ daemon 还会维护私有需求池。热点和竞品自动采集仍待接入；�
 启用定时推送前，先授权所用的 relay 和发送目的地。定时运行不会逐次暂停询问；本地收尾程序负责
 核对已保存的产物和发送回执。
 
-```mermaid
-flowchart TD
-    collect["采集本次时间窗口内的 Discord 消息<br/>文本脱敏并为作者生成假名"]
-    propose["llmcall 提出候选需求簇"]
-    ground["将引文绑定到采集证据<br/>合并 canonical key 完全相同的候选"]
-    score["计算 RICE、Opportunity 和 WSJF<br/>应用 Kano 规则"]
-    dedup["对照该产品的 ledger 跨日去重<br/>NEW / SUPPRESS / RESURFACE"]
-    gate{"证据与隐私检查通过？"}
-    stop["报告失败<br/>不写完成水位"]
-    prepare["保存 ledger 变更和私有日报<br/>固定计划并核对产物"]
-    send["检查外发内容的隐私<br/>通过 relay 发送已授权的头条"]
-    complete["记录已确认的发送状态<br/>写入完成水位"]
-    pending["等待核对发送回执<br/>不自动重发"]
+<p align="center">
+  <a href="docs/diagrams/workflow-cn.png"><img src="docs/diagrams/workflow-cn.png" width="760" alt="定时需求挖掘流程：采集脱敏、分析排序、准入检查、保存私有产物，经已授权 relay 发送后，凭确认回执完成或等待核对回执。"></a>
+</p>
 
-    collect --> propose --> ground --> score --> dedup --> gate
-    gate -->|未通过| stop
-    gate -->|通过，也允许有效空日| prepare
-    prepare --> send
-    send -->|收到匹配的确认回执| complete
-    send -->|发送失败或结果不明| pending
-    complete -->|调用方完成后进入下一窗口| collect
-```
+[图源代码](docs/diagrams/workflow-cn.dot) · [生成 PNG](docs/diagrams/render.py)
+
+分析阶段由 `llmcall` 提出候选需求簇，将引文绑定到采集证据，并合并 canonical key 完全相同的候选。
+随后计算 RICE、Opportunity 和 WSJF，应用 Kano 规则，再对照该产品的 ledger 跨日判断
+NEW、SUPPRESS 或 RESURFACE。发送前先固定计划并核对产物；收到匹配的确认回执后才能写完成水位，
+调用方完成后再进入下一采集窗口。
 
 只有采集和分类都成功完成，才允许输出空日报。采集、模型或校验失败仍按失败处理。头条不含 URL
 或账号提及，完整证据保存在 PRIVATE 存储中。重试复用已保存的计划和确认回执；发送结果不明时，
