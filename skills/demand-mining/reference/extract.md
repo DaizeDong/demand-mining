@@ -6,7 +6,7 @@ is the deterministic frame the proposal must satisfy.
 
 ## Stage A, intent (near-real-time, per message)
 
-Classify each message into the **frozen 8-label mutually-exclusive enum** (a message may carry >1):
+Classify each message using the **fixed set of 8 intent labels** (a message may carry more than one):
 `feature_request · bug_complaint · pain_workaround · competitor_compare · pricing_objection ·
 how_to_question · praise · chitchat`. `chitchat` is the logged-then-dropped bucket; `how_to_question`
 is support (not a demand); `pain_workaround` is the **strongest implicit signal** (user already built

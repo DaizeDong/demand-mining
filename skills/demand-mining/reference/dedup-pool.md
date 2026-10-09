@@ -13,7 +13,7 @@ NTFS only. `scripts/dedup.py` is the pool layer.
 | `state` | `pending` (new) / `doing` (scheduled) / `done` (shipped) / `blocked` (needs clarify) / `cancelled` (merged/rejected) |
 | `priority` | 1 (highest) for Tier0, else from RICE final band |
 | `source`/`actor` | `demand-mining` |
-| `idempotency_key` | `demand-mining:` + `canonical_key` (UPSERT = cross-day idempotency) |
+| `idempotency_key` | `demand-mining:product:` + SHA256(`product_id`) + `:demand:` + `canonical_key` |
 | `ext.x_demand_mining_*` | the demand-only namespace (MUST-PRESERVE round-trip) |
 
 ext fields: `canonical_key, cluster_id, intensity, distinct_author_count, mention_count, authors[]
@@ -24,16 +24,19 @@ only `cluster_id` for reverse lookup.
 
 ## Two-gate dedup (forbid single-signal merges, anti-pattern #9)
 
-1. **Message-level exact**, message_id / content hash filters re-posts.
-2. **Semantic cluster (double gate)**, same demand iff **cosine ≥ 0.83 AND simhash Hamming ≤ 3**
-   AND entity overlap AND subject agreement (`dedup.match_existing`). Boundary band 0.78-0.83 →
-   `candidate-merge` (human review, **never** auto-merge; surfaced as a gap). Pure semantic alone
-   false-merges "same words, different need"; pure string-match misses rewrites.
-3. **canonical_key idempotent UPSERT**, match a cluster centroid → `add` same key UPSERTs
-   (mention++, intensity accrues, evidence appended, recency updated); miss → new. Periodic offline
-   recluster (HDBSCAN/agglomerative) guards centroid drift.
-4. **Cross-source triangulation**, internal + external signals extract the same entities → same
-   `canonical_key` → merge with attribution, `frequency++`, never re-file.
+Exact canonical-key matches preserve the existing demand identity. For a nonexact match,
+`dedup.match_existing` requires subject agreement plus either two shared entities or one shared
+entity in the same track. It then accepts a similarity signal outside the review band:
+Jaccard similarity at least `dedup_cosine_threshold` (default 0.83), SimHash Hamming distance at
+most 3, or Jaccard similarity from 0.45 to below the band's lower bound (default 0.78).
+The historical `dedup_cosine_threshold` setting names a Jaccard calculation in this implementation.
+
+The default 0.78 to below 0.83 band remains `candidate-merge` for human review and never merges
+automatically. Entity and subject checks prevent similar wording about different needs from
+merging. Cross-source evidence for the same product and demand preserves attribution under the
+same canonical key. Periodic HDBSCAN/agglomerative reclustering remains a design proposal;
+the shipped matcher does not run it. Ingest also preserves message-level observation identities
+so replaying one message does not add another observation; see the runtime contract.
 
 ## Intensity (need-weight, anti-stuffing)
 
@@ -47,6 +50,10 @@ time decay** (keep long-standing strong needs); time-sensitivity is the separate
 The base's events audit stream is the evolution history. `dedup.decide` → **NEW** (no match →
 score+create) / **SUPPRESS** (recurs, small delta, no new origin → count, don't re-push) /
 **RESURFACE** (new external corroboration / competitor shipped / urgency jump / new origin crossing
-≥2 / score jump ≥ threshold → evolution UPDATE card). 1-origin candidates → explicit `below_sources`
-gap (never silent). 5-day silence → auto `doing`→`done`. Watermark written **only after** a full
-successful run (atomic); next run `since=last_run-5min` + UPSERT = at-least-once + dedupe.
+≥2 / score jump ≥ threshold → evolution UPDATE card). Single-origin cards that meet the push score
+floor fail the independent-source check and appear in `blocked`; lower-score internal demands
+remain subject to the archive floor and other admission checks. A five-day quiet period does not
+establish that a product change shipped; the current demand runtime does not automatically mark
+`doing` items `done` on that basis. Scheduled collection resumes from the prior completed cutoff,
+and watermark advancement requires successful receipt-bound finalization. See the
+[runtime contract](../../../docs/runtime-contract.md) for logical identity and interrupted runs.

@@ -11,6 +11,11 @@ incompatible signature fails before readiness. This check makes no model call.
 
 ## Configuration and DATA
 
+Initialize the verified PRIVATE companion before `scripts/init_config.py`. Configuration and
+DATA use the selection rules in [CONFIG.md](../CONFIG.md#discovery-convention-e2);
+`DEMAND_MINING_DATA_DIR` must name that companion's exact `pool/` directory. Real output is
+versioned in the companion and never written inside the public tool, including ignored paths.
+
 Each real run needs `product_id` and an explicitly configured IANA `timezone` in
 the product priority configuration. Initialization writes `timezone: "UTC"`;
 existing configurations must add a zone. Preview-only pure functions can use
@@ -93,10 +98,26 @@ that explicitly requests a new console or a detached process keeps its choice. T
 supervisor starts the daemon with the flag as well. With a console, children share
 it and the default is not installed.
 
-Initialize the private companion repository and its visibility receipt before
-running `scripts/init_config.py`. Real DATA is versioned in that private repo.
-`DEMAND_MINING_DATA_DIR` overrides the default `<config>/pool` destination.
-Do not put real output inside the public tool tree, including ignored paths.
+
+### Private diagnostic logs
+
+Daemon and supervisor logs renew PRIVATE destination admission before every append, through the
+fresh artifact admission described under Configuration and DATA. The supervisor reads child stdout
+and stderr through a pipe and writes bounded binary chunks itself; children never inherit a log file
+handle. A refused log destination stops the current child and prevents restart. Direct --log-file
+uses the same append path, restores the prior output streams on exit, and records startup tracebacks
+only while the destination remains PRIVATE. Admission is checked when output is appended or a
+restart is attempted, not by an idle background visibility poll. The daily summary loop wakes every
+30 minutes but proves its destination only when it is about to write: an already confirmed day or a
+send awaiting reconciliation is read without a proof, and a repeated summary state or failure is
+logged once.
+
+Direct demand_bot CLI startup parses its real arguments and opens the validated private log before
+importing discord or llmcall. Missing optional dependencies retain their original import error in
+that log, including windowless execution where both streams began as None. Help and invalid
+arguments are handled before optional imports. Importing the module keeps its public functions and
+class available without parsing CLI arguments. PRIVATE admission is renewed for every append, and
+original streams are restored on exit.
 
 ## Product ledger identity
 
@@ -212,6 +233,8 @@ classification, ledger, digest, lock and persistence errors are visible failures
 The finalizer must return successfully and the scheduled caller must complete
 its own outcome; a model exit code or an old artifact cannot prove success.
 
+### Failure records
+
 After the scheduled caller has created its private `caller.json`, an exception
 retains `status: "failed"` and `error_type` and adds `error_stage` and
 `error_category`. Stages are `working_directory`, `handoff_read`,
@@ -237,6 +260,8 @@ still propagates and restores the working directory. Preflight, initial state
 writes and `BaseException` exits retain their existing behavior and may occur
 before this failure record exists. Older records are not backfilled.
 
+### Confirmed adapter receipts
+
 Delivery remains tuple-compatible: `(ok, detail)`. Confirmed adapters return a
 detail object with `status: "confirmed"`, actual `message_id`, exact `identity`,
 and the SHA256 of the sent UTF-8 content. A native Discord
@@ -245,6 +270,8 @@ relay adapter, which binds that actual response to its invocation identity.
 Configured adapters receive `DEMAND_MINING_DELIVERY_IDENTITY` and
 `DEMAND_MINING_DELIVERY_CONTENT_SHA256` and must return those bindings in their
 receipt. An identity-less receipt or plain exit-zero string is insufficient.
+
+### Standalone card delivery
 
 The standalone `push_card.py` CLI reads one JSON card from standard input.
 A real send requires a stable `demand_id`, `canonical_key` or `id`, in that
@@ -285,6 +312,8 @@ sending. A confirmed receipt cannot be replaced, including when a crash left
 its state pending. Missing or contradictory durable evidence fails closed.
 Restore the state and receipt together; deleting them removes replay evidence.
 
+### Scheduled delivery reconciliation
+
 The finalizer durably records unknown delivery before calling the adapter. An
 exception, timeout or missing receipt remains `pending_reconciliation` and never
 causes automatic resend. If interruption left a confirmed receipt on disk before
@@ -296,6 +325,8 @@ This method issues no send. Only durable current artifacts, manifest and receipt
 permit watermark advancement. Exclusive process locks serialize overlapping
 callers. Lock failure never permits an unlocked write.
 
+### Live daily summaries
+
 The live bot's daily summary has its own product/zone-bound state and receipt.
 `live.summary_hour` is a local hour in the configured zone; the old
 `summary_hour_utc` key keeps its UTC-hour meaning when the local-hour key is absent.
@@ -304,6 +335,8 @@ summary sends remain pending without automatic resend, including after a
 restart. `DemandBot.reconcile_daily_summary(actual_receipt)` accepts confirmed
 identity, message ID and content hash evidence. Legacy date-only markers are
 kept but do not establish confirmed delivery.
+
+### Backup and final checkpoint
 
 Backup inspects staged changes using an isolated Git index, then uses Git's
 path-limited `commit --only` so only declared run paths are committed and unrelated
@@ -338,11 +371,6 @@ evidence for each actionable demand, ordered by the same priority as the queue.
 Literal JSON records preserve extension fields and keep embedded markup inside
 the record. Delivered headlines retain their concise summary format.
 
-Daemon and supervisor logs renew PRIVATE destination admission before every append, through the fresh artifact admission described under Configuration and DATA. The supervisor reads child stdout and stderr through a pipe and writes bounded binary chunks itself; children never inherit a log file handle. A refused log destination stops the current child and prevents restart. Direct --log-file uses the same append path, restores the prior output streams on exit, and records startup tracebacks only while the destination remains PRIVATE. Admission is checked when output is appended or a restart is attempted, not by an idle background visibility poll. The daily summary loop wakes every 30 minutes but proves its destination only when it is about to write: an already confirmed day or a send awaiting reconciliation is read without a proof, and a repeated summary state or failure is logged once.
-
-Direct demand_bot CLI startup parses its real arguments and opens the validated private log before importing discord or llmcall. Missing optional dependencies retain their original import error in that log, including windowless execution where both streams began as None. Help and invalid arguments are handled before optional imports. Importing the module keeps its public functions and class available without parsing CLI arguments. PRIVATE admission is renewed for every append, and original streams are restored on exit.
-
-
 ## Observation conservation
 
 The live tap and scheduled Discord collector pseudonymize channel and message
@@ -368,10 +396,34 @@ canonical replay keeps its separate identity rule.
 
 ## Observation identity and external corroboration
 
-Collected corpus rows use author_hash. Privacy screening also accepts the legacy author alias and raw user_id, normalizing both to author_hash. Existing u_ followed by 16 lowercase hexadecimal digits is already a pseudonym and remains unchanged. Conflicting author aliases are rejected. Author aliases require a string or a non-boolean integer; unsupported types are rejected before normalization, regardless of field order.
+Collected corpus rows use author_hash. Privacy screening also accepts the legacy author alias and
+raw user_id, normalizing both to author_hash. Existing u_ followed by 16 lowercase hexadecimal
+digits is already a pseudonym and remains unchanged. Conflicting author aliases are rejected. Author
+aliases require a string or a non-boolean integer; unsupported types are rejected before
+normalization, regardless of field order.
 
-Only observation_id and source_id preserve the supported typed identity forms: u_ plus 16 lowercase hex digits, or the fallback obs_ plus 64 lowercase hex digits. The same spelling in prose receives normal privacy screening. This validates the identifier format; it does not prove the origin of arbitrary supplied metadata.
+Only observation_id and source_id preserve the supported typed identity forms: u_ plus 16 lowercase
+hex digits, or the fallback obs_ plus 64 lowercase hex digits. The same spelling in prose receives
+normal privacy screening. This validates the identifier format; it does not prove the origin of
+arbitrary supplied metadata.
 
-Every merge retains individually recorded historical authors, including authors without a surviving snippet. Numeric historical reach or mention claims do not create author records. Unknown attribution is represented by an absent author_hash in generated evidence and observation facts. Reading a stored pool converts a canonical null author_hash to absence only in evidence and observation_index entries with an existing typed observation_id (u_ plus 16 hexadecimal characters or obs_ plus 64 hexadecimal characters) and no competing author or user_id alias. This conversion applies to every stored row, including unrelated products, before any pool mutation; it preserves identities, authors, counts and all other fields. A read exposes the converted view without changing stored bytes. A successful upsert, status change or legacy attribution persists the conversion for the whole pool; a no-op or failed write leaves stored bytes unchanged. New demand input and rescore output still pass strict alias validation and cannot use this stored-data compatibility rule. An existing observation identity with unknown attribution stays unknown when later author records arrive. A legacy snippet without an observation identity can inherit an author only when its record has exactly one known author. The untrusted alias validator still rejects null and other unsupported types.
+Every merge retains individually recorded historical authors, including authors without a surviving
+snippet. Numeric historical reach or mention claims do not create author records. Unknown
+attribution is represented by an absent author_hash in generated evidence and observation facts.
+Reading a stored pool converts a canonical null author_hash to absence only in evidence and
+observation_index entries with an existing typed observation_id (u_ plus 16 hexadecimal characters
+or obs_ plus 64 hexadecimal characters) and no competing author or user_id alias. This conversion
+applies to every stored row, including unrelated products, before any pool mutation; it preserves
+identities, authors, counts and all other fields. A read exposes the converted view without changing
+stored bytes. A successful upsert, status change or legacy attribution persists the conversion for
+the whole pool; a no-op or failed write leaves stored bytes unchanged. New demand input and rescore
+output still pass strict alias validation and cannot use this stored-data compatibility rule. An
+existing observation identity with unknown attribution stays unknown when later author records
+arrive. A legacy snippet without an observation identity can inherit an author only when its record
+has exactly one known author. The untrusted alias validator still rejects null and other unsupported
+types.
 
-Current external corroboration is derived from evidence with an explicit external origin, a nonempty source and quote, and a valid timestamp. A model-supplied count alone cannot trigger resurfacing. Scheduled grounding discards supplied competitor and velocity claims because the internal corpus does not establish those events.
+Current external corroboration is derived from evidence with an explicit external origin, a nonempty
+source and quote, and a valid timestamp. A model-supplied count alone cannot trigger resurfacing.
+Scheduled grounding discards supplied competitor and velocity claims because the internal corpus
+does not establish those events.

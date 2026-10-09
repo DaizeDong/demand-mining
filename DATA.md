@@ -15,10 +15,23 @@ destination admission.
 `storage.contract.json` inventories paths relative to the companion root. It
 describes the default layout: configuration at the root, durable runtime state
 under `pool/`, and temporary collection material under `data/`. The default
-runtime destination is `<config>/pool`; `DEMAND_MINING_DATA_DIR` can select a
-different verified PRIVATE destination. A custom layout needs its own reviewed
-path declarations. The contract does not classify arbitrary legacy files by
+runtime destination is `<config>/pool`; `DEMAND_MINING_DATA_DIR` must select that
+same pool. A custom layout needs its own reviewed path declarations and runtime support. The contract does not classify arbitrary legacy files by
 their extension, age or presence in a private repository.
+
+## Runtime write admission
+
+The pinned Guards `authorize_artifact_write` API checks each produced file against this
+source's storage.contract.json, the exact PRIVATE companion root and current Git ignore
+policy. Undeclared, ambiguous, retired or ignored versioned destinations fail before a
+write. Structural parent directories grant no permission to their future contents.
+Atomic staging lives in the narrow `.staging/` patterns declared by the source, with
+explicit transient persistence and operation-bound retention; it does not replace durable
+recovery records. Selected credential backup stays under the companion's A/B policy.
+
+Run, scheduled, implicit, quarantine, digest and summary records are versioned recovery data. Local
+OS locks and backup index files are transient. Backup preflights every declared artifact before
+staging; ignored recovery data fails visibly and must be corrected in the companion ignore policy.
 
 ## What each area preserves
 
@@ -131,16 +144,3 @@ import is also retired on hold until restoration obligations are closed and
 necessary current conclusions and references are retained. Its PRIVATE
 revision and reviewed maintenance receipt supply restoration provenance;
 neither import is a live pool, a delivery ledger or part of automatic expiry.
-
-
-## Runtime write admission
-
-The pinned Guards `authorize_artifact_write` API checks each produced file against this
-source's storage.contract.json, the exact PRIVATE companion root and current Git ignore
-policy. Undeclared, ambiguous, retired or ignored versioned destinations fail before a
-write. Structural parent directories grant no permission to their future contents.
-Atomic staging lives in the narrow `.staging/` patterns declared by the source, with
-explicit transient persistence and operation-bound retention; it does not replace durable
-recovery records. Selected credential backup stays under the companion's A/B policy.
-
-Run, scheduled, implicit, quarantine, digest and summary records are versioned recovery data. Local OS locks and backup index files are transient. Backup preflights every declared artifact before staging; ignored recovery data fails visibly and must be corrected in the companion ignore policy.

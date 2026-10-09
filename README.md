@@ -1,6 +1,6 @@
 # demand-mining
 
-Daily user-demand mining + competitor/hotspot tracking + EOD brainstorm + RICE/Kano quantified iteration ranking, for a shipped product.
+A demand-analysis workflow for maintainers of shipped products. It collects Discord feedback, groups recurring needs, and produces a daily iteration queue ranked with RICE, Opportunity, WSJF and Kano.
 
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-orange?style=flat)](https://docs.anthropic.com/en/docs/claude-code)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -34,15 +34,13 @@ as measured quality questions rather than promises made by the pipeline.
 
 ## What it is (and isn't)
 
-**Is:** a daily demand radar for one shipped product. It ingests product-community signal (Discord),
-extracts real demands (explicit *and* implicit, JTBD-grounded), pools them with cross-day dedup and
-distinct-author intensity, ranks them on three orthogonal axes (RICE for order, Opportunity for
-strength, WSJF for urgency, Kano for nature), and emits an EOD brainstorm with a prioritized
-iteration-direction queue.
+The Discord REST tap and gateway daemon collect product-community feedback. The workflow
+extracts explicit and implicit JTBD demands, deduplicates them across days, accumulates evidence
+by distinct author, and prepares an EOD brainstorm with Quick-win and Big-bet pools.
 
-The shipped Discord tap and daemon collect demand-specific feedback. The batch workflow uses the
-`schedule-reminder` CLI, while the daemon also maintains its private demand pool. Automated hotspot
-and competitor collection remain deferred integrations; the tool does not implement a general research engine.
+The batch workflow uses the `schedule-reminder` CLI; the daemon also maintains its own private
+demand pool. Shared-bot listening and automated hotspot or competitor collection remain deferred.
+Optional manual research uses `daily-hotspots` or `market-intel` with independent provenance.
 
 ## How a scheduled run works
 
@@ -66,9 +64,7 @@ model or validation failures remain failures. Headlines contain no URLs or handl
 stays in PRIVATE storage. A retry reuses the saved plan and confirmed receipt. An uncertain send
 needs verified receipt reconciliation before the same run can finish; backup status is tracked separately.
 
-Ledger operations use the `schedule-reminder` CLI. The daemon separately maintains its own private
-demand pool. Shared-bot listening and automatic hotspot/competitor feeds remain deferred integrations.
-See the [runtime contract](docs/runtime-contract.md) for recovery and storage details.
+See the [runtime contract](docs/runtime-contract.md) for identity, recovery and receipt requirements.
 
 ## Install
 
@@ -85,17 +81,15 @@ git clone --recurse-submodules https://github.com/DaizeDong/demand-mining.git ~/
 ## Quick start
 
 ```bash
-# offline preview — runs the full deterministic tail with no writes, no network
+# Offline preview: deterministic processing, no writes or network
 python skills/demand-mining/scripts/run.py --in candidates.json --dry-run --no-ledger
 
 # real EOD after the private setup and preflight described below
 powershell -ExecutionPolicy Bypass -File skills/demand-mining/scripts/register-task.ps1 -Time 21:53
 ```
 
-`candidates.json` supplies candidate demand clusters to the deterministic pipeline. The caller
-must provide their source evidence; automated competitor collection and the external hotspot
-integration remain deferred. The gate runs redact → score → dedup → verify → push → pool → digest →
-watermark.
+`candidates.json` supplies candidate demand clusters and their source evidence. Use the scheduled
+workflow above for collection, durable finalization and receipt-based completion.
 
 ## How to invoke
 
@@ -103,7 +97,7 @@ Trigger words: **需求挖掘 · demand mining · 迭代建议 · EOD 汇总**, 
 
 ## Example output
 
-**Pushed to Discord**, ONE ranked *headlines* message/day (top ≤5 archivable demands), not an embed
+**Pushed to Discord**, ONE ranked *headlines* message/day (top ≤5 push-eligible demands), not an embed
 per demand:
 
 ```
