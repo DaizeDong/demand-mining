@@ -44,6 +44,43 @@ The shipped Discord tap and daemon collect demand-specific feedback. The batch w
 `schedule-reminder` CLI, while the daemon also maintains its private demand pool. Automated hotspot
 and competitor collection remain deferred integrations; the tool does not implement a general research engine.
 
+## How a scheduled run works
+
+Before enabling scheduled delivery, authorize its relay and destination. A scheduled run does not
+pause for interactive approval; the local finalizer checks the saved artifacts and delivery receipt.
+
+```mermaid
+flowchart TD
+    collect["Collect the scheduled Discord window<br/>Redact text and pseudonymize authors"]
+    propose["llmcall proposes demand clusters"]
+    ground["Ground quotes in collected evidence<br/>Merge exact canonical duplicates"]
+    score["Compute RICE, Opportunity and WSJF<br/>Apply Kano rules"]
+    dedup["Compare the product ledger across days<br/>NEW / SUPPRESS / RESURFACE"]
+    gate{"Evidence and privacy checks pass?"}
+    stop["Report failure<br/>No completion watermark"]
+    prepare["Save ledger changes and private digest<br/>Freeze the plan and check artifacts"]
+    send["Check outbound privacy<br/>Send authorized headlines via relay"]
+    complete["Record confirmed sent state<br/>Write the completion watermark"]
+    pending["Await receipt reconciliation<br/>No automatic resend"]
+
+    collect --> propose --> ground --> score --> dedup --> gate
+    gate -->|No| stop
+    gate -->|Yes, including a valid empty day| prepare
+    prepare --> send
+    send -->|Matching confirmed receipt| complete
+    send -->|Failed or unknown result| pending
+    complete -->|Next window after caller completion| collect
+```
+
+An empty day is valid only after collection and classification finish successfully. Collection,
+model or validation failures remain failures. Headlines contain no URLs or handles; full evidence
+stays in PRIVATE storage. A retry reuses the saved plan and confirmed receipt. An uncertain send
+needs verified receipt reconciliation before the same run can finish; backup status is tracked separately.
+
+Ledger operations use the `schedule-reminder` CLI. The daemon separately maintains its own private
+demand pool. Shared-bot listening and automatic hotspot/competitor feeds remain deferred integrations.
+See the [runtime contract](docs/runtime-contract.md) for recovery and storage details.
+
 ## Install
 
 ```
