@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- The skill description in `SKILL.md` is now a quoted YAML string. Its unquoted `: ` made strict frontmatter parsers reject the file, so profile sync marked the skill unsupported.
+
 - Add matching English and Chinese README flowcharts for scheduled demand collection, evidence checks, ranking, authorized delivery and receipt-based completion.
 - Require stable card identity for standalone sends and retain one durable owner per product, card and new/update event. Confirmed retries reuse their receipt; ambiguous attempts require reconciliation without automatic resend.
 - Preserve standalone rendering previews without private initialization and declare the exact private event state, receipt and transient lock paths.
