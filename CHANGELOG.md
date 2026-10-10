@@ -10,6 +10,7 @@
 
 ### Fixed
 - **DemandMiningDaemon exited on every start after the companion ignored `pool/**`.** Write admission refuses a versioned artifact that Git ignores, so the supervisor could not admit its own `pool/logs/supervisor.log`. `scripts/verify_config.py` now checks every artifact the storage contract declares versioned against the companion ignore policy (`companion_ignores.py`); credentials and two legacy staging names are exempt with stated reasons.
+- Scheduled EOD no longer discards a whole day because one proposed quote is not verbatim in the corpus. Grounding now drops the ungrounded quote or candidate, compares evidence times as instants, and strips model-supplied authors and unparseable times before the privacy screen. A reply with no groundable candidate, no completed classification or malformed candidates fails with the enum category `agent_ungrounded`, `agent_incomplete` or `agent_malformed` instead of `unknown`, and `caller.json` records grounding counts.
 - The skill description in `SKILL.md` is now a quoted YAML string. Its unquoted `: ` made strict frontmatter parsers reject the file, so profile sync marked the skill unsupported.
 
 - Require stable card identity for standalone sends and retain one durable owner per product, card and new/update event. Confirmed retries reuse their receipt; ambiguous attempts require reconciliation without automatic resend.
