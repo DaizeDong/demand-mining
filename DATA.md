@@ -32,6 +32,10 @@ recovery records. Selected credential backup stays under the companion's A/B pol
 Run, scheduled, implicit, quarantine, digest and summary records are versioned recovery data. Local
 OS locks and backup index files are transient. Backup preflights every declared artifact before
 staging; ignored recovery data fails visibly and must be corrected in the companion ignore policy.
+`scripts/verify_config.py` (and `skills/demand-mining/scripts/companion_ignores.py --companion <dir>`)
+probes one path per declared versioned artifact against the companion ignore policy, so an
+over-broad rule is found before its producer is refused at the first write. Exemptions are
+listed in that script with their reason.
 
 ## What each area preserves
 

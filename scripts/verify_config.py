@@ -229,6 +229,17 @@ def main():
             txt = stream.read()
         check("Mode B .gitignore blocks secrets (secrets/* + *.env)",
               "secrets/" in txt and "*.env" in txt)
+    # Write admission refuses a versioned artifact that Git ignores, so an over-broad ignore
+    # rule stops that artifact's producer at its first write (DemandMiningDaemon, 2026-10-08).
+    from companion_ignores import ignored_versioned
+    try:
+        with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                               "storage.contract.json"), encoding="utf-8") as stream:
+            hidden = ignored_versioned(cfg, json.load(stream))
+        check("declared versioned artifacts are not git-ignored", not hidden,
+              ", ".join("%s (%s)" % row for row in hidden))
+    except (OSError, ValueError, RuntimeError) as exc:
+        check("declared versioned artifacts are not git-ignored", False, "not checked: %s" % exc)
 
     # self-contained check (E5): no absolute-path leakage in committed config files.
     leak = []
