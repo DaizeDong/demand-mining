@@ -9,6 +9,7 @@
 - Provide matching English and Chinese workflow diagrams for collection, evidence checks, ranking, authorized delivery and receipt-based completion as compact color PNGs, with Graphviz sources and a shared rendering script.
 
 ### Fixed
+- **DemandMiningDaemon exited on every start after the companion ignored `pool/**`.** Write admission refuses a versioned artifact that Git ignores, so the supervisor could not admit its own `pool/logs/supervisor.log`. `scripts/verify_config.py` now checks every artifact the storage contract declares versioned against the companion ignore policy (`companion_ignores.py`); credentials and two legacy staging names are exempt with stated reasons.
 - The skill description in `SKILL.md` is now a quoted YAML string. Its unquoted `: ` made strict frontmatter parsers reject the file, so profile sync marked the skill unsupported.
 
 - Require stable card identity for standalone sends and retain one durable owner per product, card and new/update event. Confirmed retries reuse their receipt; ambiguous attempts require reconciliation without automatic resend.
