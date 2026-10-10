@@ -45,6 +45,21 @@ def discover(skill, override):
     return (str(selected), "shared companion selection") if selected is not None else (None, None)
 
 
+def ignore_policy_result(cfg):
+    """(ok, detail) for "no declared versioned artifact is git-ignored" in companion `cfg`.
+
+    Every failure of the check itself, including a missing or broken companion_ignores
+    module, is reported as not checked instead of ending the whole verification early."""
+    try:
+        from companion_ignores import ignored_versioned
+        with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                               "storage.contract.json"), encoding="utf-8") as stream:
+            hidden = ignored_versioned(cfg, json.load(stream))
+    except (ImportError, OSError, ValueError, RuntimeError) as exc:
+        return False, "not checked: %s: %s" % (type(exc).__name__, exc)
+    return not hidden, ", ".join("%s (%s)" % row for row in hidden)
+
+
 def main():
     ap = argparse.ArgumentParser(description="Validate demand-mining's companion config.")
     ap.add_argument("--skill", default=None)
@@ -231,15 +246,7 @@ def main():
               "secrets/" in txt and "*.env" in txt)
     # Write admission refuses a versioned artifact that Git ignores, so an over-broad ignore
     # rule stops that artifact's producer at its first write (DemandMiningDaemon, 2026-10-08).
-    from companion_ignores import ignored_versioned
-    try:
-        with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                               "storage.contract.json"), encoding="utf-8") as stream:
-            hidden = ignored_versioned(cfg, json.load(stream))
-        check("declared versioned artifacts are not git-ignored", not hidden,
-              ", ".join("%s (%s)" % row for row in hidden))
-    except (OSError, ValueError, RuntimeError) as exc:
-        check("declared versioned artifacts are not git-ignored", False, "not checked: %s" % exc)
+    check("declared versioned artifacts are not git-ignored", *ignore_policy_result(cfg))
 
     # self-contained check (E5): no absolute-path leakage in committed config files.
     leak = []
