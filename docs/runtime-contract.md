@@ -104,7 +104,15 @@ it and the default is not installed.
 Daemon and supervisor logs renew PRIVATE destination admission before every append, through the
 fresh artifact admission described under Configuration and DATA. The supervisor reads child stdout
 and stderr through a pipe and writes bounded binary chunks itself; children never inherit a log file
-handle. A refused log destination stops the current child and prevents restart. Direct --log-file
+handle. A refused log destination stops the current child and prevents restart until a fresh
+admission succeeds. The supervisor writes nothing while refused and re-proves the destination with
+backoff (min/max backoff) for `--admission-retry-seconds` (default 3600); on success it logs the
+refusal it recovered from and restarts the child, and a refusal that outlasts the window stops the
+supervisor. Each admission runs many short Git processes, so one that fails to start must not
+leave a resident daemon down until the next logon. pythonw.exe discards stderr, so every fatal
+supervisor exit is recorded first: as `supervisor exiting: <reason>` in supervisor.log while that
+log is admitted, otherwise in `%LOCALAPPDATA%/demand-mining/supervisor-exit.log` (outside every
+repository; exception type and message only, never daemon output). Direct --log-file
 uses the same append path, restores the prior output streams on exit, and records startup tracebacks
 only while the destination remains PRIVATE. Admission is checked when output is appended or a
 restart is attempted, not by an idle background visibility poll. The daily summary loop wakes every
