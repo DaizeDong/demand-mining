@@ -8,8 +8,9 @@ fails at its first write. That is how DemandMiningDaemon died on every start whi
 companion ignored pool/** without re-including pool/logs/ (the supervisor could not
 admit its own log). This check finds that class of mismatch before a producer does.
 
-Each declared pattern is probed with one representative path: '*' and '**' become one
-segment, '?' becomes '0' and a character class becomes its first member. Transient and
+Each declared pattern is probed with representative paths: '*' becomes one segment, '**'
+becomes both one segment and a nested file two levels down (an ignore rule can re-include only
+the first level), '?' becomes '0' and a character class becomes its first member. Transient and
 retired artifacts are skipped (admission ignores the first and refuses the second), and
 so are the exemptions below, each with its reason.
 
@@ -42,20 +43,33 @@ EXEMPT = {
 }
 
 
-def sample_path(pattern: str) -> str:
-    """One concrete path that the segment glob `pattern` matches."""
-    parts = []
+# What '**' expands to in the probes: one segment, and a file two levels below it. Probing
+# only the first level passed a companion that re-included pool/logs/* but not deeper paths.
+DEEP_SAMPLES = ("x", "a/b.log")
+
+
+def _sample_segment(segment: str) -> str:
+    segment = re.sub(r"\[!?(.)[^\]]*\]", r"\1", segment)
+    return segment.replace("*", "x").replace("?", "0")
+
+
+def sample_paths(pattern: str) -> list[str]:
+    """Concrete paths that the segment glob `pattern` matches, at every probed depth."""
+    paths = [""]
     for segment in pattern.split("/"):
-        if segment == "**":
-            parts.append("x")
-            continue
-        segment = re.sub(r"\[!?(.)[^\]]*\]", r"\1", segment)
-        parts.append(segment.replace("*", "x").replace("?", "0"))
-    return "/".join(parts)
+        options = DEEP_SAMPLES if segment == "**" else (_sample_segment(segment),)
+        paths = [prefix + ("/" if prefix else "") + option for prefix in paths for option in options]
+    return paths
+
+
+def sample_path(pattern: str) -> str:
+    """The shallowest concrete path that the segment glob `pattern` matches."""
+    return sample_paths(pattern)[0]
 
 
 def versioned_artifacts(contract: dict) -> list[tuple[str, str]]:
-    """(artifact_id, sample path) for every artifact admission requires to be unignored."""
+    """(artifact_id, sample path) for every probe of every artifact admission requires to be
+    unignored; an artifact whose pattern contains '**' contributes one row per probed depth."""
     rows = []
     for artifact in contract["artifacts"]:
         if artifact.get("persistence", "versioned") == "transient":
@@ -64,7 +78,8 @@ def versioned_artifacts(contract: dict) -> list[tuple[str, str]]:
             continue
         if artifact["artifact_id"] in EXEMPT:
             continue
-        rows.append((artifact["artifact_id"], sample_path(artifact["path_pattern"])))
+        rows.extend((artifact["artifact_id"], path)
+                    for path in sample_paths(artifact["path_pattern"]))
     return rows
 
 
@@ -101,7 +116,7 @@ def main(argv=None) -> int:
         return 2
     for artifact_id, path in hidden:
         print(f"IGNORED versioned artifact {artifact_id}: {path}")
-    checked = len(versioned_artifacts(contract))
+    checked = len({artifact_id for artifact_id, _ in versioned_artifacts(contract)})
     if hidden:
         print(f"FAIL: {len(hidden)} of {checked} declared versioned artifacts are git-ignored; "
               "their producers will be refused at the first write")
