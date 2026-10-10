@@ -22,6 +22,15 @@ import run
 _LLM_FAILURE_REASONS = (
     "process_cleanup_failed", "timeout", "policy_refusal", "not_installed", "budget_exhausted",
 )
+# Bounded reasons for an agent reply the local caller rejected. Without them every rejected
+# reply is recorded as ValueError/unknown and the cause cannot be told apart afterwards.
+_AGENT_REJECTIONS = ("agent_incomplete", "agent_malformed", "agent_ungrounded")
+
+
+def _rejected(message, category):
+    exc = ValueError(message)
+    exc._scheduled_error_category = category
+    return exc
 
 
 def _llm_failure_category(response):
@@ -39,7 +48,8 @@ def _llm_failure_category(response):
 def _failure_category(exc, stage):
     """Return bounded evidence from exception types/codes, without stringification."""
     category = getattr(exc, "_scheduled_error_category", None)
-    if isinstance(category, str) and category in {"llm_" + reason for reason in _LLM_FAILURE_REASONS}:
+    if isinstance(category, str) and (category in _AGENT_REJECTIONS or category in {
+            "llm_" + reason for reason in _LLM_FAILURE_REASONS}):
         return category
     if stage == "collection_config":
         if isinstance(exc, FileNotFoundError):
@@ -120,36 +130,86 @@ def preflight(config_dir=None, log_dir=None):
     return cfg, directory, destination, log_dir
 
 
-def ground_candidates(candidates, corpus):
-    """Replace model count claims with observations bound to the supplied corpus."""
+def _same_instant(claimed, observed):
+    """Compare timestamps as instants: a model that rewrites the corpus spelling of a time
+    (drops fractional seconds, writes Z for +00:00) still names the same message."""
+    from lib import parse_ts
+    if claimed == observed:
+        return True
+    try:
+        return parse_ts(claimed) == parse_ts(observed)
+    except (TypeError, ValueError, AttributeError):
+        return False
+
+
+def _screenable(candidate):
+    """Keep only the evidence fields grounding reads, and drop model-supplied attribution.
+
+    Grounding rebuilds evidence, authors and counts from matched corpus rows, so these fields
+    never reach the output. Left in place, a malformed one (an unparseable time, a null
+    author) made the privacy screen raise and discarded the whole day's reply."""
+    from lib import parse_ts
+    result = {key: value for key, value in candidate.items()
+              if key not in ("authors", "author", "author_hash", "user_id")}
+    evidence = candidate.get("evidence")
+    if isinstance(evidence, list):
+        kept = []
+        for item in evidence:
+            if not isinstance(item, dict):
+                kept.append(item)  # counted and dropped by grounding
+                continue
+            slim = {key: item[key] for key in ("channel", "source", "redacted_snippet", "quote",
+                                                "observation_id") if isinstance(item.get(key), str)}
+            if isinstance(item.get("ts"), str):
+                try:
+                    parse_ts(item["ts"])
+                    slim["ts"] = item["ts"]
+                except ValueError:
+                    pass
+            kept.append(slim)
+        result["evidence"] = kept
+    return result
+
+
+def ground_candidates(candidates, corpus, report=None):
+    """Replace model count claims with observations bound to the supplied corpus.
+
+    Fail closed per quote, not per day: an evidence item that cannot be located verbatim in
+    the corpus is dropped, and a candidate left with no located evidence is dropped. Nothing
+    ungrounded survives, because every kept observation is rebuilt from a matched corpus row.
+    Only a reply none of whose candidates can be grounded is rejected as a whole."""
     from extract import verbatim_grounding
     from lib import merge_observations, observation_identity, observed_corroboration
     channels = corpus.get("channels", {})
     grounded = []
+    stats = {"proposed": len(candidates), "kept": 0, "candidates_dropped": 0,
+             "evidence_proposed": 0, "evidence_dropped": 0}
     for candidate in candidates:
         evidence = candidate.get("evidence")
-        if not isinstance(evidence, list) or not evidence:
-            raise ValueError("agent candidate has no source evidence")
         observed, authors = [], {}
-        for item in evidence:
+        for item in evidence if isinstance(evidence, list) else []:
+            stats["evidence_proposed"] += 1
             if not isinstance(item, dict):
-                raise ValueError("agent evidence must contain objects")
+                stats["evidence_dropped"] += 1
+                continue
             source = item.get("channel") or item.get("source")
             snippet = item.get("redacted_snippet") or item.get("quote")
-            if not isinstance(snippet, str) or not snippet.strip():
-                raise ValueError("agent evidence needs a nonempty textual quote")
+            if not isinstance(snippet, str) or not snippet.strip() or not isinstance(source, str):
+                stats["evidence_dropped"] += 1
+                continue
             matches = []
             for row in channels.get(source, []):
                 identity = row.get("observation_id") or observation_identity(
                     source, row.get("author_hash") or row.get("author"), row.get("ts"), row.get("text"))
                 if item.get("observation_id") and item["observation_id"] != identity:
                     continue
-                if item.get("ts") and item["ts"] != row.get("ts"):
+                if item.get("ts") and not _same_instant(item["ts"], row.get("ts")):
                     continue
                 if verbatim_grounding(snippet, row.get("text", "")):
                     matches.append((row, identity))
             if not matches:
-                raise ValueError("agent candidate evidence is not grounded in the current corpus")
+                stats["evidence_dropped"] += 1
+                continue
             for row, identity in matches:
                 author = row.get("author_hash") or row.get("author")
                 if not isinstance(author, str) or not author or not row.get("ts"):
@@ -160,6 +220,9 @@ def ground_candidates(candidates, corpus):
                     "origin_type": "internal", "author_hash": author,
                     "observation_id": identity, "redacted_snippet": row["text"], "ts": row["ts"],
                 })
+        if not observed:
+            stats["candidates_dropped"] += 1
+            continue
         bound = dict(candidate)
         for field in ("external_corroboration", "competitor_status", "competitor_ref", "velocity"):
             bound.pop(field, None)
@@ -167,10 +230,15 @@ def ground_candidates(candidates, corpus):
         bound["external_corroboration"] = observed_corroboration(observed)
         bound["observation_provenance"] = "collected_corpus"
         grounded.append(bound)
+    stats["kept"] = len(grounded)
+    if report is not None:
+        report.update(stats)
+    if candidates and not grounded:
+        raise _rejected("no agent candidate is grounded in the current corpus", "agent_ungrounded")
     return grounded
 
 
-def propose(corpus, cfg):
+def propose(corpus, cfg, report=None):
     from llmcall import call
     clean = safe_data(corpus)
     prompt = (
@@ -192,12 +260,12 @@ def propose(corpus, cfg):
         raise exc
     payload = response.data if isinstance(getattr(response, "data", None), dict) else json.loads(response.text)
     if not isinstance(payload, dict) or payload.get("classification") != "complete":
-        raise ValueError("agent handoff did not confirm completed classification")
+        raise _rejected("agent handoff did not confirm completed classification", "agent_incomplete")
     candidates = payload.get("candidates")
     if not isinstance(candidates, list) or any(not isinstance(item, dict) for item in candidates):
-        raise ValueError("agent handoff candidates must be a list of objects")
-    candidates = safe_data(candidates)
-    return ground_candidates(candidates, clean)
+        raise _rejected("agent handoff candidates must be a list of objects", "agent_malformed")
+    candidates = safe_data([_screenable(item) for item in candidates])
+    return ground_candidates(candidates, clean, report)
 
 
 def execute(config_dir=None, log_dir=None, *, backup_enabled=None):
@@ -249,10 +317,19 @@ def execute(config_dir=None, log_dir=None, *, backup_enabled=None):
                 if corpus.get("collection", {}).get("status") != "complete":
                     raise ValueError("collector did not finish successfully")
                 stage = "classification"
-                candidates = propose(corpus, cfg)
+                grounding = {}
+                try:
+                    candidates = propose(corpus, cfg, grounding)
+                finally:
+                    # Counts only, no content: how many proposed items grounding dropped is the
+                    # evidence a later reader needs to tell a strict check from a bad reply.
+                    if grounding:
+                        caller["grounding"] = dict(grounding)
+                collection = {**corpus["collection"], "classification": "complete"}
+                if grounding:
+                    collection["grounding"] = dict(grounding)
                 handoff = {"identity": identity, "attempt_id": attempt,
-                           "collection": {**corpus["collection"], "classification": "complete"},
-                           "candidates": candidates}
+                           "collection": collection, "candidates": candidates}
                 stage = "handoff_write"
                 atomic_json(handoff_path, handoff)
             handoff["attempt_id"] = attempt

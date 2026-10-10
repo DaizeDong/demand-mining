@@ -247,7 +247,10 @@ Categories are `config_missing`, `config_invalid`, `config_io_error`, `timeout`,
 `http_access_denied`, `http_source_unavailable`, `http_rate_limited`,
 `http_server_error`, `http_error`, `transport_error`, `invalid_json`,
 `io_error`, `llm_process_cleanup_failed`, `llm_timeout`,
-`llm_policy_refusal`, `llm_not_installed`, `llm_budget_exhausted` and `unknown`.
+`llm_policy_refusal`, `llm_not_installed`, `llm_budget_exhausted`, `agent_incomplete`,
+`agent_malformed`, `agent_ungrounded` and `unknown`. The three agent categories mark a reply
+the local caller rejected: no completed classification, candidates that are not a list of
+objects, or proposed candidates none of which could be grounded.
 Configuration categories apply to the collection-wiring stage. Transport
 categories describe preserved exception types or numeric HTTP status, including
 explicit causes; they do not reconstruct retries whose evidence was discarded.
@@ -427,3 +430,12 @@ Current external corroboration is derived from evidence with an explicit externa
 source and quote, and a valid timestamp. A model-supplied count alone cannot trigger resurfacing.
 Scheduled grounding discards supplied competitor and velocity claims because the internal corpus
 does not establish those events.
+
+Scheduled grounding fails closed per quote. An evidence item whose quote is not found verbatim in
+the named source, or whose identity or time names another row, is dropped; times are compared as
+instants, so a respelled timestamp still names its row. A candidate with no remaining evidence is
+dropped. Model-supplied authors and unparseable evidence times are removed before the privacy screen
+because grounding rebuilds evidence, authors and counts from matched rows. A reply with candidates
+none of which ground fails with `agent_ungrounded`. `caller.json` and the handoff collection record
+`grounding` counts (`proposed`, `kept`, `candidates_dropped`, `evidence_proposed`,
+`evidence_dropped`) and no content.
