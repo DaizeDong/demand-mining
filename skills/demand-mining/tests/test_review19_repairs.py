@@ -51,7 +51,7 @@ class Harness:
         self.args = types.SimpleNamespace(
             config_dir=self.root, python="synthetic-python", mode="dry", interval=90,
             display_interval=300, log_dir=self.root + "/pool/logs", min_backoff=1.0,
-            max_backoff=4.0, dry_run=True, run_seconds=0,
+            max_backoff=4.0, dry_run=True, run_seconds=0, admission_retry_seconds=0.0,
             log_file=self.root + "/pool/logs/direct.log")
         self.files[self.root + "/priority.json"] = json.dumps(CASES["config"]).encode()
         self.files[self.root + "/registry.json"] = json.dumps(CASES["registry"]).encode()
