@@ -12,7 +12,7 @@ import urllib.error
 from data_safety import atomic_json, data_root, file_lock, require_private
 from finalize import digest, logical_identity, verify_manifest
 from lib import find_config_dir, load_config
-from redact import safe_data, privacy_coverage, ensure_stable_salt
+from redact import safe_data, safe_text, privacy_coverage, ensure_stable_salt
 import dedup
 import pull_discord
 import push_card
@@ -419,6 +419,97 @@ def execute(config_dir=None, log_dir=None, *, backup_enabled=None):
             os.chdir(previous_cwd)
 
 
+# The EOD queues behind the daemon and maintenance instead of failing on first contention. The
+# daemon holds a business lock only for one write; a manual retention run holds the activity lock
+# for one plan/apply. Both waits are bounded so a stuck holder still ends the run, with a record.
+ACTIVITY_WAIT_SECONDS = 600.0
+BUSINESS_LOCK_WAIT_SECONDS = 300.0
+# A transient PRIVATE-proof refusal (a starved git child, a guards swap mid-proof) is retried for
+# this long before the run gives up; a refusal that persists still fails the run.
+ADMISSION_RETRY_SECONDS = 900.0
+ADMISSION_BACKOFF_SECONDS = (30.0, 120.0)
+FAILURE_LOG_NAME = "eod-failures.log"
+
+
+def _failure_note_path():
+    """A per-user location outside every repository, or None where none is defined."""
+    for name in ("LOCALAPPDATA", "XDG_STATE_HOME"):
+        base = os.environ.get(name)
+        if base:
+            return Path(base) / "demand-mining" / "eod-exit.log"
+    return None
+
+
+def _failure_text(stage, exc):
+    """Type, message chain and code location; enough to tell the cause apart next time."""
+    import time
+    import traceback
+    chain, seen, current = [], set(), exc
+    while isinstance(current, BaseException) and id(current) not in seen and len(chain) < 6:
+        seen.add(id(current))
+        try:
+            # Same screen as every other persisted text: a collection or provider message can
+            # carry a token, an address or a person; what the screen cannot clear is withheld.
+            message = safe_text(str(current)[:2000])
+        except Exception:
+            message = "<message withheld by the privacy screen>"
+        chain.append(f"{type(current).__name__}: {message}")
+        current = current.__cause__ or current.__context__
+    frames = traceback.extract_tb(exc.__traceback__)[-6:]
+    where = " <- ".join(f"{Path(frame.filename).name}:{frame.lineno}:{frame.name}"
+                        for frame in reversed(frames))
+    return (f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] scheduled EOD failed (pid {os.getpid()}) "
+            f"stage={stage}: {' | caused by '.join(chain)} | at {where}\n")
+
+
+def _record_failure(stage, exc, log_dir=None):
+    """Leave a durable reason before the process ends; returns where it went.
+
+    The private log directory is preferred. When the failure is the PRIVATE admission itself, the
+    log write is refused too, so the note goes to the per-user location outside every repository.
+    """
+    text = _failure_text(stage, exc)
+    try:
+        from data_safety import authorize_write
+        if log_dir is None:
+            from config_paths import data_directory
+            log_dir = Path(data_directory()) / "logs"
+        admitted = authorize_write(Path(log_dir).expanduser() / FAILURE_LOG_NAME)
+        Path(admitted["path"]).parent.mkdir(parents=True, exist_ok=True)
+        with open(admitted["path"], "a", encoding="utf-8", newline="") as stream:
+            stream.write(text)
+        return "log"
+    except Exception:
+        pass
+    path = _failure_note_path()
+    if path is None:
+        return "none"
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "a", encoding="utf-8", newline="") as stream:
+            stream.write(text)
+        return "note"
+    except Exception:
+        return "none"
+
+
+def _admitted_preflight(config_dir, log_dir):
+    """Run preflight, retrying a PRIVATE-proof refusal for a bounded window."""
+    import time
+    from data_safety import DestinationError
+    deadline = time.monotonic() + ADMISSION_RETRY_SECONDS
+    delay, cap = ADMISSION_BACKOFF_SECONDS
+    while True:
+        try:
+            return preflight(config_dir, log_dir)
+        except DestinationError:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise
+            time.sleep(min(delay, remaining))
+            delay = min(delay * 2, cap)
+
+
 def main():
     from no_console import install_no_console_window_default
     install_no_console_window_default()
@@ -434,11 +525,28 @@ def main():
                           "privacy": privacy_coverage()}))
         return 0
     import retention
-    cfg, directory, _, _ = preflight(args.config_dir, args.log_dir)
-    with retention.activity(retention.companion_root(directory)) as companion:
-        cleanup = retention.enforce(companion, cfg, locked=True)
-        result = execute(args.config_dir, args.log_dir)
-        result["retention"] = cleanup
+    stage, log_dir = "preflight", args.log_dir
+    try:
+        cfg, directory, _, log_dir = _admitted_preflight(args.config_dir, args.log_dir)
+        stage = "retention_activity"
+        with retention.activity(retention.companion_root(directory),
+                                wait=ACTIVITY_WAIT_SECONDS) as companion:
+            stage = "retention"
+            try:
+                cleanup = retention.enforce(companion, cfg, locked=True,
+                                            lock_wait=BUSINESS_LOCK_WAIT_SECONDS)
+            except retention.BusinessLockBusy:
+                # Expiry is housekeeping: a writer that outlasts the wait defers it to the next
+                # run. It never removes anything under a held lock and never costs the EOD.
+                cleanup = {"status": "deferred", "reason": "business_lock_busy", "bytes": 0}
+            stage = "execute"
+            result = execute(args.config_dir, args.log_dir)
+            result["retention"] = cleanup
+    except Exception as exc:
+        # Anything raised before execute() persists active.json would otherwise end as a bare
+        # exit 1 with no trace: the scheduled wrapper's stderr goes to a hidden console.
+        _record_failure(stage, exc, log_dir)
+        raise
     result.pop("digest_markdown", None)
     print(json.dumps(result, ensure_ascii=False))
     return 0 if result.get("ok") and result.get("status") == "complete" else 2

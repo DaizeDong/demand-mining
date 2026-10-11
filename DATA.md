@@ -89,7 +89,12 @@ that artifact's identity before it becomes eligible for expiry.
 
 The scheduled CLI runs retention before collection and holds the activity lock
 through finalization. Pending recovery defers cleanup while allowing the caller
-to resume its saved run. `pull_discord.py --out` uses the same lock and registers
+to resume its saved run. The scheduled CLI queues behind other holders instead of failing on
+first contention: it waits up to 10 minutes for the activity lock (a manual maintenance run) and
+up to 5 minutes, on one shared deadline, for the business locks (the resident daemon holds one
+only for a single write). A business lock still held at that deadline defers cleanup with
+`{"status": "deferred", "reason": "business_lock_busy"}` and the EOD continues; nothing is
+removed under a held lock. Direct `retention.py` commands keep refusing at once. `pull_discord.py --out` uses the same lock and registers
 outputs in known raw areas, including `data/manual-corpus/`. An explicitly chosen
 PRIVATE output elsewhere remains outside automatic TTL; move it to a managed
 area and register it when retention should apply.
