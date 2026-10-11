@@ -9,6 +9,16 @@ Scheduled preflight imports `llmcall.call` in its current Python interpreter and
 that it accepts `call(prompt, mode="agent")`. Absence, a non-callable attribute or an
 incompatible signature fails before readiness. This check makes no model call.
 
+The scheduled task's console is hidden, so its stderr reaches nobody. When `scheduled.py` fails
+for any reason, including before `execute()` persists `active.json`, it appends one line to
+`<log dir>/eod-failures.log` (default `pool/logs/`) before exiting: the stage (`preflight`,
+`retention_activity`, `retention`, `execute`), the exception type and message chain after the
+privacy screen, and the innermost code locations. When the companion itself refuses the write,
+the line goes to `%LOCALAPPDATA%/demand-mining/eod-exit.log` (or `$XDG_STATE_HOME`), outside
+every repository. A PRIVATE-proof refusal at preflight is re-proved with 30 s to 120 s backoff
+for up to 15 minutes before the run fails; a Git child of the proof that outlives its 60 s bound
+is a refusal like any other, not an unhandled `TimeoutExpired`.
+
 ## Configuration and DATA
 
 Initialize the verified PRIVATE companion before `scripts/init_config.py`. Configuration and

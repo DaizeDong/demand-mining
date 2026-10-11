@@ -128,11 +128,18 @@ def _registry(root):
     return value["artifacts"]
 
 
+class BusinessLockBusy(TimeoutError):
+    """A writer still held a business lock when the bounded wait ran out; nothing was removed."""
+
+
 @contextmanager
-def activity(companion):
-    """Serialize maintenance with scheduled runs and managed corpus I/O."""
+def activity(companion, *, wait=0.0):
+    """Serialize maintenance with scheduled runs and managed corpus I/O.
+
+    `wait` bounds how long a caller queues behind another holder; the default refuses at once.
+    """
     root, _ = _admit(companion)
-    with data_safety.file_lock(root / STATE / ".lock", timeout=0):
+    with data_safety.file_lock(root / STATE / ".lock", timeout=wait):
         yield root
 
 
@@ -147,12 +154,25 @@ def _pool_roots(root):
 
 
 @contextmanager
-def _business_locks(root):
+def _business_locks(root, wait=0.0):
+    """Hold every business lock; one shared deadline bounds the wait for all of them.
+
+    A writer such as the resident daemon holds a lock only for the length of one write, so a
+    scheduled caller waits it out instead of failing on the first contention. Still busy at the
+    deadline raises BusinessLockBusy (a TimeoutError) and nothing is removed.
+    """
+    deadline = time.monotonic() + max(0.0, float(wait))
     with ExitStack() as stack:
         locks = {path for area in [root / "data", *_pool_roots(root)]
                  for path in _files(area) if path.name.endswith(".lock")}
         for path in sorted(locks - {root / STATE / ".lock"}):
-            stack.enter_context(data_safety.file_lock(path, timeout=0, create=False))
+            try:
+                stack.enter_context(data_safety.file_lock(
+                    path, timeout=max(0.0, deadline - time.monotonic()), create=False))
+            except TimeoutError as exc:
+                raise BusinessLockBusy(
+                    f"business lock still held after {float(wait):g}s: "
+                    f"{path.relative_to(root).as_posix()}") from exc
         yield
 
 
@@ -324,13 +344,13 @@ def apply_retention(companion, cfg, plan_path, approved_sha256, *, now=None):
         return _apply(root, cfg, plan_path, approved_sha256, now)
 
 
-def enforce(companion, cfg, *, now=None, locked=False):
+def enforce(companion, cfg, *, now=None, locked=False, lock_wait=0.0):
     _policy(cfg)
     if not locked:
-        with activity(companion) as root:
-            return enforce(root, cfg, now=now, locked=True)
+        with activity(companion, wait=lock_wait) as root:
+            return enforce(root, cfg, now=now, locked=True, lock_wait=lock_wait)
     root, _ = _admit(companion)
-    with _business_locks(root):
+    with _business_locks(root, wait=lock_wait):
         if _pending(root):
             return {"status": "deferred", "reason": "pending_recovery", "bytes": 0}
         report = plan_retention(root, cfg, now=now)

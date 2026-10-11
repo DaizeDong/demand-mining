@@ -23,6 +23,9 @@ class DestinationError(RuntimeError):
     """The actual output destination has no verified PRIVATE repository."""
 
 
+GIT_TIMEOUT_SECONDS = 60.0
+
+
 def git(root, *args, env=None, allowed=(0,), transport_proof=None):
     child_env = dict(os.environ, GIT_OPTIONAL_LOCKS="0")
     if env:
@@ -42,9 +45,16 @@ def git(root, *args, env=None, allowed=(0,), transport_proof=None):
         if current != transport_proof:
             raise DestinationError("Git transport changed after backup admission")
     from no_console import no_window_kwargs
-    result = subprocess.run(["git", "-C", str(root), *map(str, args)],
-                            capture_output=True, text=True, encoding="utf-8",
-                            env=child_env, timeout=60, **no_window_kwargs())
+    try:
+        result = subprocess.run(["git", "-C", str(root), *map(str, args)],
+                                capture_output=True, text=True, encoding="utf-8",
+                                env=child_env, timeout=GIT_TIMEOUT_SECONDS, **no_window_kwargs())
+    except subprocess.TimeoutExpired as exc:
+        # A starved machine can stall one git child past the bound. That is a refusal like any
+        # other failed proof step (require_private turns RuntimeError into DestinationError), not
+        # a SubprocessError that escapes every refusal handler and ends the caller blind.
+        raise RuntimeError(f"Git {args[0] if args else ''} timed out after "
+                           f"{GIT_TIMEOUT_SECONDS:g}s in {root}") from exc
     if result.returncode not in allowed:
         # Git stderr can include private file contents or credentials in a URL.
         raise RuntimeError(f"Git {args[0]} failed (exit {result.returncode}) in {root}")
