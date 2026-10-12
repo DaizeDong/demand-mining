@@ -22,9 +22,7 @@
       "DEMAND_MINING_CONFIG",
       "DEMAND_MINING_CONFIG_DIR",
       "DEMAND_MINING_DATA_DIR (same companion only)",
-      "proven sibling companion",
-      "~/.demand-mining-config",
-      "legacy ~/.demand-mining-data"
+      "proven sibling companion"
     ],
     "required_fields": [
       "product_id",
