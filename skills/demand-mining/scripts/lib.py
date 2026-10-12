@@ -32,7 +32,6 @@ except Exception:
 # The single tunable surface lives in the companion config repo. Discovery probe order mirrors
 # market-intel's companion convention so demand-mining-config can reuse the same machinery.
 CONFIG_ENV = "DEMAND_MINING_CONFIG"
-CONFIG_FALLBACKS = ["~/.demand-mining-config", "~/.config/demand-mining-config"]
 
 # Eight mutually-exclusive Stage-A intent labels (a message may carry >1). `chitchat` is the
 # discard bucket (logged-then-dropped). Frozen enum, a new label is a schema_version bump, never

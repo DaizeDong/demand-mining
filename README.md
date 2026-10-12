@@ -140,7 +140,7 @@ collection, initialization and writes require the private repository prerequisit
   An ordinary unversioned directory is insufficient.
   ```bash
   python scripts/init_config.py --product <slug>  # stamp skeleton (deterministic)
-  export DEMAND_MINING_CONFIG=~/.demand-mining-config                   # or pass --out <dir>
+  export DEMAND_MINING_CONFIG=<companion dir>   # not needed when it sits beside this repository
   python scripts/verify_config.py                  # doctor: PASS/FAIL, names gaps
   ```
 - **Switch configs (hot-swap):** point the env var at another config dir, configs are self-contained,

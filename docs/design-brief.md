@@ -1,8 +1,7 @@
 # Design Brief, demand-mining
 
-> Produced by skill-smith Step 0 (research-first). Full architecture lives in the build workspace
-> `CodesResearch/_skill-builds/06-demand-mining/ARCHITECTURE.md` (7-lane research synthesis,
-> 2026-06-25). This brief is the auditable rationale summary.
+> Produced by skill-smith Step 0 (research-first), a 7-lane research synthesis of 2026-06-25.
+> This brief is the auditable rationale summary.
 
 This is the original design record. References to planned integrations and evaluation targets
 are not current deployment claims; use [ROADMAP.md](../ROADMAP.md) and

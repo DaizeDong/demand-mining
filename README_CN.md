@@ -126,7 +126,7 @@ A 78 · RICE=9 · 3证据
   普通的未纳入版本管理的目录不满足要求。详见 [Configuration and DATA](docs/runtime-contract.md#configuration-and-data)。
   ```bash
   python scripts/init_config.py --product <slug>  # 生成骨架(确定性)
-  export DEMAND_MINING_CONFIG=~/.demand-mining-config                   # 或给 init 传 --out <dir>
+  export DEMAND_MINING_CONFIG=<伴生仓目录>   # 伴生仓就在本仓旁边时不需要
   python scripts/verify_config.py                  # doctor:逐项 PASS/FAIL 报缺
   ```
 - **切换 config(即插即用):** 把环境变量指向另一个 config 目录即可， config 自包含，同时清除或更新 DATA 覆盖值：

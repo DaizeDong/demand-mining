@@ -147,12 +147,14 @@ not sufficient. The exact destination and transport checks are documented in
 
 ```bash
 # 1. After preparing the private repository, stamp its config skeleton:
-python scripts/init_config.py            # -> ~/.demand-mining-config/
+#    It stamps the companion that discovery above selects; when there is none, pass
+#    --out <dir> naming your PRIVATE companion clone.
+python scripts/init_config.py --out <companion dir>
 #    add a starter product profile in one shot:
-python scripts/init_config.py --product acme-app
+python scripts/init_config.py --out <companion dir> --product acme-app
 
-# 2. Point the skill at it (skip if you used the default path):
-export DEMAND_MINING_CONFIG=~/.demand-mining-config
+# 2. Point the skill at it (skip when the companion sits beside this repository):
+export DEMAND_MINING_CONFIG=<companion dir>
 
 # 3. Fill secrets + per-product priority.json, then confirm it is ready:
 python scripts/verify_config.py          # doctor: PASS/FAIL per check

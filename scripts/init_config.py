@@ -71,8 +71,9 @@ def env_var(skill):
     return skill.upper().replace("-", "_") + "_CONFIG"
 
 
-def default_dir(skill):
-    return os.path.expanduser("~/.%s-config" % skill)
+def no_companion(skill):
+    return ("no companion found: create a PRIVATE repository with an origin and clone it beside this "
+            "repository as %s-config, set %s to it, or pass --out <dir>" % (skill, env_var(skill)))
 
 
 def detect_skill():
@@ -127,7 +128,9 @@ def main():
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                                   "skills", "demand-mining", "scripts"))
     from config_paths import companion_root
-    out = a.out or companion_root() or default_dir(skill)
+    out = a.out or companion_root()
+    if not out:
+        raise SystemExit("init_config: " + no_companion(skill))
     out = os.path.abspath(os.path.expanduser(out))
     slug = a.product
     if slug and not __import__("re").fullmatch(r"[a-zA-Z0-9_-]+", slug):
@@ -138,7 +141,7 @@ def main():
     require_private(out)
 
     print("Init config for skill '%s' (mode %s) at %s" % (skill, a.mode, out))
-    print("Discovery env var: %s  (fallback %s)" % (env_var(skill), default_dir(skill)))
+    print("Discovery env var: %s  (then the proven sibling companion)" % env_var(skill))
 
     # registry.json, per-product variant; deterministic, no machine-specific content (E4/E5).
     registry = {"schema_version": 1, "skill": skill,

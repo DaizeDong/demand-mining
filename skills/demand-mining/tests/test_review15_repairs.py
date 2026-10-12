@@ -104,8 +104,11 @@ def test_push_rechecks_transport_after_admission(transport, monkeypatch):
 def test_salt_discovery_matches_preflight_across_fresh_states(tmp_path, monkeypatch, mode):
     import config_paths
     profile = tmp_path / "profile"
-    directory = profile / ".demand-mining-config"
+    profile.mkdir()
+    # The proven sibling of the (patched) source root, the only place discovery looks.
+    directory = tmp_path / "demand-mining-config"
     (directory / "secrets").mkdir(parents=True)
+    (directory / ".companion").write_text("demand-mining\n", encoding="utf-8")
     (directory / "secrets/pseudonym_hmac_salt").write_text(REVIEW["salt"], encoding="utf-8")
     monkeypatch.setenv("HOME", str(profile))
     monkeypatch.setenv("USERPROFILE", str(profile))
