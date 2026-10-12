@@ -73,7 +73,7 @@ must identify an existing, nonempty private shared store. Initialize that store
 explicitly with schedule-reminder before attaching Demand; every ledger operation,
 including reads and `init`, refuses a missing or empty database. No second
 database is silently created. The tool does not query or change repository visibility automatically.
-Explicit invalid config or DATA overrides never fall through to home defaults.
+Explicit invalid config or DATA overrides never fall through to another location; there is no home-directory default.
 The nearest Git boundary owns a destination, including a nested private repository.
 A malformed or aliased boundary cannot fall back to an outer private repository.
 Runtime destinations refuse symbolic links, junctions and hardlinked files. Atomic
