@@ -30,7 +30,7 @@ import urllib.error
 import urllib.request
 from datetime import timedelta
 
-from lib import find_config_dir, load_config, now_utc, parse_ts
+from lib import find_config_dir, load_config, read_bot_token, now_utc, parse_ts
 from redact import pseudonymize, redact, safe_text
 from data_safety import require_private
 
@@ -56,9 +56,7 @@ def _load_wiring():
         raise SystemExit("pull_discord: product has no discord_channels/discord_token_ref; "
                          "wire the live tap first (see registry.json).")
     tok_path = (d / ref) if not os.path.isabs(ref) else __import__("pathlib").Path(ref)
-    token = tok_path.read_text(encoding="utf-8").strip()
-    if not token:
-        raise SystemExit(f"pull_discord: empty token at {tok_path}; write the bot token there.")
+    token = read_bot_token(tok_path, "pull_discord")
     return chans, token
 
 

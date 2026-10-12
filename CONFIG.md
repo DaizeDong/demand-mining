@@ -62,7 +62,10 @@ PRIVATE `pool/card-deliveries/` state. It needs no ledger or timezone and cannot
 product from the card. Its stable identity, replay and reconciliation rules are described in
 [the runtime contract](docs/runtime-contract.md).
 Discord collection additionally needs the selected registry product's `discord_channels` and
-`discord_token_ref`, an accessible credential and the Message Content Intent. A stable pseudonym
+`discord_token_ref`, an accessible credential and the Message Content Intent. The file
+`discord_token_ref` points at is a generated projection: regenerate it with
+`python -m credvault materialize --target demand-mining/<token file name>` and never hand-write it.
+A missing or empty token file stops `pull_discord.py` and `demand_bot.py` with that command. A stable pseudonym
 salt must come from `DEMAND_MINING_PSEUDONYM_SALT` or the selected companion's secret file.
 The config doctor checks product identity and schema; scheduled preflight checks its selected
 collection/delivery dependencies without making a model call. See docs/runtime-contract.md.

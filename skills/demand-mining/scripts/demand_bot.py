@@ -64,7 +64,7 @@ if __name__ == "__main__":
     sys.exit(_bootstrap())
 
 
-from lib import (canonical_key, find_config_dir, iso, load_config, now_utc, parse_ts,
+from lib import (canonical_key, find_config_dir, read_bot_token, iso, load_config, now_utc, parse_ts,
                  merge_observations, observation_identity)
 from redact import pseudonymize, safe_text, safe_data, PrivacyReviewRequired, ensure_stable_salt
 from data_safety import atomic_json, file_lock, require_private
@@ -99,7 +99,7 @@ def _wiring(d):
         raise ValueError("bot product is not registered")
     ref = prod["discord_token_ref"]
     tok_path = (d / ref) if not os.path.isabs(ref) else __import__("pathlib").Path(ref)
-    token = tok_path.read_text(encoding="utf-8").strip()
+    token = read_bot_token(tok_path, "demand_bot")
     chans = {c["id"]: c.get("name", c["id"]) for c in (prod.get("discord_channels") or [])}
     guild = prod.get("discord_guild")
     display = prod.get("demand_display_channel") or os.environ.get("DEMAND_DISPLAY_CHANNEL")
