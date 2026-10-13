@@ -308,7 +308,7 @@ def _apply(root, cfg, plan_path, approved_sha256, now):
     current = plan_retention(root, cfg, now=now)
     for key in ("schema_version", "root", "policy", "registry"):
         if plan.get(key) != json.loads(json.dumps(current["plan"][key])):
-            raise ValueError("retention plan admission or policy changed")
+            raise ValueError("retention plan root, policy or registry changed")
     known = {item["path"]: item for item in current["plan"]["items"]}
     selected = plan.get("items")
     if not isinstance(selected, list) or len({item["path"] for item in selected}) != len(selected):
@@ -323,8 +323,8 @@ def _apply(root, cfg, plan_path, approved_sha256, now):
     receipt_path = root / STATE / "latest-receipt.json"
     data_safety.atomic_json(receipt_path, receipt)
     for item in selected:
-        if _admit(root) != root or _pending(root):
-            raise ValueError("retention admission or recovery state changed")
+        if _pending(root):
+            raise ValueError("retention recovery state changed")
         _remove(root, item)
         receipt["deleted"].append(item["path"])
         receipt["bytes"] += item["bytes"]

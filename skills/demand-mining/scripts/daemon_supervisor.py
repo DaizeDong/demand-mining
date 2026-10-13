@@ -6,10 +6,10 @@ checks the destination path immediately before appending each chunk, including o
 without a newline. A refused destination or failed append stops the child at once and
 nothing is written or restarted until a new log handle succeeds. That is retried with
 backoff for --admission-retry-seconds; a refusal that outlasts that window stops
-the supervisor, so one failed append no longer leaves the daemon down until the next logon.
+the supervisor.
 
 pythonw.exe discards stderr, so a fatal exit is recorded before the process ends: in
-supervisor.log when that destination is still admitted, otherwise in a local note
+supervisor.log when that destination still passes the path checks, otherwise in a local note
 outside every repository (%LOCALAPPDATA%/demand-mining/supervisor-exit.log). The note
 holds only the exception type and message, never daemon output.
 
@@ -101,7 +101,6 @@ def _stop_child(child):
 
 
 def _run_child(argv, env, log):
-    check_destination(log.path)
     child = subprocess.Popen(argv, env=env, stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT, bufsize=0, **no_window_kwargs())
     try:
