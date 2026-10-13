@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- **Runtime PRIVATE proof removed.** Writes, locks, logs, retention and backup no longer call the Guards `prove_private_companion`, `storage_contract.authorize_artifact_write` or any Git/visibility query to admit a destination; the proof cache, transport fingerprint and the scheduled preflight's 15-minute proof retry are gone. `data_safety.check_destination` replaces `require_private`/`authorize_write` with path-only checks (a separate Git worktree outside this source tree, no `.git`, parent traversal, link or hardlinked file); an uninitialized companion is still a write error with no in-repo fallback. Backup still commits and pushes the companion's origin. Commit-time Guards hooks and CI are unchanged.
+
 ### Documentation
 - Consolidate configuration, storage and recovery guidance under their authoritative references;
   align entry documents with implemented collection, receipt and retry behavior. Preserve released

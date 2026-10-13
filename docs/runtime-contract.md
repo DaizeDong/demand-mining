@@ -15,13 +15,13 @@ for any reason, including before `execute()` persists `active.json`, it appends 
 `retention_activity`, `retention`, `execute`), the exception type and message chain after the
 privacy screen, and the innermost code locations. When the companion itself refuses the write,
 the line goes to `%LOCALAPPDATA%/demand-mining/eod-exit.log` (or `$XDG_STATE_HOME`), outside
-every repository. A PRIVATE-proof refusal at preflight is re-proved with 30 s to 120 s backoff
-for up to 15 minutes before the run fails; a Git child of the proof that outlives its 60 s bound
-is a refusal like any other, not an unhandled `TimeoutExpired`.
+every repository. A refused destination at preflight fails the run at once; path checks are
+deterministic and are not retried. A backup Git child that outlives its 60 s bound is a
+failure like any other, not an unhandled `TimeoutExpired`.
 
 ## Configuration and DATA
 
-Initialize the verified PRIVATE companion before `scripts/init_config.py`. Configuration and
+Initialize the PRIVATE companion repository before `scripts/init_config.py`. Configuration and
 DATA use the selection rules in [CONFIG.md](../CONFIG.md#discovery-convention-e2);
 `DEMAND_MINING_DATA_DIR` must name that companion's exact `pool/` directory. Real output is
 versioned in the companion and never written inside the public tool, including ignored paths.
@@ -44,28 +44,14 @@ day reuse the cutoff, unfinished runs resume across midnight, and a later day's
 run starts at the prior completed cutoff. An unfinished run refuses changed input;
 callers needing an independent collection declare its window and identity.
 
-Every persisted output must resolve to a Git repository with origin visibility
-PRIVATE in the operator's verified local `~/.pii-guard/visibility.json` receipt.
-The pinned Guards `prove_private_companion` API validates the complete transport
-and requires a fresh `_refreshed` timestamp in that receipt.
-PUBLIC, unknown and unmanaged destinations are rejected with the actual path.
-The local visibility receipt format identifies canonical GitHub remotes; an
-unresolved SSH alias or another host is not inferred to have that identity. Every
-origin push URL must point to that same verified private repository.
-Admission checks every configured remote's resolved fetch and push URLs, including
-secondary remotes, and verifies PRIVATE visibility for every destination repository.
-`remote.pushDefault`, `branch.*.pushRemote` and `branch.*.remote` must select a
-configured named remote. Raw URL, local and unknown selectors are refused as
-unproved; configure a named PRIVATE remote instead. Remote names retain their
-case-sensitive identity. HTTPS permits the documented HTTP performance settings and
-explicitly enabled certificate verification; unproved routing, proxy, header,
-TLS and transport-command overrides are refused. `no_proxy` and the two Git
-HTTP low-speed tuning variables remain supported. SSH requires the shared
-guard's static configuration proof and refuses SSH command overrides. Git HTTP
-settings do not govern an SSH connection. Visibility still comes from the
-separate local verified receipt; this tool introduces no visibility API call.
-Backup rechecks the configuration/environment fingerprint before its push, and
-the Git launcher requires that current admission proof.
+Every persisted output must resolve to a Git worktree outside this public tool:
+the companion that configuration discovery selects. Runtime checks are path-only and
+start no process. A destination inside the tool, inside Git metadata, outside every Git
+worktree, or reached through a parent traversal, symbolic link, junction or hardlinked
+file is refused with the actual path. There is no in-repo or home-directory fallback; an
+uninitialized companion is a write error. Repository visibility is not checked at
+runtime. Keep the companion repository PRIVATE; the commit-time Guards hooks and CI are
+the publication gate.
 
 This applies to explicit archive/corpus/log paths, daemon output, run state,
 receipts and the existing shared ledger. `SCHEDULE_DB_PATH` or `ledger.db_path`
@@ -77,23 +63,8 @@ Explicit invalid config or DATA overrides never fall through to another location
 The nearest Git boundary owns a destination, including a nested private repository.
 A malformed or aliased boundary cannot fall back to an outer private repository.
 Runtime destinations refuse symbolic links, junctions and hardlinked files. Atomic
-writes recheck the current proof immediately before replacing their destination.
-
-### Fresh artifact admission
-
-Every durable write and transient lock/staging creation calls the pinned Guards
-artifact authorizer. It reloads the source storage contract, requires exactly one
-active owner, checks the actual containing companion and proves its publication
-routes PRIVATE with current Git configuration. Versioned artifacts must also be
-eligible for Git tracking. A cached read/preflight transport proof never replaces
-this fresh artifact proof, including before atomic replacement and log appends.
-Backup pushes likewise obtain a fresh transport proof.
-
-The older transport helper retains a bounded cache for non-writing preflight
-callers. Its result alone does not authorize an artifact write. No ten-minute
-admission window applies to the atomic writer or log append path. Fresh checks add
-local Git-process overhead; offline regressions exercise that behavior but do not
-establish live daemon throughput or latency.
+writes stage under the companion's `.staging/` and refuse a temporary file whose
+identity changed before replacement.
 
 ### Windowless child processes
 
@@ -103,7 +74,7 @@ the default terminal shows as a window. Every subprocess launch in this skill
 passes `CREATE_NO_WINDOW` (`no_console.no_window_kwargs`). The long-running entry
 points (`daemon_supervisor.py`, `demand_bot.py`, `scheduled.py`) also install a
 process-wide default when they start without a console, so launches made by
-imported code, including the guard kit's Git calls, get the same flag. A caller
+imported code, such as backup Git calls, get the same flag. A caller
 that explicitly requests a new console or a detached process keeps its choice. The
 supervisor starts the daemon with the flag as well. With a console, children share
 it and the default is not installed.
@@ -111,30 +82,26 @@ it and the default is not installed.
 
 ### Private diagnostic logs
 
-Daemon and supervisor logs renew PRIVATE destination admission before every append, through the
-fresh artifact admission described under Configuration and DATA. The supervisor reads child stdout
-and stderr through a pipe and writes bounded binary chunks itself; children never inherit a log file
-handle. A refused log destination stops the current child and prevents restart until a fresh
-admission succeeds. The supervisor writes nothing while refused and re-proves the destination with
-backoff (min/max backoff) for `--admission-retry-seconds` (default 3600); on success it logs the
-refusal it recovered from and restarts the child, and a refusal that outlasts the window stops the
-supervisor. Each admission runs many short Git processes, so one that fails to start must not
-leave a resident daemon down until the next logon. pythonw.exe discards stderr, so every fatal
-supervisor exit is recorded first: as `supervisor exiting: <reason>` in supervisor.log while that
-log is admitted, otherwise in `%LOCALAPPDATA%/demand-mining/supervisor-exit.log` (outside every
-repository; exception type and message only, never daemon output). Direct --log-file
-uses the same append path, restores the prior output streams on exit, and records startup tracebacks
-only while the destination remains PRIVATE. Admission is checked when output is appended or a
-restart is attempted, not by an idle background visibility poll. The daily summary loop wakes every
-30 minutes but proves its destination only when it is about to write: an already confirmed day or a
-send awaiting reconciliation is read without a proof, and a repeated summary state or failure is
-logged once.
+Daemon and supervisor logs check the destination path before every append. The supervisor reads
+child stdout and stderr through a pipe and writes bounded binary chunks itself; children never
+inherit a log file handle. A refused log destination or a failed append stops the current child and
+prevents restart until a new log handle succeeds. The supervisor writes nothing while refused and
+retries with backoff (min/max backoff) for `--admission-retry-seconds` (default 3600); on success it
+logs the refusal it recovered from and restarts the child, and a refusal that outlasts the window
+stops the supervisor. pythonw.exe discards stderr, so every fatal supervisor exit is recorded first:
+as `supervisor exiting: <reason>` in supervisor.log while that log is accepted, otherwise in
+`%LOCALAPPDATA%/demand-mining/supervisor-exit.log` (outside every repository; exception type and
+message only, never daemon output). Direct --log-file uses the same append path, restores the prior
+output streams on exit, and records startup tracebacks only while the destination is accepted. The
+daily summary loop wakes every 30 minutes but checks its destination only when it is about to
+write: an already confirmed day or a send awaiting reconciliation is read without a write, and a
+repeated summary state or failure is logged once.
 
 Direct demand_bot CLI startup parses its real arguments and opens the validated private log before
 importing discord or llmcall. Missing optional dependencies retain their original import error in
 that log, including windowless execution where both streams began as None. Help and invalid
 arguments are handled before optional imports. Importing the module keeps its public functions and
-class available without parsing CLI arguments. PRIVATE admission is renewed for every append, and
+class available without parsing CLI arguments. The destination is checked for every append, and
 original streams are restored on exit.
 
 ## Product ledger identity
@@ -192,8 +159,8 @@ together. Each record keeps the ingest-redacted text, pseudonymous identities, t
 stage, any verdict or demand already computed, and `hold_source`. `pool` means the
 observation screens clean on its own and the hold came from rows already stored in
 `pool/demands.jsonl`, which every pool write screens again. Nothing is discarded:
-the quarantine write uses the same PRIVATE admission as every other DATA write, and
-when that admission is refused the observation stays pending and keeps backing off.
+the quarantine write uses the same destination checks as every other DATA write, and
+when it is refused the observation stays pending and keeps backing off.
 Replaying a record is an explicit operator step after review.
 
 Direct mentions and DMs enter a separate pending map before context gathering.

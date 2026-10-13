@@ -1,12 +1,12 @@
 """The supervisor survives a transient admission refusal and records why it exits.
 
-A resident supervisor that exits on one failed PRIVATE proof stays down until the next
+A resident supervisor that exits on one refused log append stays down until the next
 logon, and under pythonw.exe its reason is lost with stderr. These tests run the real
 daemon_supervisor module in the in-memory Review19 harness (synthetic paths, no Git, no
 network) and check that:
 
 - a refusal during child output stops the child, writes nothing while refused, and the
-  supervisor restarts the child once a fresh admission succeeds, logging the cause;
+  supervisor restarts the child once the destination is accepted again, logging the cause;
 - a refusal that outlasts --admission-retry-seconds still stops the supervisor, with
   bounded backoff and no restart while refused;
 - a fatal exit leaves its reason in supervisor.log when that log is admitted, and in a
@@ -33,8 +33,8 @@ class RetryHarness(Harness):
         def sleep(seconds):
             h.sleeps.append(seconds)
             h.clock[0] += seconds
-            if h.behavior == "refuse-then-recover" and h.visibility == "PUBLIC":
-                h.visibility = "PRIVATE"
+            if h.behavior == "refuse-then-recover" and h.destination == "refused":
+                h.destination = "admitted"
                 return
             if h.behavior == "refuse-persistently":
                 return
@@ -43,7 +43,7 @@ class RetryHarness(Harness):
         def read_with_revocation(original):
             def read(size):
                 if pipe_state["index"] == 1 and h.behavior in {"refuse-then-recover", "refuse-persistently"}:
-                    h.visibility = "PUBLIC"
+                    h.destination = "refused"
                 pipe_state["index"] += 1
                 return original(size)
             pipe_state = {"index": 0}
@@ -64,11 +64,11 @@ class RetryHarness(Harness):
 
     def companion_writes_while_refused(self):
         return [name for name, _, state in self.writes
-                if state != "PRIVATE" and name.startswith(self.root + "/")]
+                if state != "admitted" and name.startswith(self.root + "/")]
 
     def companion_opens_while_refused(self):
         return [name for name, state in self.opens
-                if state != "PRIVATE" and name.startswith(self.root + "/")]
+                if state != "admitted" and name.startswith(self.root + "/")]
 
 
 def supervisor_log(h):
@@ -81,7 +81,7 @@ class TransientRefusalTests(unittest.TestCase):
         supervisor, _ = h.logging()
         # The second launch is the restart; the harness ends the run there.
         self.assertEqual(h.invoke(supervisor.main), "controlled-stop")
-        self.assertEqual(len(h.children), 2, "the supervisor must relaunch after a fresh admission")
+        self.assertEqual(len(h.children), 2, "the supervisor must relaunch once the destination is accepted")
         self.assertTrue(h.children[0].terminated or h.children[0].killed)
         self.assertEqual(h.companion_writes_while_refused(), [])
         self.assertEqual(h.companion_opens_while_refused(), [])
@@ -90,7 +90,7 @@ class TransientRefusalTests(unittest.TestCase):
                          CASES["child_chunks"][0].encode())
         text = supervisor_log(h)
         self.assertIn("admission recovered after", text)
-        self.assertIn("synthetic repository visibility is not PRIVATE", text)
+        self.assertIn("synthetic destination refused", text)
 
     def test_persistent_refusal_still_stops_without_restart(self):
         h = RetryHarness("refuse-persistently", retry_seconds=100.0)
@@ -101,11 +101,11 @@ class TransientRefusalTests(unittest.TestCase):
         self.assertEqual(h.companion_opens_while_refused(), [])
         self.assertGreaterEqual(sum(h.sleeps), 100.0)
         self.assertLessEqual(max(h.sleeps), h.args.max_backoff)
-        self.assertGreater(len([p for p in h.proofs if p[1] == "PUBLIC"]), 2, "admission is re-proved")
+        self.assertGreater(len([p for p in h.checks if p[1] == "refused"]), 2, "the destination is rechecked")
         # The log is refused, so the reason goes to the local note outside the companion.
         note = h.files[NOTE].decode()
         self.assertIn("giving up", note)
-        self.assertIn("synthetic repository visibility is not PRIVATE", note)
+        self.assertIn("synthetic destination refused", note)
         self.assertNotIn(CASES["child_chunks"][0], note)
 
 
@@ -128,7 +128,7 @@ class FatalExitRecordTests(unittest.TestCase):
     def test_fatal_exit_reason_goes_to_the_local_note_when_the_log_is_refused(self):
         h = RetryHarness("normal", retry_seconds=0.0)
         supervisor, _ = h.logging()
-        h.visibility = "PUBLIC"
+        h.destination = "refused"
         self.failing_main(h, supervisor, RuntimeError("synthetic fatal supervisor fault"))
         with self.assertRaisesRegex(RuntimeError, "synthetic fatal supervisor fault"):
             supervisor.run()
@@ -141,7 +141,7 @@ class FatalExitRecordTests(unittest.TestCase):
         h = RetryHarness("normal", retry_seconds=0.0)
         supervisor, _ = h.logging()
         del h.os.environ["LOCALAPPDATA"]
-        h.visibility = "PUBLIC"
+        h.destination = "refused"
         self.failing_main(h, supervisor, RuntimeError("synthetic fatal supervisor fault"))
         with self.assertRaises(RuntimeError):
             supervisor.run()

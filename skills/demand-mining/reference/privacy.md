@@ -53,7 +53,7 @@ features or competitor names. Do not send a user's raw conversation as a query.
 
 The need pool keeps distilled, redacted demands, evidence snippets, observation
 pointers and HMAC author tokens. Raw conversation does not belong in the pool.
-Real configuration and runtime DATA reside in a verified, versioned PRIVATE
+Real configuration and runtime DATA reside in a versioned PRIVATE
 companion, outside the public source repository.
 
 `scripts/retention.py` implements the two `privacy` limits: raw collection
@@ -64,7 +64,7 @@ default to **7 days**. Declared raw areas cover `data/corpus*.json`, `data/raw/`
 registration; unknown historical files remain for review.
 
 The standalone retention runtime uses exact plans and SHA256 checks, with the
-existing Guards-backed PRIVATE validation and runtime recovery/lock checks. It does
+companion path checks and runtime recovery/lock checks. It does
 not age-delete the pool, shared ledger, run receipts, pending checkpoints or
 the HMAC salt. The default interval is a runtime retention policy; this page
 does not promise an independent cron job.

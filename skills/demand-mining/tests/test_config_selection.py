@@ -9,7 +9,7 @@ def test_alias_selects_settings_and_pool(tmp_path, monkeypatch):
     for key in ("DEMAND_MINING_CONFIG", "DEMAND_MINING_CONFIG_DIR", "DEMAND_MINING_DATA_DIR"):
         monkeypatch.delenv(key, raising=False)
     monkeypatch.setenv("DEMAND_MINING_CONFIG_DIR", str(tmp_path))
-    monkeypatch.setattr(data_safety, "require_private", lambda path: {"path": str(path)})
+    monkeypatch.setattr(data_safety, "check_destination", lambda path: {"path": str(path)})
     assert lib.find_config_dir() == tmp_path
     assert data_safety.data_root() == tmp_path / "pool"
 

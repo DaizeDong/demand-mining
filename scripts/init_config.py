@@ -34,8 +34,8 @@ claude.json
 SECRETS_README = """\
 # secrets/, Mode B (gitignored)
 
-Real secret values live here and are **gitignored** (see ../.gitignore). This is the default Mode B policy, not a prohibition on verified PRIVATE backup.
-Back them up out-of-band under Mode B. An explicitly selected Mode A may instead version them only in a verified PRIVATE repository and restore from that history. Restore on a new machine by copying the
+Real secret values live here and are **gitignored** (see ../.gitignore). This is the default Mode B policy, not a prohibition on PRIVATE backup.
+Back them up out-of-band under Mode B. An explicitly selected Mode A may instead version them only in a PRIVATE repository and restore from that history. Restore on a new machine by copying the
 files back into this directory, then re-running `scripts/verify_config.py`.
 
 Active storage mode: **B** (gitignored + out-of-band backup). Files MUST be UTF-8 without BOM.
@@ -100,8 +100,8 @@ def write(path, content, force):
                            "skills", "demand-mining", "scripts")
     if scripts not in sys.path:
         sys.path.insert(0, scripts)
-    from data_safety import require_private
-    require_private(path)
+    from data_safety import check_destination
+    check_destination(path)
     if os.path.exists(path) and not force:
         print("  SKIP (exists): %s" % path)
         return
@@ -137,8 +137,8 @@ def main():
         raise ValueError("product slug must contain only letters, digits, hyphen or underscore")
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                                   "skills", "demand-mining", "scripts"))
-    from data_safety import require_private
-    require_private(out)
+    from data_safety import check_destination
+    check_destination(out)
 
     print("Init config for skill '%s' (mode %s) at %s" % (skill, a.mode, out))
     print("Discovery env var: %s  (then the proven sibling companion)" % env_var(skill))
@@ -147,12 +147,12 @@ def main():
     registry = {"schema_version": 1, "skill": skill,
                 "products": ([{"slug": slug}] if slug else []), "mode": a.mode}
     write(os.path.join(out, "registry.json"), dumps(registry), a.force)
-    ignore = GITIGNORE if a.mode == "B" else "# Mode A: version credentials only in this verified PRIVATE companion.\n/.staging/\n.demand-backup-index-*\n"
+    ignore = GITIGNORE if a.mode == "B" else "# Mode A: version credentials only in this PRIVATE companion.\n/.staging/\n.demand-backup-index-*\n"
     write(os.path.join(out, ".gitignore"), ignore, a.force)
     write(os.path.join(out, "products", ".gitkeep"), "", a.force)
     policy = SECRETS_README if a.mode == "B" else (
         "# Private credential backup\n\nActive storage mode: A\n\n"
-        "Version credentials only in the verified PRIVATE companion. Restore from its history; "
+        "Version credentials only in the PRIVATE companion. Restore from its history; "
         "rotated credentials must be renewed with their provider. Never print secret values.\n")
     write(os.path.join(out, "secrets", "README.md"), policy, a.force)
     write(os.path.join(out, "secrets", ".gitkeep"), "", a.force)

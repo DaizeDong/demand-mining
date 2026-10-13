@@ -67,7 +67,7 @@ if __name__ == "__main__":
 from lib import (canonical_key, find_config_dir, read_bot_token, iso, load_config, now_utc, parse_ts,
                  merge_observations, observation_identity)
 from redact import pseudonymize, safe_text, safe_data, PrivacyReviewRequired, ensure_stable_salt
-from data_safety import atomic_json, file_lock, require_private
+from data_safety import atomic_json, file_lock, check_destination
 from score import score_demand
 import demand_pool as pool
 
@@ -572,7 +572,7 @@ class DemandBot(discord.Client):
         return backoff
 
     def _quarantine(self, entries, stage, error_name, backoff):
-        """Move held observations into the PRIVATE quarantine; raises if that is refused."""
+        """Move held observations into the companion quarantine; raises if that is refused."""
         from observation_retry import quarantine_observation
         from redact import PrivacyReviewRequired, safe_data
         paths = []
@@ -745,8 +745,8 @@ class DemandBot(discord.Client):
     async def _summary_loop(self):
         """Post at the configured local hour; unknown sends require reconciliation.
 
-        The 30-minute tick does no PRIVATE proof by itself: _maybe_daily_summary proves
-        the destination only when it is about to write. A repeated failure is logged once.
+        The 30-minute tick writes nothing by itself: _maybe_daily_summary checks the
+        destination only when it is about to write. A repeated failure is logged once.
         """
         last_failure = None
         while not self.is_closed():
@@ -778,11 +778,11 @@ class DemandBot(discord.Client):
         if getattr(self, "_summary_settled", None) == today:
             return {"status": "confirmed", "date": today}
         # Reading the marker is not a DATA write. A day that is already confirmed, or a send
-        # awaiting reconciliation, needs no write, so it must not trigger a PRIVATE proof.
+        # awaiting reconciliation, needs no write and no lock.
         settled = self._peek_summary(today)
         if settled is not None:
             return settled
-        marker = Path(require_private(self._summary_marker())["path"])
+        marker = Path(check_destination(self._summary_marker())["path"])
         try:
             # Do not block the event loop behind another coroutine holding the
             # lock while awaiting the adapter. Contention stays visibly pending.
@@ -853,7 +853,7 @@ class DemandBot(discord.Client):
         """Accept identity/content-bound evidence without issuing a send."""
         from finalize import _receipt
         from pathlib import Path
-        marker = Path(require_private(self._summary_marker())["path"])
+        marker = Path(check_destination(self._summary_marker())["path"])
         with file_lock(str(marker) + ".lock"):
             state = json.loads(marker.read_text(encoding="utf-8"))
             checksum = hashlib.sha256(state["body"].encode("utf-8")).hexdigest()
@@ -917,7 +917,7 @@ def _run(args) -> int:
     ensure_stable_salt()
     from finalize import logical_identity
     logical_identity(cfg)
-    require_private(d)
+    check_destination(d)
     token, chans, guild, display, product = _wiring(d)
     poolp = pool.pool_path(d)
     bot = DemandBot(cfg, chans, guild, display, mode, args.interval, args.display_interval, poolp,

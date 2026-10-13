@@ -6,7 +6,7 @@ Changes must preserve the current runtime and privacy contracts.
 ## Ground rules
 
 - Redact supported personal data before model processing or persistence. Keep real observations,
-  credentials and operational history in the verified PRIVATE companion. Credential backup may
+  credentials and operational history in the PRIVATE companion. Credential backup may
   use the selected Mode A or Mode B policy in [CONFIG.md](CONFIG.md#secrets-mode-b-e6).
 - Keep model interpretation separate from deterministic scoring, evidence admission and delivery
   state. The shipped Discord tap and daemon own demand collection; external research uses the

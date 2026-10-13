@@ -362,11 +362,10 @@ class LedgerClient:
         return [sys.executable, str(probe)]
 
     def _run(self, verb, args):
-        from data_safety import require_private
+        from data_safety import check_destination
         if not self.db_path:
             raise ValueError("ledger requires an existing PRIVATE shared store; set SCHEDULE_DB_PATH")
-        admission = require_private(self.db_path)
-        database = Path(admission["path"])
+        database = Path(check_destination(self.db_path)["path"])
         if not database.is_file() or database.stat().st_size == 0:
             raise ValueError("ledger requires an existing shared database; initialize it with schedule-reminder first")
         base = list(self.cmd)

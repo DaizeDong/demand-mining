@@ -24,17 +24,3 @@ _llmcall = types.ModuleType("llmcall")
 _llmcall.call = _unexpected_model_call
 sys.modules["llmcall"] = _llmcall
 
-
-import pytest  # noqa: E402
-
-
-@pytest.fixture(autouse=True)
-def _fresh_private_proof_cache():
-    """A reused PRIVATE proof must never leak from one test's synthetic companion into another."""
-    def clear():
-        module = sys.modules.get("data_safety")
-        if module is not None and hasattr(module, "clear_proof_cache"):
-            module.clear_proof_cache()
-    clear()
-    yield
-    clear()

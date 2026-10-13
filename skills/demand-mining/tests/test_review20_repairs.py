@@ -228,7 +228,7 @@ class DirectBootstrapTests(unittest.TestCase):
                     self.assertIn("ModuleNotFoundError", content)
                     self.assertIn(case["dependency"], content)
                     self.assertTrue(h.writes)
-                    self.assertTrue(all(state == "PRIVATE" for _, _, state in h.writes))
+                    self.assertTrue(all(state == "admitted" for _, _, state in h.writes))
                 else:
                     self.assertFalse(h.writes)
                 self.assertEqual((h.sys.stdout, h.sys.stderr), h.original_streams)
@@ -273,7 +273,7 @@ class DirectBootstrapTests(unittest.TestCase):
 
     def test_refused_log_prevents_optional_imports(self):
         h = StartupHarness(CASES["normal_args"] + ["--log-file", CASES["log_path"]], console=False)
-        h.visibility = "PUBLIC"
+        h.destination = "refused"
         with self.assertRaises(SystemExit):
             h.direct()
         self.assertFalse(h.import_attempts)
@@ -288,8 +288,8 @@ class DirectBootstrapTests(unittest.TestCase):
         content = h.files[CASES["log_path"]].decode()
         self.assertIn(OLD_CASES["log_messages"][0], content)
         self.assertNotIn(OLD_CASES["log_messages"][1], content)
-        self.assertTrue(all(state == "PRIVATE" for _, _, state in h.writes))
-        self.assertTrue(all(state == "PRIVATE" for _, state in h.opens))
+        self.assertTrue(all(state == "admitted" for _, _, state in h.writes))
+        self.assertTrue(all(state == "admitted" for _, state in h.opens))
         self.assertEqual((h.sys.stdout, h.sys.stderr), h.original_streams)
 
 

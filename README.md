@@ -134,8 +134,8 @@ can use `skills/demand-mining/scripts/lib.py:DEFAULT_CONFIG` without configurati
 collection, initialization and writes require the private repository prerequisites below.
 
 - **Mount:** `DEMAND_MINING_CONFIG` → `DEMAND_MINING_CONFIG_DIR` → shared Guards discovery. `DEMAND_MINING_DATA_DIR` must belong to the same companion. See [CONFIG.md](CONFIG.md#discovery-convention-e2) for the exact layout and fallback order.
-- **First time:** Create or clone the private companion repository, configure its origin,
-  and prepare the verified PRIVATE visibility receipt before running the initializer.
+- **First time:** Create or clone the private companion repository and configure its origin
+  before running the initializer.
   See [Configuration and DATA](docs/runtime-contract.md#configuration-and-data).
   An ordinary unversioned directory is insufficient.
   ```bash
@@ -149,7 +149,7 @@ collection, initialization and writes require the private repository prerequisit
   and configure Discord channels/token reference plus a stable pseudonym salt for collection.
   See CONFIG.md and the runtime contract before the doctor or scheduled preflight.
 - **Secrets:** Mode B is the template default and needs out-of-band backup. A selected Mode A
-  may version credentials in verified PRIVATE Git and restore from that history. The
+  may version credentials in PRIVATE Git and restore from that history. The
   pseudonym salt may instead come from `$DEMAND_MINING_PSEUDONYM_SALT`.
 
 ## Limitations

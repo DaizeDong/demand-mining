@@ -5,7 +5,6 @@ from pathlib import Path
 import socket
 import subprocess
 import sys
-import datetime
 
 import pytest
 
@@ -34,27 +33,19 @@ def native_storage(tmp_path, monkeypatch):
     def no_network(*args, **kwargs):
         raise AssertionError('native storage regression attempted network access')
     monkeypatch.setattr(socket.socket, 'connect', no_network)
-    receipts = {}
 
-    def repository(path, name, visibility):
+    def repository(path):
         path.mkdir(parents=True)
-        for args in [('init', '-q'), ('config', 'remote.origin.url',
-                                     'https://github.com/example-owner/'+name+'.git')]:
-            subprocess.run(['git', '-C', str(path), *args], capture_output=True, check=True)
+        subprocess.run(['git', '-C', str(path), 'init', '-q'], capture_output=True, check=True)
         subprocess.run(['git', '-C', str(path), '-c', 'user.name=Synthetic Fixture',
                         '-c', 'user.email=user1@example.com', 'commit', '--allow-empty',
                         '-m', 'Initialize synthetic companion'], capture_output=True, check=True)
-        receipts['example-owner/'+name] = visibility
-        target = profile / '.pii-guard/visibility.json'
-        target.parent.mkdir(exist_ok=True)
-        target.write_text(json.dumps({**receipts, '_refreshed': datetime.datetime.now(datetime.timezone.utc).isoformat(), '_verified': {
-            key: {'v': value} for key, value in receipts.items()}}), encoding='utf-8')
         return path
 
     monkeypatch.setattr(sys.modules[__name__], 'REMINDER', native_reminder(tmp_path, reminder_source))
-    private = repository(tmp_path/'private', 'private-vault', 'PRIVATE')
-    public = repository(tmp_path/'public', 'public-tool', 'PUBLIC')
-    return private, public, repository
+    private = repository(tmp_path/'private')
+    other = repository(tmp_path/'other')
+    return private, other, repository
 
 
 @pytest.mark.parametrize('verb', ['init', 'list'])
@@ -79,10 +70,10 @@ def test_explicitly_initialized_shared_database_remains_usable(native_storage):
     assert client.list_active() == []
 
 
-def test_private_log_cannot_append_through_hardlink_to_public_file(native_storage):
-    private, public, _ = native_storage
-    original = public / 'published.txt'
-    original.write_text('synthetic public fixture\n', encoding='utf-8')
+def test_private_log_cannot_append_through_hardlink_to_another_file(native_storage):
+    private, other, _ = native_storage
+    original = other / 'published.txt'
+    original.write_text('synthetic other fixture\n', encoding='utf-8')
     alias = private / 'daemon.log'
     os.link(original, alias)
     before = original.read_bytes()
@@ -114,20 +105,15 @@ def test_repeated_atomic_write_supports_a_long_data_path(native_storage):
     assert json.loads(target.read_text(encoding='utf-8')) == {'synthetic_attempt': 2}
 
 
-@pytest.mark.parametrize('visibility', ['PUBLIC', 'PRIVATE'])
-def test_nearest_nested_repository_remains_authoritative(native_storage, visibility):
+def test_nearest_nested_repository_remains_authoritative(native_storage, monkeypatch):
     private, _, repository = native_storage
-    nested = repository(private/'nested', 'nested-vault', visibility)
+    nested = repository(private/'nested')
     target = nested/'pool/runs/synthetic/state.json'
-    if visibility == 'PUBLIC':
-        with pytest.raises(data_safety.DestinationError):
-            data_safety.atomic_json(target, {'synthetic': True})
-        assert not target.exists()
-    else:
-        data_safety.atomic_json(target, {'synthetic': True})
-        proof = data_safety.require_private(target)
-        assert Path(proof['root']) == nested
-        assert proof['repository'] == 'example-owner/nested-vault'
+    monkeypatch.setattr(subprocess, 'run', lambda *a, **k: pytest.fail('path checks start no process'))
+    data_safety.atomic_json(target, {'synthetic': True})
+    checked = data_safety.check_destination(target)
+    assert Path(checked['root']) == nested.resolve()
+    assert not (nested / '.staging').exists() or list((nested / '.staging').iterdir()) == []
 
 
 def junction(target, alias):
@@ -158,8 +144,6 @@ def test_private_directory_alias_is_refused(native_storage):
     with pytest.raises(data_safety.DestinationError):
         data_safety.atomic_json(alias / "state.json", {"synthetic": True})
     assert not (target / "state.json").exists()
-    with pytest.raises(data_safety.DestinationError):
-        data_safety.require_private_push(alias, "example-owner/private-vault")
 
 
 def test_dangling_git_boundary_cannot_fall_back_to_outer_private_repo(native_storage):

@@ -26,7 +26,7 @@ from datetime import timedelta
 from pathlib import Path
 
 from lib import find_config_dir, is_cut, iso, load_config, now_utc, parse_ts
-from data_safety import atomic_bytes, data_root, require_private
+from data_safety import atomic_bytes, data_root, check_destination
 from score import domain_factors, domain_factor_text
 
 CATCHUP_CAP = 30
@@ -34,7 +34,7 @@ CATCHUP_CAP = 30
 
 def resolve_archive_dir(explicit: str | None = None) -> Path:
     if explicit:
-        return Path(require_private(explicit)["path"])
+        return Path(check_destination(explicit)["path"])
     return data_root()
 
 

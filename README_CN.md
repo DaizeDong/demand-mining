@@ -122,7 +122,7 @@ A 78 · RICE=9 · 3证据
 [CONFIG.md](CONFIG.md)。纯离线函数可以使用内置默认值；真实采集、初始化和写入都需要先准备好私有仓。
 
 - **挂载：** `DEMAND_MINING_CONFIG` 优先，`DEMAND_MINING_CONFIG_DIR` 为别名，随后使用 Guards 的统一发现规则。`DEMAND_MINING_DATA_DIR` 必须属于同一个伴生仓。完整顺序与目录布局见 [CONFIG.md](CONFIG.md#discovery-convention-e2)。
-- **首次配置：** 先创建或克隆私有伴生仓，配置 origin，并准备已核验为 PRIVATE 的可见性记录，再运行初始化命令。
+- **首次配置：** 先创建或克隆私有伴生仓并配置 origin，再运行初始化命令。
   普通的未纳入版本管理的目录不满足要求。详见 [Configuration and DATA](docs/runtime-contract.md#configuration-and-data)。
   ```bash
   python scripts/init_config.py --product <slug>  # 生成骨架(确定性)
@@ -133,7 +133,7 @@ A 78 · RICE=9 · 3证据
   `export DEMAND_MINING_CONFIG=~/configs/work` ↔ `~/configs/personal`。
 - **必填配置：** 先核对 `product_id` 和 IANA `timezone`，连接已有的私有 ledger；采集还需要
   Discord 频道、token 引用和稳定的假名 salt。填写完成后再跑 doctor 和相应能力的 preflight。
-- **密钥：** 模板默认 Mode B，需要独立备份；明确选择 Mode A 后可在已核验的 PRIVATE Git
+- **密钥：** 模板默认 Mode B，需要独立备份；明确选择 Mode A 后可在 PRIVATE Git
   仓中版本化，并从其历史恢复。公开源码始终不放凭据。假名 salt 也可改由
   `$DEMAND_MINING_PSEUDONYM_SALT` 提供。
 

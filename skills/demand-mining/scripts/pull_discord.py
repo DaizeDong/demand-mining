@@ -32,7 +32,7 @@ from datetime import timedelta
 
 from lib import find_config_dir, load_config, read_bot_token, now_utc, parse_ts
 from redact import pseudonymize, redact, safe_text
-from data_safety import require_private
+from data_safety import check_destination
 
 API = "https://discord.com/api/v10"
 _HARD_CAP = 60000  # runaway backstop per channel; real pulls exhaust well before this
@@ -156,7 +156,7 @@ def main() -> int:
     ap.add_argument("--out", default=None, help="write corpus JSON here (default: stdout)")
     args = ap.parse_args()
     if args.out:
-        require_private(args.out)
+        check_destination(args.out)
     channels, token = _load_wiring()
     data = pull(channels, token, since_hours=args.since_hours, full=args.full)
     text = json.dumps(data, ensure_ascii=False)

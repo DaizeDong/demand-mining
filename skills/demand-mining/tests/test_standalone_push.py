@@ -346,26 +346,10 @@ def test_held_event_lock_never_falls_through_to_an_unlocked_call(event_repo, car
     assert len(confirmed) == 1
 
 
-def test_ignored_durable_event_is_refused_before_transport(event_repo, card, confirmed, monkeypatch):
+def test_event_outside_a_companion_worktree_is_refused_before_transport(event_repo, card, confirmed):
     import data_safety
-    import types
-    boundary = data_safety._storage_contract().load_boundary()
-    original = boundary.read_private_companion_git
-    def ignored(snapshot, *arguments):
-        if arguments[:4] == ("check-ignore", "--no-index", "-q", "--") and arguments[-1].endswith("/state.json"):
-            return types.SimpleNamespace(returncode=0, stdout="")
-        return original(snapshot, *arguments)
-    monkeypatch.setattr(boundary, "read_private_companion_git", ignored)
-    with pytest.raises(data_safety.DestinationError, match="ignored"):
+    (event_repo / ".git").rmdir()
+    with pytest.raises(data_safety.DestinationError, match="no containing Git worktree"):
         push_card.push_card(card)
     assert confirmed == []
     assert not (event_repo / "pool").exists()
-
-
-def test_event_contract_does_not_admit_arbitrary_siblings(event_repo, card, confirmed):
-    import data_safety
-    first = push_card.push_card(card)
-    target = Path(first["state_path"]).with_name("undeclared.json")
-    with pytest.raises(data_safety.DestinationError, match="exactly one owner"):
-        data_safety.atomic_json(target, {"synthetic": True})
-    assert not target.exists()

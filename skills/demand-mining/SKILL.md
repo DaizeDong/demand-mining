@@ -112,7 +112,7 @@ Guards discovery. `DEMAND_MINING_DATA_DIR` must select that companion's exact `p
 Invalid explicit selections fail; there is no XDG or public-repository fallback.
 
 Offline helpers may use `scripts/lib.py:DEFAULT_CONFIG`. Collection and writes require an
-initialized, verified PRIVATE companion, product identity, timezone, selected ledger and stable
+initialized PRIVATE companion, product identity, timezone, selected ledger and stable
 pseudonym salt as required by the chosen capability. Tune per-product policy in
 `products/<slug>/priority.json`. Follow [DATA.md](../../DATA.md) for artifact ownership and
 retention, and [the runtime contract](../../docs/runtime-contract.md) for recovery.

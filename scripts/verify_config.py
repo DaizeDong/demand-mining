@@ -92,15 +92,15 @@ def main():
     check("config dir exists", os.path.isdir(cfg))
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                                   "skills", "demand-mining", "scripts"))
-    from data_safety import require_private, data_root
+    from data_safety import check_destination, data_root
     from finalize import logical_identity
     from lib import load_config
     from redact import privacy_coverage
     from config_paths import selected_environment
     with selected_environment(cfg):
         for label, probe in (
-                ("config PRIVATE destination", lambda: require_private(cfg)),
-                ("DATA PRIVATE destination", data_root),
+                ("config in a companion outside the source tree", lambda: check_destination(cfg)),
+                ("DATA in a companion outside the source tree", data_root),
                 ("configured product and IANA timezone", lambda: logical_identity(load_config())),
                 ("working directory readable/writable", lambda: os.access(cfg, os.R_OK | os.W_OK))):
             try:
@@ -244,8 +244,8 @@ def main():
             txt = stream.read()
         check("Mode B .gitignore blocks secrets (secrets/* + *.env)",
               "secrets/" in txt and "*.env" in txt)
-    # Write admission refuses a versioned artifact that Git ignores, so an over-broad ignore
-    # rule stops that artifact's producer at its first write (DemandMiningDaemon, 2026-10-08).
+    # A versioned artifact that Git ignores is never committed by backup, so an over-broad
+    # ignore rule silently drops that artifact from the companion history (2026-10-08).
     check("declared versioned artifacts are not git-ignored", *ignore_policy_result(cfg))
 
     # self-contained check (E5): no absolute-path leakage in committed config files.

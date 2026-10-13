@@ -103,7 +103,7 @@ def product():
         "has_pii": lambda value: False,
         "redact": lambda value: {"redacted": value},
         "pseudonymize": lambda value: "u_" + hashlib.sha256(value.encode()).hexdigest()[:16],
-        "require_private": lambda path: {"path": str(path)},
+        "check_destination": lambda path: {"path": str(path)},
         "file_lock": lambda *args, **kwargs: contextlib.nullcontext(),
         "data_root": lambda: MemoryPath("synthetic/pool"),
         "atomic_json": atomic, "find_config_dir": lambda: MemoryPath("synthetic/config"),

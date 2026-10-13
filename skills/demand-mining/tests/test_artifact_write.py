@@ -1,84 +1,67 @@
-"""Exercise real source-contract ownership at production atomic write seams."""
-import importlib.util
+"""Atomic DATA writes are admitted by local path checks only and start no process."""
 import json
 from pathlib import Path
-from types import SimpleNamespace
+import subprocess
 
 import pytest
 
+import data_safety as storage
+
 ROOT = Path(__file__).resolve().parents[3]
+CONTENT = {"schema_version": 1, "label": "Synthetic transaction"}
 
 
-def generated():
-    spec = importlib.util.spec_from_file_location("artifact_fixture_builder", ROOT / "tools/make_fixtures.py")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module.artifact_write_scenario()
+@pytest.fixture
+def no_process(monkeypatch):
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: pytest.fail("path checks start no process"))
+    monkeypatch.setattr(subprocess, "Popen", lambda *a, **k: pytest.fail("path checks start no process"))
 
 
-@pytest.mark.parametrize("state", ["declared", "undeclared", "ignored"])
-def test_atomic_writer_enforces_source_contract(tmp_path, monkeypatch, state):
-    sample = generated()
-    target = tmp_path / (sample["undeclared"] if state == "undeclared" else sample["allowed"])
-    proof = SimpleNamespace(root=str(tmp_path), repositories=("example/synthetic-config",), signature="synthetic-proof")
-    def read(snapshot, *args):
-        ignored = state == "ignored" and args[0] == "check-ignore" and args[-1] == sample["allowed"]
-        return SimpleNamespace(returncode=(0 if ignored else 1) if args[0] == "check-ignore" else 0, stdout="synthetic-head")
-    boundary = SimpleNamespace(prove_private_companion=lambda *a: proof,
-                               read_private_companion_git=read, GitError=RuntimeError)
-    import data_safety as storage
-    monkeypatch.setattr(storage, "require_private", lambda path: {
-        "path": str(path), "root": str(tmp_path), "transport": "synthetic-proof"})
-    monkeypatch.setattr(storage._storage_contract(), "load_boundary", lambda: boundary)
+def companion(tmp_path):
+    root = tmp_path / "synthetic-companion"
+    (root / ".git").mkdir(parents=True)
+    return root
+
+
+def test_atomic_write_inside_a_companion_worktree(tmp_path, no_process):
+    root = companion(tmp_path)
+    target = root / "pool/runs/synthetic/state.json"
+    storage.atomic_json(target, CONTENT)
+    assert json.loads(target.read_text(encoding="utf-8")) == CONTENT
+    assert list((root / ".staging").iterdir()) == []
+    assert storage.check_destination(target) == {"path": str(target.resolve()), "root": str(root.resolve())}
+
+
+@pytest.mark.parametrize("where", ["unversioned", "source", "git-metadata", "parent-traversal"])
+def test_refused_destination_writes_nothing(tmp_path, no_process, where):
+    root = companion(tmp_path)
+    target = {
+        "unversioned": tmp_path / "loose/state.json",
+        "source": ROOT / "pool/synthetic-state.json",
+        "git-metadata": root / ".git/synthetic-state.json",
+        "parent-traversal": root / "pool/../../loose/state.json",
+    }[where]
     before = set(tmp_path.rglob("*"))
-    if state == "declared":
-        storage.atomic_json(target, sample["content"])
-        assert target.is_file()
-        assert json.loads(target.read_text(encoding="utf-8")) == sample["content"]
-    else:
-        with pytest.raises((RuntimeError, ValueError)):
-            storage.atomic_json(target, sample["content"])
-        assert not target.exists()
-        assert set(tmp_path.rglob("*")) == before
+    with pytest.raises(storage.DestinationError):
+        storage.atomic_json(target, CONTENT)
+    assert set(tmp_path.rglob("*")) == before
+    assert not (ROOT / "pool").exists()
 
 
-@pytest.mark.parametrize("change", ["publication", "temporary"])
-def test_atomic_publication_rejects_changed_proof_or_temporary(tmp_path, monkeypatch, change):
-    sample = generated()
-    target = tmp_path / sample["allowed"]
-    target.parent.mkdir(parents=True)
-    before = json.dumps(sample["content"]).encode()
-    target.write_bytes(before)
-    proof = SimpleNamespace(root=str(tmp_path), repositories=("example/synthetic-config",), signature="before")
-    boundary = SimpleNamespace(
-        prove_private_companion=lambda *args: proof,
-        read_private_companion_git=lambda snapshot, *args: SimpleNamespace(
-            returncode=1 if args[0] == "check-ignore" else 0, stdout="synthetic-head"),
-        GitError=RuntimeError)
-    import data_safety as storage
-    monkeypatch.setattr(storage, "require_private", lambda path: {
-        "path": str(path), "root": str(tmp_path), "transport": "cached-preflight"})
-    monkeypatch.setattr(storage._storage_contract(), "load_boundary", lambda: boundary)
-    original = storage.authorize_write
-    target_checks = []
-    replacements = []
+def test_existing_hardlinked_destination_is_refused(tmp_path, no_process):
+    root = companion(tmp_path)
+    original = root / "synthetic-original.json"
+    original.write_text("synthetic retained", encoding="utf-8")
+    target = root / "pool/state.json"
+    target.parent.mkdir()
+    target.hardlink_to(original)
+    with pytest.raises(storage.DestinationError, match="hardlinked"):
+        storage.atomic_json(target, CONTENT)
+    assert original.read_text(encoding="utf-8") == "synthetic retained"
 
-    def change_before_publication(path):
-        if Path(path) == target:
-            target_checks.append(path)
-            if len(target_checks) == 2:
-                if change == "publication":
-                    proof.signature = "changed"
-                else:
-                    temporary, = (tmp_path / ".staging").glob("atomic-*.tmp")
-                    temporary.rename(temporary.with_suffix(".held"))
-                    temporary.write_bytes(before)
-                    replacements.append(temporary)
-        return original(path)
 
-    monkeypatch.setattr(storage, "authorize_write", change_before_publication)
-    with pytest.raises(storage.DestinationError, match="changed"):
-        storage.atomic_json(target, sample["content"])
-    assert target.read_bytes() == before
-    if replacements:
-        assert replacements[0].read_bytes() == before
+def test_uninitialized_data_root_is_a_write_error(monkeypatch):
+    import config_paths
+    monkeypatch.setattr(config_paths, "data_directory", lambda: None)
+    with pytest.raises(storage.DestinationError, match="uninitialized"):
+        storage.data_root()

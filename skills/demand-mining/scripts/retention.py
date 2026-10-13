@@ -26,15 +26,15 @@ STATE = Path("pool/retention")
 
 
 def companion_root(path):
-    return Path(data_safety.require_private(path)["root"])
+    return Path(data_safety.check_destination(path)["root"])
 
 
 def _admit(companion):
-    proof = data_safety.require_private(companion)
-    root = Path(proof["path"])
-    if root != Path(proof["root"]):
+    checked = data_safety.check_destination(companion)
+    root = Path(checked["path"])
+    if root != Path(checked["root"]):
         raise ValueError("retention requires the exact PRIVATE companion root")
-    return root, proof["transport"]
+    return root
 
 
 def _policy(cfg):
@@ -138,7 +138,7 @@ def activity(companion, *, wait=0.0):
 
     `wait` bounds how long a caller queues behind another holder; the default refuses at once.
     """
-    root, _ = _admit(companion)
+    root = _admit(companion)
     with data_safety.file_lock(root / STATE / ".lock", timeout=wait):
         yield root
 
@@ -147,7 +147,7 @@ def _pool_roots(root):
     pools = [root / "pool"]
     override = os.environ.get("DEMAND_MINING_DATA_DIR")
     if override is not None:
-        extra = Path(data_safety.require_private(override)["path"])
+        extra = Path(data_safety.check_destination(override)["path"])
         if extra not in pools:
             pools.append(extra)
     return pools
@@ -196,7 +196,7 @@ def _pending(root):
 def plan_retention(companion, cfg, *, now=None):
     """Read-only preview: inspect names/metadata and hash eligible expired files."""
     policy = _policy(cfg)
-    root, transport = _admit(companion)
+    root = _admit(companion)
     now = time.time() if now is None else now
     if not _timestamp(now):
         raise ValueError("invalid retention clock")
@@ -229,7 +229,7 @@ def plan_retention(companion, cfg, *, now=None):
             manual.append(relative)
             continue
         items.append({**snapshot, "kind": kind, "captured_at": captured})
-    plan = {"schema_version": 1, "root": str(root), "transport": transport,
+    plan = {"schema_version": 1, "root": str(root),
             "policy": policy, "created_at": now, "registry": registry, "items": items}
     return {"plan": plan, "manual_review": manual}
 
@@ -259,9 +259,9 @@ def write_corpus(path, content, *, captured_at=None):
     captured_at = time.time() if captured_at is None else captured_at
     if not _timestamp(captured_at):
         raise ValueError("captured_at must be a nonnegative timestamp")
-    proof = data_safety.require_private(path)
-    path = Path(proof["path"])
-    with activity(proof["root"]) as root:
+    checked = data_safety.check_destination(path)
+    path = Path(checked["path"])
+    with activity(checked["root"]) as root:
         managed = artifact_kind(path.relative_to(root).as_posix()) == "raw"
         data_safety.atomic_bytes(path, content)
         if managed:
@@ -270,7 +270,7 @@ def write_corpus(path, content, *, captured_at=None):
 
 
 def write_plan(companion, plan):
-    root, _ = _admit(companion)
+    root = _admit(companion)
     return data_safety.atomic_json(root / STATE / "current-plan.json", plan)
 
 
@@ -306,7 +306,7 @@ def _apply(root, cfg, plan_path, approved_sha256, now):
         raise ValueError("reviewed retention plan changed")
     plan = json.loads(content)
     current = plan_retention(root, cfg, now=now)
-    for key in ("schema_version", "root", "transport", "policy", "registry"):
+    for key in ("schema_version", "root", "policy", "registry"):
         if plan.get(key) != json.loads(json.dumps(current["plan"][key])):
             raise ValueError("retention plan admission or policy changed")
     known = {item["path"]: item for item in current["plan"]["items"]}
@@ -323,7 +323,7 @@ def _apply(root, cfg, plan_path, approved_sha256, now):
     receipt_path = root / STATE / "latest-receipt.json"
     data_safety.atomic_json(receipt_path, receipt)
     for item in selected:
-        if _admit(root)[1] != current["plan"]["transport"] or _pending(root):
+        if _admit(root) != root or _pending(root):
             raise ValueError("retention admission or recovery state changed")
         _remove(root, item)
         receipt["deleted"].append(item["path"])
@@ -349,7 +349,7 @@ def enforce(companion, cfg, *, now=None, locked=False, lock_wait=0.0):
     if not locked:
         with activity(companion, wait=lock_wait) as root:
             return enforce(root, cfg, now=now, locked=True, lock_wait=lock_wait)
-    root, _ = _admit(companion)
+    root = _admit(companion)
     with _business_locks(root, wait=lock_wait):
         if _pending(root):
             return {"status": "deferred", "reason": "pending_recovery", "bytes": 0}
@@ -373,7 +373,7 @@ def main():
     companion = find_config_dir()
     if companion is None:
         raise ValueError("retention requires an initialized PRIVATE companion")
-    root, _ = _admit(companion)
+    root = _admit(companion)
     cfg = load_config()
     if args.action == "plan":
         report = plan_retention(root, cfg)

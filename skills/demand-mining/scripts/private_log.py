@@ -1,10 +1,10 @@
-"""Revalidate a PRIVATE destination before every durable log append."""
+"""Check the DATA log destination before every durable log append."""
 from contextlib import contextmanager
 from pathlib import Path
 import sys
 import traceback
 
-from data_safety import require_private
+from data_safety import check_destination
 
 
 class PrivateLogError(SystemExit):
@@ -20,8 +20,7 @@ class PrivateLog:
         self.closed = False
         self.failure = None
         try:
-            from data_safety import authorize_write
-            admitted = authorize_write(self.path)
+            admitted = check_destination(self.path)
             Path(admitted["path"]).parent.mkdir(parents=True, exist_ok=True)
         except Exception as exc:
             self._stop(exc)
@@ -38,8 +37,7 @@ class PrivateLog:
         if not value:
             return 0
         try:
-            from data_safety import authorize_write
-            admitted = authorize_write(self.path)
+            admitted = check_destination(self.path)
             options = {} if self.binary else {"encoding": "utf-8", "newline": ""}
             with open(admitted["path"], "ab" if self.binary else "a", **options) as stream:
                 count = stream.write(value)

@@ -222,7 +222,7 @@ class Review21Tests(unittest.TestCase):
         lib, _, run, _ = h.ready()
         finalizer = h.load("finalize")
         calls = []
-        finalizer.require_private = lambda path: {"path": str(path)}
+        finalizer.check_destination = lambda path: {"path": str(path)}
         finalizer.file_lock = lambda *a, **k: contextlib.nullcontext()
         finalizer.atomic_json = lambda *a, **k: calls.append("write") or h.forbidden()
         ledger = types.SimpleNamespace(list_active=lambda: [], upsert=lambda *a, **k: calls.append("upsert"))

@@ -9,7 +9,7 @@ import secrets
 import shutil
 import urllib.error
 
-from data_safety import atomic_json, data_root, file_lock, require_private
+from data_safety import atomic_json, data_root, file_lock, check_destination
 from finalize import digest, logical_identity, verify_manifest
 from lib import find_config_dir, load_config
 from redact import safe_data, safe_text, privacy_coverage, ensure_stable_salt
@@ -111,7 +111,7 @@ def preflight(config_dir=None, log_dir=None):
     directory = find_config_dir()
     if directory is None:
         raise ValueError("config directory missing; set DEMAND_MINING_CONFIG")
-    require_private(directory)
+    check_destination(directory)
     ensure_stable_salt()
     cfg = load_config()
     identity = logical_identity(cfg)
@@ -119,7 +119,7 @@ def preflight(config_dir=None, log_dir=None):
         raise ValueError("scheduled Discord collection needs a source_window with start and end")
     destination = data_root()
     log_dir = Path(log_dir).expanduser() if log_dir else destination / "logs"
-    require_private(log_dir)
+    check_destination(log_dir)
     if not directory.is_dir() or not os.access(directory, os.R_OK | os.W_OK):
         raise ValueError(f"working directory is unavailable: {directory}")
     relay = push_card._relay_cmd()
@@ -403,7 +403,7 @@ def execute(config_dir=None, log_dir=None, *, backup_enabled=None):
                     atomic_json(result["state_path"], durable_state)
                     atomic_json(active_path, active)
                 else:
-                    require_private(checkpoint_path)
+                    check_destination(checkpoint_path)
                     checkpoint_path.unlink()
                     result["backup"] = {**backup_result, "completion_snapshot": completion_backup}
             result["caller_path"] = str(caller_path)
@@ -424,10 +424,6 @@ def execute(config_dir=None, log_dir=None, *, backup_enabled=None):
 # for one plan/apply. Both waits are bounded so a stuck holder still ends the run, with a record.
 ACTIVITY_WAIT_SECONDS = 600.0
 BUSINESS_LOCK_WAIT_SECONDS = 300.0
-# A transient PRIVATE-proof refusal (a starved git child, a guards swap mid-proof) is retried for
-# this long before the run gives up; a refusal that persists still fails the run.
-ADMISSION_RETRY_SECONDS = 900.0
-ADMISSION_BACKOFF_SECONDS = (30.0, 120.0)
 FAILURE_LOG_NAME = "eod-failures.log"
 
 
@@ -465,16 +461,16 @@ def _failure_text(stage, exc):
 def _record_failure(stage, exc, log_dir=None):
     """Leave a durable reason before the process ends; returns where it went.
 
-    The private log directory is preferred. When the failure is the PRIVATE admission itself, the
+    The private log directory is preferred. When the failure is the destination check itself, the
     log write is refused too, so the note goes to the per-user location outside every repository.
     """
     text = _failure_text(stage, exc)
     try:
-        from data_safety import authorize_write
+        from data_safety import check_destination
         if log_dir is None:
             from config_paths import data_directory
             log_dir = Path(data_directory()) / "logs"
-        admitted = authorize_write(Path(log_dir).expanduser() / FAILURE_LOG_NAME)
+        admitted = check_destination(Path(log_dir).expanduser() / FAILURE_LOG_NAME)
         Path(admitted["path"]).parent.mkdir(parents=True, exist_ok=True)
         with open(admitted["path"], "a", encoding="utf-8", newline="") as stream:
             stream.write(text)
@@ -491,23 +487,6 @@ def _record_failure(stage, exc, log_dir=None):
         return "note"
     except Exception:
         return "none"
-
-
-def _admitted_preflight(config_dir, log_dir):
-    """Run preflight, retrying a PRIVATE-proof refusal for a bounded window."""
-    import time
-    from data_safety import DestinationError
-    deadline = time.monotonic() + ADMISSION_RETRY_SECONDS
-    delay, cap = ADMISSION_BACKOFF_SECONDS
-    while True:
-        try:
-            return preflight(config_dir, log_dir)
-        except DestinationError:
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                raise
-            time.sleep(min(delay, remaining))
-            delay = min(delay * 2, cap)
 
 
 def main():
@@ -527,7 +506,7 @@ def main():
     import retention
     stage, log_dir = "preflight", args.log_dir
     try:
-        cfg, directory, _, log_dir = _admitted_preflight(args.config_dir, args.log_dir)
+        cfg, directory, _, log_dir = preflight(args.config_dir, args.log_dir)
         stage = "retention_activity"
         with retention.activity(retention.companion_root(directory),
                                 wait=ACTIVITY_WAIT_SECONDS) as companion:

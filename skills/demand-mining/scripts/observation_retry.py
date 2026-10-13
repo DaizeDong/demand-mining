@@ -2,8 +2,7 @@
 
 The live daemon polls every `interval` seconds. A pending observation used to be retried on
 every poll forever and logged a line each time; one observation held by the privacy screen
-was retried 190 times in a day. Each retry and each log line ran the PRIVATE companion
-proof, so the retry loop was also what multiplied Git launches.
+was retried 190 times in a day.
 
 RetryBackoff counts polls. After the n-th consecutive failure the next attempt waits
 2**(n-1) polls, capped at RETRY_CAP_SECONDS, so with the default 90 s interval the waits are
@@ -14,9 +13,8 @@ error), and callers log only then.
 An observation held by the privacy screen PRIVACY_HOLD_LIMIT times is moved to
 `<pool dir>/quarantine/` in the PRIVATE companion instead of being retried again. The
 record keeps the ingest-redacted observation so an operator can review and replay it;
-nothing is discarded. The quarantine write uses the same PRIVATE admission as every other
-DATA write and raises when that admission fails, in which case the observation stays
-pending.
+nothing is discarded. The quarantine write uses the same destination checks as every other
+DATA write and raises when they fail, in which case the observation stays pending.
 """
 from __future__ import annotations
 
@@ -84,7 +82,7 @@ def quarantine_path(pool_path, record):
 
 
 def quarantine_observation(pool_path, record, *, writer=None):
-    """Persist one held observation in the PRIVATE companion; raises if that is refused."""
+    """Persist one held observation in the companion; raises if that is refused."""
     if writer is None:
         from data_safety import atomic_json as writer
     path = quarantine_path(pool_path, record)

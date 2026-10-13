@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
-"""Restart the gateway daemon and mediate its output into current PRIVATE logs.
+"""Restart the gateway daemon and mediate its output into the companion's logs.
 
 The child receives stdout/stderr pipes, never a log file descriptor. The supervisor
-checks the destination immediately before appending each chunk, including output
-without a newline. A refused destination stops the child at once and nothing is
-written or restarted until a fresh admission succeeds. Admission is retried with
+checks the destination path immediately before appending each chunk, including output
+without a newline. A refused destination or failed append stops the child at once and
+nothing is written or restarted until a new log handle succeeds. That is retried with
 backoff for --admission-retry-seconds; a refusal that outlasts that window stops
-the supervisor. One failed proof (a Git process that could not start, a file read
-that raced a writer) therefore no longer leaves the daemon down until the next logon.
+the supervisor, so one failed append no longer leaves the daemon down until the next logon.
 
 pythonw.exe discards stderr, so a fatal exit is recorded before the process ends: in
 supervisor.log when that destination is still admitted, otherwise in a local note
@@ -16,7 +15,7 @@ holds only the exception type and message, never daemon output.
 
 The supervisor and the daemon run under pythonw.exe, which has no console. Both make
 CREATE_NO_WINDOW the default for their own children (see no_console.py), and the daemon
-itself is launched with that flag, so no Git proof or helper process opens a window.
+itself is launched with that flag, so no helper process opens a window.
 """
 from __future__ import annotations
 
@@ -26,7 +25,7 @@ import subprocess
 import sys
 import time
 from no_console import install_no_console_window_default, no_window_kwargs
-from data_safety import DestinationError, data_root, require_private
+from data_safety import DestinationError, data_root, check_destination
 from private_log import PrivateLog, PrivateLogError
 
 # The supervisor log path, once known, so a fatal exit can be recorded there.
@@ -102,7 +101,7 @@ def _stop_child(child):
 
 
 def _run_child(argv, env, log):
-    require_private(log.path)
+    check_destination(log.path)
     child = subprocess.Popen(argv, env=env, stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT, bufsize=0, **no_window_kwargs())
     try:
@@ -131,7 +130,7 @@ def main() -> int:
     ap.add_argument("--min-backoff", type=float, default=5.0)
     ap.add_argument("--max-backoff", type=float, default=300.0)
     ap.add_argument("--admission-retry-seconds", type=float, default=3600.0,
-                    help="how long a refused log or config destination is re-proved before the supervisor stops")
+                    help="how long a refused log or config destination is retried before the supervisor stops")
     args = ap.parse_args()
     global _SUPERVISOR_LOG
 
@@ -148,8 +147,8 @@ def main() -> int:
 
     while True:
         try:
-            # Nothing below writes or launches before require_private and a fresh log admission.
-            require_private(args.config_dir)
+            # Nothing below writes or launches before the config and log destinations are checked.
+            check_destination(args.config_dir)
             if sup_path is None:
                 args.log_dir = args.log_dir or str(data_root() / "logs")
                 sup_path = _SUPERVISOR_LOG = os.path.join(args.log_dir, "supervisor.log")

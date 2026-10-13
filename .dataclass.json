@@ -15,7 +15,7 @@
     "",
     "Enforced by tools/data_boundary.py in .githooks and in CI."
   ],
-  "_audited": "Real writers now validate actual destinations against a verified PRIVATE repository before corpus, pool, ledger, archive, receipt, run-state, cursor, daemon-log or backup writes. Explicit invalid configuration fails closed. Source data remains empty because each writer resolves outside the public consumer and cannot use a repository-local fallback.",
+  "_audited": "Real writers check that actual destinations sit in a separate Git worktree outside this public source tree (path checks only; visibility is not checked at runtime) before corpus, pool, ledger, archive, receipt, run-state, cursor, daemon-log or backup writes. Explicit invalid configuration fails closed. Source data remains empty because each writer resolves outside the public consumer and cannot use a repository-local fallback.",
   "_readme_diagrams": "TOOL: docs/diagrams/*.dot, *.png and render.py describe the shipped workflow using public code and documentation; they contain no real-run observations.",
   "data": [
     ".staging/"
@@ -44,5 +44,5 @@
     "skills/demand-mining/tests/test_retention.py",
     "skills/demand-mining/tests/test_standalone_push.py"
   ],
-  "_data_home": "PRIVATE companion pool/ by default, overridden by DEMAND_MINING_DATA_DIR; every actual destination is verified before writes. See docs/runtime-contract.md."
+  "_data_home": "PRIVATE companion pool/ by default, overridden by DEMAND_MINING_DATA_DIR; every actual destination is path-checked before writes. See docs/runtime-contract.md."
 }

@@ -1,8 +1,8 @@
 """A companion ignore rule must never hide an artifact the storage contract declares versioned.
 
 Regression for DemandMiningDaemon (2026-10-08): the companion ignored pool/** without
-re-including pool/logs/, write admission refused the supervisor's own log, and the
-supervisor exited on every start. All companions here are synthetic temporary repositories.
+re-including pool/logs/, so a versioned log could never be committed. All companions here
+are synthetic temporary repositories.
 """
 import json
 import os
@@ -12,8 +12,9 @@ import sys
 
 import pytest
 
+import importlib.util
+
 import companion_ignores
-import data_safety
 from no_console import no_window_kwargs
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -21,6 +22,16 @@ CONTRACT = json.loads((ROOT / "storage.contract.json").read_text(encoding="utf-8
 sys.path.insert(0, str(ROOT / "scripts"))
 import init_config  # noqa: E402
 import verify_config  # noqa: E402
+
+
+def storage_contract():
+    """The shared contract parser from the pinned Guards kit (a static check, not a runtime path)."""
+    spec = importlib.util.spec_from_file_location(
+        "demand_mining_contract_parser", ROOT / "guards/tools/storage_contract.py")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 def git_env():
@@ -79,9 +90,9 @@ def test_reincluding_the_log_directory_at_every_depth_admits_it(tmp_path):
     (ONE_LEVEL, "pool/logs/archive/daemon-2026-01-01.log", True),
     (ANY_DEPTH, "pool/logs/archive/daemon-2026-01-01.log", False),
 ])
-def test_the_check_agrees_with_write_admission(tmp_path, ignore_text, path, ignored):
-    # The probe is only useful if it reports what admission would refuse. Admission uses the
-    # same `git check-ignore --no-index`; compare on real log paths at both probed depths.
+def test_the_check_agrees_with_git_ignore(tmp_path, ignore_text, path, ignored):
+    # The probe is only useful if it reports what Git ignores. Compare it with
+    # `git check-ignore --no-index` on real log paths at both probed depths.
     root = companion(tmp_path, ignore_text)
     probe = subprocess.run(["git", "-C", str(root), "check-ignore", "--no-index", "-q", path],
                            env=git_env(), **no_window_kwargs())
@@ -109,7 +120,7 @@ def test_every_exemption_names_a_declared_versioned_artifact(artifact_id):
 
 
 def test_every_sample_path_is_owned_by_its_own_artifact():
-    module = data_safety._storage_contract()
+    module = storage_contract()
     for artifact_id, path in companion_ignores.versioned_artifacts(CONTRACT):
         owners = [a["artifact_id"] for a in module.owners(CONTRACT, path)]
         assert owners == [artifact_id], (artifact_id, path, owners)

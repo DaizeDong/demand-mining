@@ -126,7 +126,7 @@ requested manual research. Automated collection and archive ingestion remain def
 
 The companion is separate and PRIVATE. The template defaults to Mode B: ignored secrets
 need a separate protected backup and must be restored before use. A selected Mode A may version
-credentials in verified PRIVATE Git and restore them from that private history. Declare the mode
+credentials in PRIVATE Git and restore them from that private history. Declare the mode
 in `secrets/README.md` and align its ignore rules. Neither mode permits credentials in public source
 or printed output. Secrets used by demand-mining:
 
@@ -143,9 +143,9 @@ deterministic. Not a config field, an env override for reproducibility.
 
 ## First-time setup (E3)
 
-Create or clone the private companion repository, configure its origin, and prepare the
-verified PRIVATE visibility receipt before running `init_config.py`. A plain directory is
-not sufficient. The exact destination and transport checks are documented in
+Create or clone the private companion repository and configure its origin before running
+`init_config.py`. A plain directory is not sufficient: DATA must sit in a Git worktree
+outside this repository. The destination checks are documented in
 [Configuration and DATA](docs/runtime-contract.md#configuration-and-data).
 
 ```bash

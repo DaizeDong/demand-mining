@@ -11,7 +11,7 @@ later changes on main without inventing another release.
   dry execution, direct replies in shadow mode and authorized community activity in live mode.
 - Installed `llmcall` proposes candidates. The local deterministic tail binds observations,
   scores and deduplicates candidates, applies evidence and privacy gates, and prepares the digest.
-- PRIVATE companion verification precedes initialization and real DATA writes. Pool, digest and
+- A separate companion worktree is required before initialization and real DATA writes. Pool, digest and
   ledger operations preserve evidence and expose failures; a successful process alone is not a delivery receipt.
 - RICE, Opportunity and WSJF describe different ranking questions; Kano describes need type.
   The scores are reproducible calculations over supplied evidence, not calibrated predictions by themselves.
@@ -32,4 +32,4 @@ These are remaining capabilities or acceptance requirements, not descriptions of
 
 ## Configuration and storage acceptance
 
-Companion selection and write admission use the source contracts. Synthetic regressions cover conflicting roots, absent setup and undeclared or ignored writes. Current provider connectivity, delivery and restore success require separate operational evidence. Shared-bot demand taps, automatic public-demand ingestion and competitor collection remain deferred integrations; manual external evidence must carry independent provenance. No empty template, static document check or path classification establishes readiness or authorizes deletion.
+Companion selection uses the source contracts and writes are path-checked. Synthetic regressions cover conflicting roots, absent setup and destinations outside the companion. Current provider connectivity, delivery and restore success require separate operational evidence. Shared-bot demand taps, automatic public-demand ingestion and competitor collection remain deferred integrations; manual external evidence must carry independent provenance. No empty template, static document check or path classification establishes readiness or authorizes deletion.

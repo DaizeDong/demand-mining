@@ -22,84 +22,6 @@ CASES = json.loads((Path(__file__).parent / "fixtures/repair_cases.json").read_t
 REVIEW = CASES["review15"]
 
 
-@pytest.fixture
-def transport(tmp_path, monkeypatch):
-    root = tmp_path / "companion"
-    root.mkdir()
-    profile = tmp_path / "profile"
-    profile.mkdir()
-    for key in list(os.environ):
-        if key.upper().startswith("GIT_"):
-            monkeypatch.delenv(key, raising=False)
-    monkeypatch.setenv("HOME", str(profile))
-    monkeypatch.setenv("USERPROFILE", str(profile))
-    if os.name == "nt":
-        monkeypatch.setenv("ProgramData", str(profile / "program-data"))
-        import ctypes
-        def profile_folder(window, folder, token, flags, buffer):
-            buffer.value = str(profile)
-            return 0
-        monkeypatch.setattr(ctypes.windll.shell32, "SHGetFolderPathW", profile_folder)
-    monkeypatch.setenv("GIT_CONFIG_GLOBAL", os.devnull)
-    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
-    clean_env = dict(os.environ)
-    subprocess.run(["git", "-C", str(root), "init", "-q"], check=True, capture_output=True)
-    subprocess.run(["git", "-C", str(root), "-c", "user.name=Synthetic Fixture",
-                    "-c", "user.email=user1@example.com", "commit", "--allow-empty",
-                    "-m", "synthetic baseline"], env=clean_env, check=True, capture_output=True)
-    base_config = (root / ".git/config").read_bytes()
-    state = {"url": REVIEW["transport"][0]["url"], "config": [], "calls": []}
-    receipt = profile / "visibility.json"
-    receipt.write_text(json.dumps({"_refreshed": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        "example/demand-mining-config": "PRIVATE", "example/other-config": "PRIVATE"}), encoding="utf-8")
-    api = data_safety._guard_api()
-    ssh_config = profile / "ssh_config"
-    ssh_config.write_text("Host github.com\n    HostName github.com\n    User git\n"
-                          "    StrictHostKeyChecking yes\n", encoding="utf-8")
-    monkeypatch.setattr(api, "_ssh_config_paths", lambda: [str(ssh_config)])
-
-    def companion(directory):
-        (root / ".git/config").write_bytes(base_config)
-        entries = [("remote.origin.url", state["url"]), *state["config"]]
-        if "push" in state:
-            entries.append(("remote.origin.pushurl", state["push"]))
-        for key, value in entries:
-            subprocess.run(["git", "-C", str(root), "config", "--add", key, value or ""],
-                           env=clean_env, check=True, capture_output=True)
-        return api.prove_private_companion(directory, visibility_map=receipt)
-
-    monkeypatch.setattr(data_safety, "_companion_proof", companion)
-    artifact_boundary = types.SimpleNamespace(
-        prove_private_companion=lambda directory, *args: companion(directory),
-        read_private_companion_git=api.read_private_companion_git, GitError=api.GitError)
-    monkeypatch.setattr(data_safety._storage_contract(), "load_boundary", lambda: artifact_boundary)
-    return root, state
-
-
-@pytest.mark.parametrize("case", REVIEW["transport"], ids=lambda case: case["name"])
-def test_data_write_binds_effective_transport(transport, monkeypatch, case):
-    root, state = transport
-    state.update(copy.deepcopy(case))
-    for key, value in case["env"].items():
-        monkeypatch.setenv(key, value)
-    destination = root / "pool/runs/synthetic/state.json"
-    if case["allowed"]:
-        data_safety.atomic_json(destination, {"synthetic": True})
-        assert destination.is_file()
-    else:
-        with pytest.raises(data_safety.DestinationError):
-            data_safety.atomic_json(destination, {"synthetic": True})
-        assert not destination.parent.exists()
-
-
-def test_push_rechecks_transport_after_admission(transport, monkeypatch):
-    root, state = transport
-    proof = data_safety.require_private(root / "record.json")
-    monkeypatch.setenv("GIT_SSL_NO_VERIFY", "1")
-    with pytest.raises(data_safety.DestinationError):
-        data_safety.require_private_push(root, proof["repository"])
-
-
 @pytest.mark.parametrize("mode", ["discovered", "explicit-config", "explicit-salt"])
 def test_salt_discovery_matches_preflight_across_fresh_states(tmp_path, monkeypatch, mode):
     import config_paths
@@ -320,16 +242,7 @@ def test_repeated_ready_events_own_one_classification_task():
             task.coroutine.close()
 
 
-@pytest.mark.parametrize("transport_name", ["ssh", "scoped-https"])
-def test_permitted_transports_keep_nonrouting_configuration(transport, transport_name):
-    root, state = transport
-    state.update(copy.deepcopy(REVIEW["permitted_transport"][transport_name]))
-    proof = data_safety.require_private(root / "synthetic.json")
-    assert proof["repository"] == "example/demand-mining-config"
-
-
-@pytest.mark.parametrize("change", [False, True], ids=["healthy", "changed-before-push"])
-def test_backup_uses_current_transport_proof_at_actual_launcher(tmp_path, monkeypatch, change):
+def test_backup_commits_and_pushes_declared_files_without_a_destination_query(tmp_path, monkeypatch):
     spec = importlib.util.spec_from_file_location("_review15_backup", Path(data_safety.__file__).with_name("backup.py"))
     backup = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(backup)
@@ -339,61 +252,22 @@ def test_backup_uses_current_transport_proof_at_actual_launcher(tmp_path, monkey
     record = root / "pool/runs/synthetic/state.json"
     record.parent.mkdir(parents=True)
     record.write_text(json.dumps(REVIEW["backup_record"]), encoding="utf-8")
-    state = {"config": "", "pushes": 0}
-    monkeypatch.setattr(data_safety, "_companion_proof", lambda directory: types.SimpleNamespace(
-        root=str(root), repositories=("example/demand-mining-config",), signature=state["config"]))
-
-    def artifact_git(snapshot, *args):
-        if args == ("rev-parse", "--verify", "HEAD"):
-            return types.SimpleNamespace(returncode=0, stdout="synthetic-head")
-        if args == ("check-ignore", "--no-index", "-q", "--", record.relative_to(root).as_posix()):
-            return types.SimpleNamespace(returncode=1, stdout="")
-        if (len(args) == 5 and args[:4] == ("check-ignore", "--no-index", "-q", "--")
-                and re.fullmatch(r"\.demand-backup-index-[0-9a-f]{32}(?:\.lock)?", args[4])):
-            return types.SimpleNamespace(returncode=1, stdout="")
-        raise AssertionError("unapproved synthetic artifact Git command")
-
-    artifact_boundary = types.SimpleNamespace(
-        prove_private_companion=lambda directory, *args: data_safety._companion_proof(directory),
-        read_private_companion_git=artifact_git, GitError=data_safety.DestinationError)
-    monkeypatch.setattr(data_safety._storage_contract(), "load_boundary", lambda: artifact_boundary)
+    calls = []
 
     def child(argv, **kwargs):
         args = argv[3:]
-        if args == ["rev-parse", "--show-toplevel"]:
-            output = str(root)
-        elif args[0] == "config":
-            output = state["config"]
-        elif args[:2] == ["remote", "get-url"]:
-            output = REVIEW["transport"][0]["url"]
-        elif args[0] in {"read-tree", "add", "diff", "commit", "push"}:
-            output = ""
-            if args[0] == "add" and change:
-                key, value = next(case for case in REVIEW["transport"] if case["name"] == "blocked-config-0")["config"][0]
-                state["config"] = key + "\n" + value + "\0"
-            if args[0] == "push":
-                state["pushes"] += 1
-                assert kwargs["env"]["GIT_OPTIONAL_LOCKS"] == "0"
-        else:
+        if args[0] not in {"read-tree", "add", "diff", "commit", "push"}:
             raise AssertionError("unexpected synthetic Git command")
-        return subprocess.CompletedProcess(argv, 0, stdout=output, stderr="")
+        calls.append(args[0])
+        if args[0] == "push":
+            assert kwargs["env"]["GIT_OPTIONAL_LOCKS"] == "0"
+        return subprocess.CompletedProcess(argv, 0, stdout="", stderr="")
 
     monkeypatch.setattr(data_safety.subprocess, "run", child)
-    if change:
-        with pytest.raises((data_safety.DestinationError, ValueError)):
-            backup._backup_locked([record])
-        assert state["pushes"] == 0
-    else:
-        assert backup._backup_locked([record])["status"] == "confirmed"
-        assert state["pushes"] == 1
-
-
-def test_git_push_without_an_admitted_proof_never_launches(tmp_path, monkeypatch):
-    calls = []
-    monkeypatch.setattr(data_safety.subprocess, "run", lambda *args, **kwargs: calls.append(args))
-    with pytest.raises(data_safety.DestinationError):
-        data_safety.git(tmp_path, "push", "origin", "HEAD")
-    assert calls == []
+    result = backup._backup_locked([record])
+    assert result == {"status": "confirmed", "files": ["pool/runs/synthetic/state.json"], "committed": False}
+    assert calls == ["read-tree", "add", "diff", "push"]
+    assert [p.name for p in root.iterdir() if p.name.startswith(".demand-backup-index-")] == []
 
 
 def test_unexpected_worker_exit_restarts_with_the_same_pending_batch():

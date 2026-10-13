@@ -13,7 +13,7 @@ from pathlib import Path
 import secrets
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from data_safety import atomic_json, data_root, file_lock, require_private
+from data_safety import atomic_json, data_root, file_lock, check_destination
 from lib import iso, now_utc, parse_ts
 from redact import safe_data, safe_text
 import dedup as dd
@@ -158,7 +158,7 @@ def _load(path):
 
 
 def _artifact(path):
-    path = Path(require_private(path)["path"])
+    path = Path(check_destination(path)["path"])
     content = path.read_bytes()
     return {"path": str(path), "bytes": len(content),
             "sha256": hashlib.sha256(content).hexdigest()}
@@ -201,11 +201,10 @@ def _event_identity(identity):
 
 
 def _event_paths(identity):
-    from data_safety import authorize_write
     directory = data_root() / "card-deliveries" / digest(identity)
     state_path, receipt_path = directory / "state.json", directory / "receipt.json"
     for path in (state_path, receipt_path):
-        authorize_write(path)
+        check_destination(path)
     return state_path, receipt_path
 
 
@@ -287,8 +286,7 @@ def deliver_event(identity, message):
 
 def reconcile_event(state_path, adapter_receipt):
     """Accept bound evidence for one attempted standalone card event without sending."""
-    from data_safety import authorize_write
-    state_path = Path(authorize_write(state_path)["path"])
+    state_path = Path(check_destination(state_path)["path"])
     with file_lock(state_path.parent / ".lock"):
         state, saved = _load_event(state_path)
         receipt = _receipt(adapter_receipt, state["identity"], state["content_sha256"])
@@ -311,7 +309,7 @@ def _pending(plan, state, state_path):
 
 def reconcile(state_path, adapter_receipt):
     """Persist operator-supplied receipt evidence; never issues another send."""
-    state_path = Path(require_private(state_path)["path"])
+    state_path = Path(check_destination(state_path)["path"])
     with file_lock(state_path.parent / ".lock"):
         state = _load(state_path)
         manifest = verify_manifest(state["manifest_path"], state["identity"])
@@ -333,7 +331,7 @@ def reconcile(state_path, adapter_receipt):
 def _implicit_finalize(candidates, cfg, ledger, run_id, archive_dir, identity, attempt_id):
     """Freeze the default cutoff for legacy direct callers, including restarts."""
     base = Path(archive_dir).expanduser() if archive_dir else data_root()
-    require_private(base)
+    check_destination(base)
     key = digest({name: identity[name] for name in ("product_id", "timezone")})
     pointer = base / "implicit" / key / "active.json"
     history_path = pointer.parent / "completed.json"
@@ -417,7 +415,7 @@ def finalize(candidates, cfg, ledger=None, dry_run=False, run_id=None, archive_d
     if ledger is None:
         raise ValueError("a durable ledger is required for a real run")
     base = Path(archive_dir).expanduser() if archive_dir else data_root()
-    require_private(base)
+    check_destination(base)
     run_dir = base / "runs" / run_key
     state_path, plan_path = run_dir / "state.json", run_dir / "plan.json"
     input_sha = digest({"candidates": candidates, "collection": collection})
@@ -463,7 +461,7 @@ def finalize(candidates, cfg, ledger=None, dry_run=False, run_id=None, archive_d
         plan["result"]["digest_path"] = state["digest_path"]
         if state["phase"] == "delivery_unknown":
             try:
-                saved_receipt = _load(require_private(run_dir / "receipt.json")["path"])
+                saved_receipt = _load(check_destination(run_dir / "receipt.json")["path"])
             except FileNotFoundError:
                 return _pending(plan, state, state_path)
             receipt = _receipt(saved_receipt, identity, manifest["content_sha256"])

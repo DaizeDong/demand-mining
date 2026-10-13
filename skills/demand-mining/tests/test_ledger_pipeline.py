@@ -6,7 +6,6 @@ The offline pipeline tests need no external checkout. Asserts: canonical_key UPS
 isolation, and that PII in the raw input never reaches the pushed/archived card.
 """
 import os
-import datetime
 import hashlib
 import json
 from pathlib import Path
@@ -26,16 +25,11 @@ CFG = load_config()
 
 @pytest.fixture
 def native_ledger(tmp_path, monkeypatch):
-    """Use real Git, the real reminder CLI and a synthetic local visibility receipt."""
+    """Use real Git and the real reminder CLI against a synthetic companion."""
     reminder_source = require_reminder_source()
     case = json.loads((Path(__file__).parent / "fixtures/repair_cases.json").read_text())["native_ledger"]
     profile = tmp_path / "profile"
-    receipt_dir = profile / ".pii-guard"
-    receipt_dir.mkdir(parents=True)
-    repository = case["repository"]
-    (receipt_dir / "visibility.json").write_text(json.dumps({
-        repository: "PRIVATE", "_refreshed": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        "_verified": {repository: {"v": "PRIVATE"}}}), encoding="utf-8")
+    profile.mkdir()
     monkeypatch.setenv("USERPROFILE", str(profile))
     monkeypatch.setenv("HOME", str(profile))
     monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")

@@ -1,9 +1,9 @@
-"""Windowless child processes, PRIVATE proof reuse and bounded live retries.
+"""Windowless child processes, process-free destination checks and bounded live retries.
 
 Regression for a terminal-window storm: the daemon runs under pythonw.exe (no console), every
-log line and pool write ran the PRIVATE companion proof (about twenty git.exe launches), none of
-those launches asked for CREATE_NO_WINDOW, and one held observation was retried every poll
-forever. All data below is synthetic.
+log line and pool write used to launch git.exe, none of those launches asked for
+CREATE_NO_WINDOW, and one held observation was retried every poll forever. Destination checks
+are now path-only and start no process. All data below is synthetic.
 """
 import ast
 import contextlib
@@ -94,7 +94,7 @@ def test_supervisor_launches_daemon_without_a_window(monkeypatch, platform, expe
         return Child()
 
     monkeypatch.setattr(sys, "platform", platform)
-    monkeypatch.setattr(daemon_supervisor, "require_private", lambda path: {"path": str(path)})
+    monkeypatch.setattr(daemon_supervisor, "check_destination", lambda path: {"path": str(path)})
     monkeypatch.setattr(daemon_supervisor, "subprocess", types.SimpleNamespace(
         Popen=popen, PIPE=-1, STDOUT=-2, TimeoutExpired=subprocess.TimeoutExpired))
     log = types.SimpleNamespace(path="synthetic.log", write=lambda chunk: len(chunk))
@@ -179,131 +179,46 @@ def test_real_popen_passes_create_no_window_to_createprocess(monkeypatch, instal
     assert bool(seen[-1] & no_console.CREATE_NO_WINDOW) is installed
 
 
-# --------------------------------------------------------------------------- proof reuse
+# --------------------------------------------------------------------------- destination checks
 
 @pytest.fixture
 def companion(tmp_path, monkeypatch):
-    profile = tmp_path / "profile"
-    (profile / ".pii-guard").mkdir(parents=True)
-    receipt = profile / ".pii-guard/visibility.json"
-    receipt.write_text(json.dumps({"example-owner/private-vault": "PRIVATE"}), encoding="utf-8")
-    for key in ("HOME", "USERPROFILE"):
-        monkeypatch.setenv(key, str(profile))
     root = tmp_path / "private"
     (root / ".git").mkdir(parents=True)
-    (root / ".git/config").write_text("[core]\n", encoding="utf-8")
-    state = {"proofs": 0, "visibility": "PRIVATE"}
+    launches = []
 
-    def transport(directory):
-        state["proofs"] += 1
-        if state["visibility"] != "PRIVATE":
-            raise data_safety.DestinationError("synthetic companion is not PRIVATE")
-        return {"root": str(directory), "repository": "example-owner/private-vault",
-                "repositories": ("example-owner/private-vault",), "sha256": "synthetic"}
+    def refuse(*args, **kwargs):
+        launches.append(args)
+        raise AssertionError("a destination check started a process")
 
-    clock = [1000.0]
-    monkeypatch.setattr(data_safety, "_transport_proof", transport)
-    monkeypatch.setattr(data_safety, "time", types.SimpleNamespace(monotonic=lambda: clock[0]))
-    monkeypatch.setattr(data_safety, "PROOF_CACHE_TTL", 600.0)
-    data_safety.clear_proof_cache()
-
-    def revoke():
-        state["visibility"] = "PUBLIC"
-        receipt.write_text(json.dumps({"example-owner/private-vault": "PUBLIC", "_note": "revoked"}),
-                           encoding="utf-8")
-
-    return types.SimpleNamespace(root=root, state=state, clock=clock, revoke=revoke, receipt=receipt)
+    monkeypatch.setattr(subprocess, "run", refuse)
+    monkeypatch.setattr(subprocess, "Popen", refuse)
+    return types.SimpleNamespace(root=root, launches=launches)
 
 
-def test_successful_proof_is_reused_within_ttl(companion):
+def test_destination_checks_and_durable_writes_start_no_process(companion):
     for name in ("a.log", "b.log", "nested/c.json"):
-        assert data_safety.require_private(companion.root / name)["visibility"] == "PRIVATE"
-    assert companion.state["proofs"] == 1
-    companion.clock[0] += 599
-    data_safety.require_private(companion.root / "d.log")
-    assert companion.state["proofs"] == 1
-    companion.clock[0] += 2  # past the TTL
-    data_safety.require_private(companion.root / "e.log")
-    assert companion.state["proofs"] == 2
+        checked = data_safety.check_destination(companion.root / name)
+        assert checked["root"] == str(companion.root.resolve())
+    with PrivateLog(companion.root / "pool/logs/daemon.log") as log:
+        for index in range(20):
+            log.write("synthetic line %d\n" % index)
+    data_safety.atomic_json(companion.root / "pool/runs/synthetic/state.json", {"synthetic": True})
+    with data_safety.file_lock(companion.root / "pool/.lock", timeout=1):
+        pass
+    assert companion.launches == []
 
 
-def test_failed_proof_is_never_cached(companion):
-    companion.state["visibility"] = "PUBLIC"
-    for _ in range(3):
-        with pytest.raises(data_safety.DestinationError):
-            data_safety.require_private(companion.root / "a.log")
-    assert companion.state["proofs"] == 3
-    companion.state["visibility"] = "PRIVATE"
-    data_safety.require_private(companion.root / "a.log")
-    assert companion.state["proofs"] == 4
-
-
-@pytest.mark.parametrize("change", ["receipt", "repo_config", "environment", "proof_seam"])
-def test_signature_change_forces_a_fresh_proof(companion, monkeypatch, change):
-    data_safety.require_private(companion.root / "a.log")
-    if change == "receipt":
-        companion.receipt.write_text(json.dumps({"example-owner/private-vault": "PRIVATE",
-                                                 "_refreshed": "later"}), encoding="utf-8")
-    elif change == "repo_config":
-        (companion.root / ".git/config").write_text(
-            "[remote \"origin\"]\n\turl = https://github.com/example-owner/other.git\n", encoding="utf-8")
-    elif change == "environment":
-        monkeypatch.setenv("GIT_SSH_VARIANT", "ssh")
-    else:
-        monkeypatch.setattr(data_safety, "_companion_proof", lambda directory: None)
-    data_safety.require_private(companion.root / "b.log")
-    assert companion.state["proofs"] == 2
-
-
-def test_revocation_is_caught_at_the_next_write_inside_the_ttl(companion, monkeypatch):
-    def prove(directory, *args):
-        proof = data_safety._transport_proof(directory)
-        return types.SimpleNamespace(root=proof["root"], repositories=proof["repositories"],
-                                     signature=proof["sha256"])
-    def read(snapshot, *args):
-        if args == ("rev-parse", "--verify", "HEAD"):
-            return types.SimpleNamespace(returncode=0, stdout="synthetic-head")
-        if args[:4] == ("check-ignore", "--no-index", "-q", "--"):
-            return types.SimpleNamespace(returncode=1, stdout="")
-        raise AssertionError("unapproved synthetic artifact Git command")
-    boundary = types.SimpleNamespace(prove_private_companion=prove,
-                                     read_private_companion_git=read,
-                                     GitError=data_safety.DestinationError)
-    monkeypatch.setattr(data_safety._storage_contract(), "load_boundary", lambda: boundary)
+def test_refused_destination_is_caught_at_the_next_write(companion):
     path = companion.root / "pool/logs/daemon.log"
     with PrivateLog(path) as log:
         log.write("synthetic first line\n")
-        companion.revoke()
+        alias = companion.root / "elsewhere.log"
+        alias.hardlink_to(path)
         with pytest.raises(PrivateLogError):
             log.write("synthetic second line\n")
     assert path.read_text(encoding="utf-8") == "synthetic first line\n"
-    with pytest.raises(data_safety.DestinationError):
-        data_safety.atomic_json(companion.root / "pool/runs/synthetic/state.json", {"synthetic": True})
-    assert not (companion.root / "pool/runs/synthetic/state.json").exists()
-
-
-def test_negative_control_without_signature_change_the_cache_hides_an_in_memory_flip(companion):
-    # Proves the reuse is real: a revocation that changes no proof input is only seen at expiry.
-    data_safety.require_private(companion.root / "a.log")
-    companion.state["visibility"] = "PUBLIC"
-    data_safety.require_private(companion.root / "b.log")
-    companion.clock[0] += 601
-    with pytest.raises(data_safety.DestinationError):
-        data_safety.require_private(companion.root / "c.log")
-
-
-def test_backup_push_admission_always_proves_fresh(companion):
-    data_safety.require_private(companion.root / "a.log")
-    data_safety.require_private_push(companion.root, "example-owner/private-vault")
-    data_safety.require_private_push(companion.root, "example-owner/private-vault")
-    assert companion.state["proofs"] == 3
-
-
-def test_ttl_zero_disables_reuse(companion, monkeypatch):
-    monkeypatch.setattr(data_safety, "PROOF_CACHE_TTL", 0)
-    for _ in range(3):
-        data_safety.require_private(companion.root / "a.log")
-    assert companion.state["proofs"] == 3
+    assert companion.launches == []
 
 
 # --------------------------------------------------------------------------- backoff
@@ -433,7 +348,7 @@ def test_refused_quarantine_keeps_the_observation_pending(bot_module, tmp_path, 
         raise PrivacyReviewRequired("synthetic hold")
 
     def refuse(path, value):
-        raise data_safety.DestinationError("synthetic companion is not PRIVATE")
+        raise data_safety.DestinationError("synthetic destination refused")
 
     monkeypatch.setattr(data_safety, "atomic_json", refuse)
     bot = live_bot(bot_module, tmp_path, held, [])
@@ -511,10 +426,10 @@ def summary_bot(module, tmp_path, monkeypatch, *, send_ok=True):
     bot.logs = []
     bot.log = bot.logs.append
     bot._render_summary = lambda today: "CSV export needs retries."
-    proofs = []
+    checks = []
 
-    def require_private(path):
-        proofs.append(str(path))
+    def check_destination(path):
+        checks.append(str(path))
         return {"path": str(path)}
 
     def atomic_json(path, value):
@@ -528,10 +443,10 @@ def summary_bot(module, tmp_path, monkeypatch, *, send_ok=True):
                 "content_sha256": hashlib.sha256(body.encode("utf-8")).hexdigest()}
 
     bot._post_daily_summary = send
-    monkeypatch.setattr(module, "require_private", require_private)
+    monkeypatch.setattr(module, "check_destination", check_destination)
     monkeypatch.setattr(module, "atomic_json", atomic_json)
     monkeypatch.setattr(module, "file_lock", lambda *a, **k: contextlib.nullcontext())
-    return bot, proofs
+    return bot, checks
 
 
 def complete(coroutine):
@@ -544,8 +459,8 @@ def complete(coroutine):
     raise AssertionError("summary coroutine unexpectedly yielded")
 
 
-def test_summary_loop_proves_only_when_it_writes(bot_module, tmp_path, monkeypatch):
-    bot, proofs = summary_bot(bot_module, tmp_path, monkeypatch)
+def test_summary_loop_checks_only_when_it_writes(bot_module, tmp_path, monkeypatch):
+    bot, checks = summary_bot(bot_module, tmp_path, monkeypatch)
     ticks = []
 
     async def sleep(seconds):
@@ -558,29 +473,29 @@ def test_summary_loop_proves_only_when_it_writes(bot_module, tmp_path, monkeypat
     with pytest.raises(StopControl):
         complete(bot._summary_loop())
     assert len(ticks) == 12
-    assert len(proofs) == 1  # the one write that posted today's summary
+    assert len(checks) == 1  # the one write that posted today's summary
 
     restarted, again = summary_bot(bot_module, tmp_path, monkeypatch)
     for _ in range(5):
         assert complete(restarted._maybe_daily_summary())["status"] == "confirmed"
-    assert again == []  # an already-confirmed day needs no write and no proof
+    assert again == []  # an already-confirmed day needs no write and no check
 
 
-def test_summary_negative_control_a_new_day_still_proves(bot_module, tmp_path, monkeypatch):
-    bot, proofs = summary_bot(bot_module, tmp_path, monkeypatch)
+def test_summary_negative_control_a_new_day_still_checks(bot_module, tmp_path, monkeypatch):
+    bot, checks = summary_bot(bot_module, tmp_path, monkeypatch)
     complete(bot._maybe_daily_summary())
     marker = Path(bot._summary_marker())
     state = json.loads(marker.read_text(encoding="utf-8"))
     state["identity"]["date"] = "2000-01-01"
     marker.write_text(json.dumps(state), encoding="utf-8")
-    fresh, proofs = summary_bot(bot_module, tmp_path, monkeypatch)
+    fresh, checks = summary_bot(bot_module, tmp_path, monkeypatch)
     assert complete(fresh._maybe_daily_summary())["status"] == "confirmed"
-    assert len(proofs) == 1
+    assert len(checks) == 1
 
 
-def test_pending_reconciliation_is_logged_once_and_not_reproved(bot_module, tmp_path, monkeypatch):
-    bot, proofs = summary_bot(bot_module, tmp_path, monkeypatch, send_ok=False)
+def test_pending_reconciliation_is_logged_once_and_not_rechecked(bot_module, tmp_path, monkeypatch):
+    bot, checks = summary_bot(bot_module, tmp_path, monkeypatch, send_ok=False)
     for _ in range(6):
         assert complete(bot._maybe_daily_summary())["status"] == "pending_reconciliation"
-    assert len(proofs) == 1
+    assert len(checks) == 1
     assert bot.logs.count("daily summary pending reconciliation") == 1

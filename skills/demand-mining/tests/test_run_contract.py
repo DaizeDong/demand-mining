@@ -27,32 +27,11 @@ def private_repo(tmp_path, monkeypatch):
     root = tmp_path / "companion"
     root.mkdir()
     (root / ".git").mkdir()
+
     def synthetic_git(directory, *args, **kwargs):
-        if args == ("rev-parse", "--show-toplevel"):
-            stdout = str(root)
-        elif args == ("config", "--null", "--list"):
-            stdout = ""
-        elif args in {("remote", "get-url", "origin"),
-                       ("remote", "get-url", "--all", "origin"),
-                       ("remote", "get-url", "--all", "--push", "origin")}:
-            stdout = "https://github.com/example/demand-mining-config.git"
-        else:
-            raise AssertionError("unapproved synthetic Git command")
-        return subprocess.CompletedProcess(["git", *args], 0, stdout=stdout, stderr="")
+        raise AssertionError("unapproved synthetic Git command")
 
     monkeypatch.setattr(data_safety, "git", synthetic_git)
-    monkeypatch.setattr(data_safety, "_companion_proof", lambda directory: types.SimpleNamespace(
-        root=str(root), repositories=("example/demand-mining-config",), signature="synthetic-proof"))
-    def artifact_git(snapshot, *args):
-        if args == ("rev-parse", "--verify", "HEAD"):
-            return types.SimpleNamespace(returncode=0, stdout="synthetic-head")
-        if args[:4] == ("check-ignore", "--no-index", "-q", "--"):
-            return types.SimpleNamespace(returncode=1, stdout="")
-        raise AssertionError("unapproved synthetic artifact Git command")
-    artifact_boundary = types.SimpleNamespace(
-        prove_private_companion=lambda directory, *args: data_safety._companion_proof(directory),
-        read_private_companion_git=artifact_git, GitError=data_safety.DestinationError)
-    monkeypatch.setattr(data_safety._storage_contract(), "load_boundary", lambda: artifact_boundary)
     monkeypatch.setenv("DEMAND_MINING_CONFIG", str(root))
     monkeypatch.delenv("DEMAND_MINING_DRYRUN", raising=False)
     # Default deny of the external send seam, including before a failing assertion.
@@ -99,14 +78,12 @@ def test_explicit_invalid_config_does_not_fall_back(tmp_path, monkeypatch):
         lib.find_config_dir()
 
 
-def test_nonprivate_destination_is_named(private_repo, monkeypatch):
-    def refuse(directory):
-        raise data_safety.DestinationError("synthetic PUBLIC companion")
-    monkeypatch.setattr(data_safety, "_companion_proof", refuse)
-    with pytest.raises(data_safety.DestinationError, match="PUBLIC") as error:
-        data_safety.atomic_json(private_repo / "pool/result.json", {})
-    assert str(private_repo) in str(error.value)
-    assert not (private_repo / "pool").exists()
+def test_unversioned_destination_is_named(private_repo, tmp_path):
+    loose = tmp_path / "unversioned"
+    with pytest.raises(data_safety.DestinationError, match="no containing Git worktree") as error:
+        data_safety.atomic_json(loose / "pool/result.json", {})
+    assert str(loose) in str(error.value)
+    assert not loose.exists()
 
 
 def test_ledger_failure_is_not_empty_success(private_repo, cfg, cases):
@@ -314,7 +291,6 @@ def test_backup_failure_stops_later_steps(private_repo, monkeypatch, verb):
                                            stdout="", stderr="")
 
     monkeypatch.setattr(backup, "git", git)
-    monkeypatch.setattr(backup, "require_private_push", lambda *args: None)
     with pytest.raises(RuntimeError, match="synthetic " + verb):
         backup.backup([path])
     stages = ["read-tree", "add", "diff", "commit", "push"]
@@ -327,25 +303,8 @@ def test_backup_failure_stops_later_steps(private_repo, monkeypatch, verb):
 
 def test_backup_rejects_directory_pathspec(private_repo):
     import backup
-    with pytest.raises((ValueError, data_safety.DestinationError), match="regular file|artifact write refused"):
+    with pytest.raises(ValueError, match="regular file"):
         backup.backup([private_repo])
-
-
-def test_effective_push_url_cannot_point_to_another_repository(private_repo, monkeypatch):
-    def wrong_push(directory, *args, **kwargs):
-        if args == ("rev-parse", "--show-toplevel"):
-            output = str(private_repo)
-        elif args == ("config", "--null", "--list"):
-            output = ""
-        elif args[:2] == ("remote", "get-url"):
-            output = ("https://github.com/example/other-config.git" if "--push" in args else
-                      "https://github.com/example/demand-mining-config.git")
-        else:
-            raise AssertionError("unapproved synthetic Git command")
-        return subprocess.CompletedProcess([], 0, stdout=output, stderr="")
-    monkeypatch.setattr(data_safety, "git", wrong_push)
-    with pytest.raises(data_safety.DestinationError, match="attested companion routes"):
-        data_safety.require_private_push(private_repo, "example/demand-mining-config")
 
 
 def test_confirmed_push_bookkeeping_is_idempotent(private_repo, cfg, cases, monkeypatch):

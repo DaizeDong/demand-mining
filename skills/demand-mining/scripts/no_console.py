@@ -3,8 +3,8 @@
 A console program (git.exe, powershell.exe, python.exe) started by a process that has no
 console of its own receives a NEW console. Under pythonw.exe (the daemon and its supervisor)
 Windows shows that console as a window, through the default terminal when one is configured.
-The privacy proof launches Git many times per durable write, so a windowless daemon once
-produced thousands of terminal windows in a few hours.
+A former per-write Git check once made a windowless daemon produce thousands of terminal
+windows in a few hours; backup and helper launches still need the same protection.
 
 Two layers prevent that:
 

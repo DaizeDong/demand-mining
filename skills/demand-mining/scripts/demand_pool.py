@@ -38,12 +38,12 @@ _STATUSES = ("new", "ack", "planned", "shipped", "wontfix", "duplicate")
 
 
 def pool_path(config_dir) -> str:
-    from data_safety import require_private
+    from data_safety import check_destination
     override = os.environ.get("DEMAND_MINING_DATA_DIR")
     if override is not None and not override.strip():
         raise ValueError("DEMAND_MINING_DATA_DIR is empty")
     base = override if override is not None else os.path.join(str(config_dir), "pool")
-    return require_private(os.path.join(base, "demands.jsonl"))["path"]
+    return check_destination(os.path.join(base, "demands.jsonl"))["path"]
 
 
 @contextlib.contextmanager

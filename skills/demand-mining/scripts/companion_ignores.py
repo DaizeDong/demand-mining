@@ -1,17 +1,14 @@
 #!/usr/bin/env python3
 """Report declared versioned artifacts that the companion's Git ignore rules hide.
 
-Write admission (guards storage_contract.authorize_artifact_write) refuses any artifact
-that is not declared transient when Git ignores its destination. So an ignore rule that
-covers a versioned artifact is not a cosmetic backup gap: the producer of that artifact
-fails at its first write. That is how DemandMiningDaemon died on every start while the
-companion ignored pool/** without re-including pool/logs/ (the supervisor could not
-admit its own log). This check finds that class of mismatch before a producer does.
+A versioned artifact that the companion's Git ignore rules hide is never committed: the
+backup's git add refuses an ignored path and the artifact is missing from the companion
+history. This check finds that class of mismatch before a backup does.
 
 Each declared pattern is probed with representative paths: '*' becomes one segment, '**'
 becomes both one segment and a nested file two levels down (an ignore rule can re-include only
 the first level), '?' becomes '0' and a character class becomes its first member. Transient and
-retired artifacts are skipped (admission ignores the first and refuses the second), and
+retired artifacts are skipped (neither is versioned), and
 so are the exemptions below, each with its reason.
 
 usage: companion_ignores.py --companion DIR [--contract storage.contract.json]
@@ -31,11 +28,11 @@ from no_console import no_window_kwargs
 
 DEFAULT_CONTRACT = Path(__file__).resolve().parents[3] / "storage.contract.json"
 
-# Declared but deliberately ignored, and never written through admission, so ignoring
-# them cannot refuse a producer. Anything added here needs the same two facts.
+# Declared but deliberately ignored and never part of a backup, so ignoring them loses
+# no versioned history. Anything added here needs the same two facts.
 EXEMPT = {
     # Mode B keeps credential values out of the companion history (scripts/init_config.py).
-    "credentials": "Mode B credential values; placed by the operator, never through admission",
+    "credentials": "Mode B credential values; placed by the operator, never backed up",
     # Legacy staging names. data_safety.atomic_bytes now stages under .staging/atomic-*.tmp
     # (declared transient); these names only describe leftovers of older writers.
     "pool_atomic_staging_0": "legacy staging name; atomic_bytes stages under .staging/",
@@ -68,7 +65,7 @@ def sample_path(pattern: str) -> str:
 
 
 def versioned_artifacts(contract: dict) -> list[tuple[str, str]]:
-    """(artifact_id, sample path) for every probe of every artifact admission requires to be
+    """(artifact_id, sample path) for every probe of every versioned artifact that must stay
     unignored; an artifact whose pattern contains '**' contributes one row per probed depth."""
     rows = []
     for artifact in contract["artifacts"]:
@@ -119,7 +116,7 @@ def main(argv=None) -> int:
     checked = len({artifact_id for artifact_id, _ in versioned_artifacts(contract)})
     if hidden:
         print(f"FAIL: {len(hidden)} of {checked} declared versioned artifacts are git-ignored; "
-              "their producers will be refused at the first write")
+              "they cannot be committed to the companion history")
         return 1
     print(f"OK: {checked} declared versioned artifacts checked, none git-ignored "
           f"(exempt: {', '.join(sorted(EXEMPT))})")

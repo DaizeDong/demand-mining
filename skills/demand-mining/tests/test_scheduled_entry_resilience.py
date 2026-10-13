@@ -1,7 +1,7 @@
 """The scheduled EOD entry waits out short lock holders and never dies without a record.
 
-Generated controls only: the companion, proofs and Git are the synthetic ones from the
-retention fixture; no network, provider or real DATA is touched.
+Generated controls only: the companion and Git are the synthetic ones from the retention
+fixture; no network, provider or real DATA is touched.
 """
 import json
 from pathlib import Path
@@ -115,44 +115,24 @@ def test_failure_before_active_state_leaves_a_screened_record_in_the_log_dir(ent
     assert not (root.parent / "local").exists()
 
 
-def test_refused_admission_is_retried_then_recorded_outside_every_repository(entry, monkeypatch, tmp_path):
+def test_refused_destination_is_recorded_outside_every_repository(entry, monkeypatch, tmp_path):
     retention, root, cfg, cases, write = entry
-    attempts, sleeps = [], []
+    attempts = []
 
     def refuse(*args):
-        attempts.append(time.monotonic())
-        raise data_safety.DestinationError("synthetic admission refusal")
+        attempts.append(1)
+        raise data_safety.DestinationError("synthetic destination refusal")
 
     def refuse_write(path):
         raise data_safety.DestinationError("synthetic log refusal")
 
     monkeypatch.setattr(scheduled, "preflight", refuse)
-    monkeypatch.setattr(data_safety, "authorize_write", refuse_write)
-    monkeypatch.setattr(scheduled, "ADMISSION_RETRY_SECONDS", 0.5, raising=False)
-    monkeypatch.setattr(scheduled, "ADMISSION_BACKOFF_SECONDS", (0.1, 0.2), raising=False)
+    monkeypatch.setattr(data_safety, "check_destination", refuse_write)
     with pytest.raises(data_safety.DestinationError):
         scheduled.main()
-    assert len(attempts) >= 2
+    assert len(attempts) == 1  # a path refusal is deterministic; it is not retried
     note = (tmp_path / "local/demand-mining/eod-exit.log").read_text(encoding="utf-8")
-    assert "stage=preflight" in note and "DestinationError: synthetic admission refusal" in note
-
-
-def test_transient_admission_refusal_recovers_and_the_eod_runs(entry, monkeypatch, capsys):
-    retention, root, cfg, cases, write = entry
-    real, calls = scheduled.preflight, []
-
-    def flaky(*args):
-        calls.append(1)
-        if len(calls) < 3:
-            raise data_safety.DestinationError("synthetic transient refusal")
-        return real(*args)
-
-    monkeypatch.setattr(scheduled, "preflight", flaky)
-    monkeypatch.setattr(scheduled, "ADMISSION_BACKOFF_SECONDS", (0.01, 0.02), raising=False)
-    monkeypatch.setattr(scheduled, "execute", lambda *a: {"ok": True, "status": "complete"})
-    assert scheduled.main() == 0
-    assert len(calls) == 3
-    assert json.loads(capsys.readouterr().out)["status"] == "complete"
+    assert "stage=preflight" in note and "DestinationError: synthetic destination refusal" in note
 
 
 def test_starved_git_child_is_a_refusal_not_an_escaping_subprocess_error(tmp_path, monkeypatch):
@@ -160,6 +140,5 @@ def test_starved_git_child_is_a_refusal_not_an_escaping_subprocess_error(tmp_pat
         raise subprocess.TimeoutExpired(args[0], kwargs.get("timeout"))
 
     monkeypatch.setattr(data_safety.subprocess, "run", stall)
-    monkeypatch.setattr(data_safety, "_verify_context_environment", lambda *a: None)
     with pytest.raises(RuntimeError, match="timed out"):
-        data_safety.git(tmp_path, "remote", "get-url", "--all", "origin")
+        data_safety.git(tmp_path, "push", "origin", "HEAD")

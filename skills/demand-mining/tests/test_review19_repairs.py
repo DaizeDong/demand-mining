@@ -40,8 +40,8 @@ class ControlledStop(BaseException):
 class Harness:
     def __init__(self, behavior="normal"):
         self.behavior = behavior
-        self.visibility = "PRIVATE"
-        self.files, self.opens, self.writes, self.children, self.proofs = {}, [], [], [], []
+        self.destination = "admitted"
+        self.files, self.opens, self.writes, self.children, self.checks = {}, [], [], [], []
         self.modules = {}
         self.root = CASES["private_root"]
         self.dirs = {self.root, self.root + "/pool", self.root + "/pool/logs", self.root + "/.git"}
@@ -116,7 +116,7 @@ class Harness:
         class MemoryFile:
             def __init__(self, path, mode):
                 self.name, self.mode, self.closed = str(path), mode, False
-                h.opens.append((self.name, h.visibility))
+                h.opens.append((self.name, h.destination))
                 h.files.setdefault(self.name, b"")
             def write(self, value):
                 if h.behavior == "write-error":
@@ -128,7 +128,7 @@ class Harness:
                     raise ValueError("closed synthetic stream")
                 data = value.encode("utf-8") if isinstance(value, str) else value
                 h.files[self.name] = h.files.get(self.name, b"") + data
-                h.writes.append((self.name, data, h.visibility))
+                h.writes.append((self.name, data, h.destination))
             def flush(self):
                 pass
             def close(self):
@@ -157,7 +157,7 @@ class Harness:
 
         def sleep(seconds):
             if h.behavior == "revoke-before-restart" and len(h.children) == 1:
-                h.visibility = "PUBLIC"
+                h.destination = "refused"
                 return
             raise ControlledStop()
 
@@ -168,11 +168,11 @@ class Harness:
             def read(self, size):
                 assert 0 < size <= 65536
                 if self.index == 1 and h.behavior == "revoke-during-child":
-                    h.visibility = "PUBLIC"
+                    h.destination = "refused"
                 chunks = [x.encode() for x in CASES["child_chunks"]] + [bytes.fromhex(CASES["binary_tail_hex"])]
                 if self.index >= len(chunks):
                     if h.behavior == "revoke-after-child":
-                        h.visibility = "PUBLIC"
+                        h.destination = "refused"
                     return b""
                 chunk = chunks[self.index]
                 self.index += 1
@@ -228,7 +228,7 @@ class Harness:
                     raise RuntimeError(CASES["startup_error"])
                 self.log(CASES["log_messages"][0])
                 if h.behavior == "direct-revoke":
-                    h.visibility = "PUBLIC"
+                    h.destination = "refused"
                 self.log(CASES["log_messages"][1])
 
         self.Path = MemoryPath
@@ -289,42 +289,17 @@ class Harness:
         self.modules[name] = module
         exec(compile(source_bytes(path), str(path), "exec"), module.__dict__)
         if name == "data_safety":
-            module.git = self.git
-            module._companion_proof = self.companion
-            module._storage_contract = lambda: types.SimpleNamespace(
-                authorize_artifact_write=self.log_admission)
-            # Every append re-proves under this harness; proof reuse has its own tests.
-            module.PROOF_CACHE_TTL = 0
+            module.git = self.forbidden
+            real_check = module.check_destination
+
+            def check(path):
+                # The real path checks run on the in-memory tree; the harness can also refuse.
+                self.checks.append((str(path), self.destination))
+                if self.destination != "admitted":
+                    raise module.DestinationError("synthetic destination refused")
+                return real_check(path)
+            module.check_destination = check
         return module
-
-    def log_admission(self, source, root, relative):
-        # The in-memory harness admits only its generated log fixtures. Other tests
-        # exercise the real source-contract parser and native Git publication proof.
-        if str(root) != self.root or relative not in CASES["log_paths"]:
-            raise ValueError("undeclared synthetic log artifact")
-        return types.SimpleNamespace(proof=self.companion(root))
-
-    def git(self, root, *args, **kwargs):
-        if args == ("rev-parse", "--show-toplevel"):
-            text = self.root
-        elif args == ("config", "--null", "--list"):
-            text = "remote.origin.url\n" + CASES["private_remote"] + "\0"
-        elif args[:2] == ("remote", "get-url"):
-            text = CASES["private_remote"]
-        else:
-            raise AssertionError("unadmitted synthetic Git query")
-        return types.SimpleNamespace(stdout=text)
-
-    def companion(self, root):
-        repository = CASES["private_remote"].removeprefix("https://github.com/").removesuffix(".git")
-        if self.visible(repository) != "PRIVATE":
-            raise self.modules["data_safety"].DestinationError("synthetic repository visibility is not PRIVATE")
-        return types.SimpleNamespace(root=self.Path(self.root), repositories=(repository,),
-                                     signature="synthetic-current-transport")
-
-    def visible(self, repository):
-        self.proofs.append((repository, self.visibility))
-        return self.visibility
 
     def scoring(self):
         lib = self.load("lib")
@@ -391,9 +366,9 @@ class ScoringPathTests(unittest.TestCase):
 
 
 class CurrentLogAdmissionTests(unittest.TestCase):
-    def test_undeclared_log_is_refused_before_any_open(self):
+    def test_refused_log_is_refused_before_any_open(self):
         h = Harness()
-        h.args.log_file = h.root + "/pool/undeclared.log"
+        h.destination = "refused"
         _, bot = h.logging()
         self.assertEqual(h.invoke(bot.main), "stopped")
         self.assertFalse(h.opens)
@@ -405,8 +380,8 @@ class CurrentLogAdmissionTests(unittest.TestCase):
         self.assertEqual(h.invoke(supervisor.main), "controlled-stop")
         expected = b"".join(x.encode() for x in CASES["child_chunks"]) + bytes.fromhex(CASES["binary_tail_hex"])
         self.assertEqual(h.files[h.root + "/pool/logs/daemon-2026-01-15.log"], expected)
-        self.assertGreaterEqual(len(h.proofs), len(h.writes))
-        self.assertTrue(all(state == "PRIVATE" for _, _, state in h.writes))
+        self.assertGreaterEqual(len(h.checks), len(h.writes))
+        self.assertTrue(all(state == "admitted" for _, _, state in h.writes))
         self.assertIs(h.children[0].stdout.closed, True)
 
     def test_supervisor_revocation_during_output_stops_child_without_unsafe_append(self):
@@ -415,7 +390,7 @@ class CurrentLogAdmissionTests(unittest.TestCase):
         self.assertEqual(h.invoke(supervisor.main), "stopped")
         self.assertTrue(h.children[0].terminated or h.children[0].killed)
         self.assertEqual(len(h.children), 1)
-        self.assertTrue(all(state == "PRIVATE" for _, _, state in h.writes))
+        self.assertTrue(all(state == "admitted" for _, _, state in h.writes))
         self.assertEqual(h.files[h.root + "/pool/logs/daemon-2026-01-15.log"], CASES["child_chunks"][0].encode())
 
     def test_supervisor_revocation_after_exit_and_before_restart_is_current(self):
@@ -425,8 +400,8 @@ class CurrentLogAdmissionTests(unittest.TestCase):
                 supervisor, _ = h.logging()
                 self.assertEqual(h.invoke(supervisor.main), "stopped")
                 self.assertEqual(len(h.children), 1)
-                self.assertTrue(all(state == "PRIVATE" for _, _, state in h.writes))
-                self.assertTrue(all(state == "PRIVATE" for _, state in h.opens))
+                self.assertTrue(all(state == "admitted" for _, _, state in h.writes))
+                self.assertTrue(all(state == "admitted" for _, state in h.opens))
 
     def test_supervisor_launch_exception_is_retained_in_private_log(self):
         h = Harness("launch-error")
@@ -444,7 +419,7 @@ class CurrentLogAdmissionTests(unittest.TestCase):
         text = h.files[h.args.log_file].decode()
         self.assertIn(CASES["log_messages"][0], text)
         self.assertNotIn(CASES["log_messages"][1], text)
-        self.assertTrue(all(state == "PRIVATE" for _, _, state in h.writes))
+        self.assertTrue(all(state == "admitted" for _, _, state in h.writes))
         self.assertEqual((h.sys.stdout, h.sys.stderr), h.original_streams)
 
     def test_direct_private_success_and_startup_failure_keep_log_records(self):

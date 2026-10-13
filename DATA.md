@@ -1,16 +1,17 @@
 # Demand Mining storage
 
-For an existing verified PRIVATE companion, `.companion` may contain the single
+For an existing PRIVATE companion, `.companion` may contain the single
 line `demand-mining` to identify convention-based discovery when literal Git
-configuration is insufficient. The marker does not replace write admission.
+configuration is insufficient. The marker does not replace the destination checks.
 
 Real configuration, observations, run artifacts and credentials belong in a
 versioned PRIVATE companion repository. They must never be written inside this
-public source repository, including ignored paths. Runtime writers verify the
-actual destination and its Git transport before writing; an unknown or PUBLIC
-destination fails. See [CONFIG.md](CONFIG.md) for configuration discovery and
+public source repository, including ignored paths. Runtime writers check the
+actual destination path before writing; a destination inside this repository, outside
+every Git worktree or reached through a link fails. Repository visibility is not checked
+at runtime. See [CONFIG.md](CONFIG.md) for configuration discovery and
 [the runtime contract](docs/runtime-contract.md#configuration-and-data) for
-destination admission.
+the destination checks.
 
 `storage.contract.json` inventories paths relative to the companion root. It
 describes the default layout: configuration at the root, durable runtime state
@@ -19,12 +20,11 @@ runtime destination is `<config>/pool`; `DEMAND_MINING_DATA_DIR` must select tha
 same pool. A custom layout needs its own reviewed path declarations and runtime support. The contract does not classify arbitrary legacy files by
 their extension, age or presence in a private repository.
 
-## Runtime write admission
+## Runtime writes
 
-The pinned Guards `authorize_artifact_write` API checks each produced file against this
-source's storage.contract.json, the exact PRIVATE companion root and current Git ignore
-policy. Undeclared, ambiguous, retired or ignored versioned destinations fail before a
-write. Structural parent directories grant no permission to their future contents.
+Each produced file is checked by path only: it must lie inside the companion worktree,
+outside this source repository, with no parent traversal, link or hardlinked file. The
+storage contract documents ownership and retention; it is not enforced on each write.
 Atomic staging lives in the narrow `.staging/` patterns declared by the source, with
 explicit transient persistence and operation-bound retention; it does not replace durable
 recovery records. Selected credential backup stays under the companion's A/B policy.
@@ -35,7 +35,7 @@ staging; ignored recovery data fails visibly and must be corrected in the compan
 `scripts/verify_config.py` (and `skills/demand-mining/scripts/companion_ignores.py --companion <dir>`)
 probes every declared versioned artifact against the companion ignore policy (a `**` pattern
 both one level and two levels down, since a re-include can stop at the first level), so an
-over-broad rule is found before its producer is refused at the first write. Exemptions are
+over-broad rule is found before a backup fails to commit an ignored artifact. Exemptions are
 listed in that script with their reason.
 
 ## What each area preserves
@@ -129,7 +129,7 @@ is a TTL target. A product metadata file or saved registry pointer does not prov
 its configured product directory exists or that collection is deployed.
 
 Restore the private repository, selected credentials and shared ledger before
-enabling writers. Verify the destination's current PRIVATE proof, then run
+enabling writers. Confirm the companion repository is PRIVATE, then run
 `scripts/verify_config.py` and `scheduled.py --preflight`. Reconcile pending
 delivery and checkpoint state before a new collection. Restore the HMAC salt
 with the pool that used it so author identities remain stable. A completed local

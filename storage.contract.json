@@ -8,11 +8,11 @@
       "path_pattern": ".companion",
       "purpose": "Explicit companion identity when Git configuration cannot establish convention-based discovery.",
       "schema": "One UTF-8 line containing demand-mining.",
-      "producer": "Operator initializing an already verified PRIVATE companion.",
+      "producer": "Operator initializing an existing PRIVATE companion.",
       "consumer_or_final_deliverable": "Shared Guards companion resolver.",
       "retention_rule": {
         "class": "core",
-        "rule": "Keep while convention-based consumers use this identity; the marker never replaces PRIVATE visibility or write-admission checks."
+        "rule": "Keep while convention-based consumers use this identity; the marker never replaces the destination path checks."
       },
       "rebuild_or_restore": "Restore the verified companion revision or recreate the tool identity after checking the destination."
     },
