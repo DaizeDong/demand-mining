@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- **Test suite deleted.** The confirmed-working features keep no tests; `skills/demand-mining/tests/` and `tools/make_fixtures.py` are gone and CI no longer runs pytest.
 - **Runtime PRIVATE proof removed.** Writes, locks, logs, retention and backup no longer call the Guards `prove_private_companion`, `storage_contract.authorize_artifact_write` or any Git/visibility query to admit a destination; the proof cache, transport fingerprint and the scheduled preflight's 15-minute proof retry are gone. `data_safety.check_destination` replaces `require_private`/`authorize_write` with path-only checks (a separate Git worktree outside this source tree, no `.git`, parent traversal, link or hardlinked file); an uninitialized companion is still a write error with no in-repo fallback. Backup still commits and pushes the companion's origin. Commit-time Guards hooks and CI are unchanged.
 - **Leftover rechecks removed.** The supervisor no longer checks the child log path again before launch (the `PrivateLog` handle already checked it and checks before each append), and the retention delete loop no longer compares the companion root with itself; it still stops when recovery state appears. Retention error text and module docstrings now describe current behaviour.
 

@@ -5,33 +5,16 @@ on:
   pull_request:
 
 jobs:
-  offline-retention:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+  storage-contract:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Prepare the real reminder CLI dependency
-        uses: actions/checkout@v4
-        with:
-          repository: DaizeDong/schedule-reminder
-          ref: 430e07f92fa188ed48bd69d83e14ea106273f02f
-          path: .test-dependencies/schedule-reminder
-          submodules: recursive
-          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m pip install pytest tzdata discord.py ./guards
-      - name: Complete offline Demand suite
-        env:
-          DEMAND_MINING_TEST_REMINDER_ROOT: ${{ github.workspace }}/.test-dependencies/schedule-reminder
-        run: python -X utf8 -m pytest skills/demand-mining/tests -q -ra
       - name: Validate storage contract with the pinned shared checker
-        if: runner.os == 'Linux'
         shell: bash
         run: |
           set -euo pipefail

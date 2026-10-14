@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """demand-mining shared library, deterministic primitives, stdlib only.
 
-Everything here is a PURE function (no clock, no network) unless explicitly noted, so the
-acceptance-gate pytest suite can byte-compare outputs. Network/MCP/LLM work (Discord ingest,
+Everything here is a PURE function (no clock, no network) unless explicitly noted, so outputs
+are reproducible. Network/MCP/LLM work (Discord ingest,
 intent reading, JTBD interpretation, competitor deep-dive) lives in the SKILL.md orchestration
 layer, NOT here. This file holds: config discovery + defaults, entity normalization,
 canonical_key, SimHash/Hamming/Jaccard, the three orthogonal prioritization frameworks

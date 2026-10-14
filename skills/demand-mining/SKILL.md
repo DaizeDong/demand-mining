@@ -124,6 +124,4 @@ completion; backup failure remains separate from delivery success.
 ## Progressive loading
 
 This `SKILL.md` is the only always-loaded file. Read `reference/<shard>.md` on demand, one per step.
-Never read the whole `reference/` directory at once. All heavy logic lives in `scripts/` (tested:
-`python -m pytest tests/`, T1 extract/grounding · T2 dedup · T3 reproducible scoring · T4 gate+EOD
-· T5 base round-trip · T6 redaction/DLP · T7 cross-day catch-up).
+Never read the whole `reference/` directory at once. All heavy logic lives in `scripts/`.
