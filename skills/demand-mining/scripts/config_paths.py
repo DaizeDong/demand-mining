@@ -7,7 +7,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 SKILL = "demand-mining"
 PREFIX = "DEMAND_MINING"
-DATA_CHILD = "pool"
 
 
 @lru_cache(maxsize=1)
@@ -30,25 +29,23 @@ def _directory(value, label):
 
 
 def companion_root(override=None):
-    """An explicit CLI path, else the shared resolver's companion root (or None)."""
+    """An explicit CLI path, else the shared resolver's companion root (or None).
+
+    DEMAND_MINING_DATA_DIR names the companion's pool/ directory, so a resolved pool/ maps to its parent.
+    """
     if override is not None:
         return _directory(override, "explicit companion")
     root = resolver().resolve_companion_root(SKILL)
     if root is None:
         return None
     root = Path(root).resolve()
-    return root.parent if DATA_CHILD and root.name == DATA_CHILD else root
+    return root.parent if root.name == "pool" else root
 
 
-def data_directory(override=None):
-    root = companion_root(override)
-    if root is None:
-        return None
-    if DATA_CHILD:
-        return root / DATA_CHILD
-    if override is None:
-        return Path(resolver().resolve_data_dir(SKILL)).resolve()
-    return root / "data" if (root / "data").is_dir() else root
+def data_directory():
+    """Runtime state lives at <companion>/pool."""
+    root = companion_root()
+    return None if root is None else root / "pool"
 
 
 @contextmanager
