@@ -919,7 +919,7 @@ def _run(args) -> int:
     logical_identity(cfg)
     check_destination(d)
     token, chans, guild, display, product = _wiring(d)
-    poolp = pool.pool_path(d)
+    poolp = pool.pool_path()
     bot = DemandBot(cfg, chans, guild, display, mode, args.interval, args.display_interval, poolp,
                     product=product)
     if args.run_seconds:

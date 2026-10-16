@@ -323,16 +323,14 @@ def product_key(product, subject):
 
 
 def product_rows(rows, product):
-    """Read attributed legacy rows; leave unassigned history for explicit review."""
+    """Rows whose recorded identity names this product."""
     product_id({"product_id": product})
     selected = []
     for row in rows:
         identity = _row_ext(row).get(EXT + "identity")
         if isinstance(identity, dict) and identity.get("product_id") == product:
             selected.append(row)
-    # New scoped rows take precedence over preserved attributed legacy entries.
-    prefix = product_key(product, "")
-    return sorted(selected, key=lambda row: not _row_key(row).startswith(prefix))
+    return selected
 
 
 class LedgerClient:
@@ -445,7 +443,7 @@ class LedgerClient:
     def get_watermark(self):
         rows = self.list_active()
         for r in rows:
-            if _row_key(r) in {product_key(self._product(), "watermark"), KEY_PREFIX + "watermark"}:
+            if _row_key(r) == product_key(self._product(), "watermark"):
                 return _row_ext(r).get(EXT + "last_run_at")
         return None
 

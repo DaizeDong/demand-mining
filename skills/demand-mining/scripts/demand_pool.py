@@ -17,7 +17,6 @@ from __future__ import annotations
 import contextlib
 import json
 import os
-import re
 import threading
 import time
 
@@ -37,13 +36,9 @@ _MAX_EVIDENCE = 8
 _STATUSES = ("new", "ack", "planned", "shipped", "wontfix", "duplicate")
 
 
-def pool_path(config_dir) -> str:
-    from data_safety import check_destination
-    override = os.environ.get("DEMAND_MINING_DATA_DIR")
-    if override is not None and not override.strip():
-        raise ValueError("DEMAND_MINING_DATA_DIR is empty")
-    base = override if override is not None else os.path.join(str(config_dir), "pool")
-    return check_destination(os.path.join(base, "demands.jsonl"))["path"]
+def pool_path() -> str:
+    from data_safety import check_destination, data_root
+    return check_destination(os.path.join(str(data_root()), "demands.jsonl"))["path"]
 
 
 @contextlib.contextmanager
@@ -51,23 +46,6 @@ def _file_lock(path: str):
     from data_safety import file_lock
     with file_lock(path + ".lock"):
         yield
-
-
-def _normalize_stored_unknown_authors(row):
-    """Adapt identified legacy observations without deriving new history."""
-    for field in ("evidence", "observation_index"):
-        items = row.get(field)
-        if not isinstance(items, list):
-            continue
-        for item in items:
-            if not isinstance(item, dict) or "author_hash" not in item:
-                continue
-            identity = item.get("observation_id")
-            if (item["author_hash"] is None
-                    and "author" not in item and "user_id" not in item
-                    and isinstance(identity, str)
-                    and re.fullmatch(r"(?:u_[0-9a-f]{16}|obs_[0-9a-f]{64})", identity)):
-                del item["author_hash"]
 
 
 def _read_rows(path: str) -> list:
@@ -81,7 +59,6 @@ def _read_rows(path: str) -> list:
                 value = json.loads(line)
                 if not isinstance(value, dict):
                     raise ValueError(f"pool contains a non-object record: {path}")
-                _normalize_stored_unknown_authors(value)
                 out.append(value)
     return out
 
@@ -186,20 +163,3 @@ def set_status(path: str, canonical_key: str, status: str, *, product_id=None) -
 def ranked(path: str, exclude_status=("shipped", "wontfix", "duplicate"), *, product_id=None) -> list:
     rows = [r for r in load(path, product_id=product_id) if r.get("status") not in exclude_status]
     return sorted(rows, key=lambda r: -float(r.get("final_score", 0) or 0))
-
-
-def attribute_legacy(path: str, canonical_key: str, *, product_id=None) -> bool:
-    """Explicitly attribute one reviewed legacy row; refuse ambiguous or conflicting history."""
-    product = _product_id(product_id)
-    with _LOCK, _file_lock(path):
-        rows = _read_rows(path)
-        legacy = [row for row in rows if row.get("canonical_key") == canonical_key
-                  and row.get("product_id") in (None, "")]
-        if not legacy:
-            return False
-        if len(legacy) != 1 or any(row.get("canonical_key") == canonical_key
-                                  and row.get("product_id") == product for row in rows):
-            raise ValueError("legacy attribution conflicts with existing demand history")
-        legacy[0]["product_id"] = product
-        _atomic_write(path, rows)
-        return True

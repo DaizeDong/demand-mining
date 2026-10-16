@@ -144,13 +144,7 @@ def activity(companion, *, wait=0.0):
 
 
 def _pool_roots(root):
-    pools = [root / "pool"]
-    override = os.environ.get("DEMAND_MINING_DATA_DIR")
-    if override is not None:
-        extra = Path(data_safety.check_destination(override)["path"])
-        if extra not in pools:
-            pools.append(extra)
-    return pools
+    return [root / "pool"]
 
 
 @contextmanager

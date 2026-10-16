@@ -107,10 +107,8 @@ original streams are restored on exit.
 
 Demand keys and watermarks include the product identity. Replays for one product
 keep one key; another product can independently report the same demand. Reads
-select only rows whose stored identity names the current product. Attributed
-legacy rows remain readable, with new scoped rows taking precedence. Existing
-rows without a product identity remain untouched and are excluded until their
-ownership is explicitly reviewed; collection never guesses their product.
+select only rows whose stored identity names the current product. Rows
+without a product identity are excluded; collection never guesses their product.
 No automatic ledger migration runs.
 
 The live JSONL pool may share a private DATA root across products, but each new
@@ -120,13 +118,8 @@ the selected product explicitly; direct feedback, passive collection and daily
 summaries use the same binding. Missing identity fails before a pool read or
 write. A rescorer cannot move a row to another product or canonical key.
 
-Unattributed live rows remain excluded. Collection does not infer their owner.
-After reviewing one row, a caller may explicitly use
-demand_pool.attribute_legacy(path, canonical_key, product_id=product).
-It changes only that row's product attribution, preserves its demand history and
-other rows, and refuses multiple legacy matches or an existing target-product
-row with the same canonical key. It returns false when no legacy match remains.
-Keep the product identity stable when renaming the display name.
+Every stored pool row carries its product_id (the pre-product rows were attributed once, in
+the companion, on 2026-10-16). Keep the product identity stable when renaming the display name.
 
 ## Stable author pseudonyms
 
@@ -397,14 +390,8 @@ arbitrary supplied metadata.
 Every merge retains individually recorded historical authors, including authors without a surviving
 snippet. Numeric historical reach or mention claims do not create author records. Unknown
 attribution is represented by an absent author_hash in generated evidence and observation facts.
-Reading a stored pool converts a canonical null author_hash to absence only in evidence and
-observation_index entries with an existing typed observation_id (u_ plus 16 hexadecimal characters
-or obs_ plus 64 hexadecimal characters) and no competing author or user_id alias. This conversion
-applies to every stored row, including unrelated products, before any pool mutation; it preserves
-identities, authors, counts and all other fields. A read exposes the converted view without changing
-stored bytes. A successful upsert, status change or legacy attribution persists the conversion for
-the whole pool; a no-op or failed write leaves stored bytes unchanged. New demand input and rescore
-output still pass strict alias validation and cannot use this stored-data compatibility rule. An
+Stored rows carry no null author_hash; new demand input and rescore output pass strict alias
+validation. An
 existing observation identity with unknown attribution stays unknown when later author records
 arrive. A legacy snippet without an observation identity can inherit an author only when its record
 has exactly one known author. The untrusted alias validator still rejects null and other unsupported
