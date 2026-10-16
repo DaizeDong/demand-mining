@@ -121,7 +121,7 @@ A 78 · RICE=9 · 3证据
 推送上限)与密钥(假名 HMAC salt、Discord 凭证)都放在一个**独立、私有**的伴随 config 仓里。完整规范见
 [CONFIG.md](CONFIG.md)。纯离线函数可以使用内置默认值；真实采集、初始化和写入都需要先准备好私有仓。
 
-- **挂载：** `DEMAND_MINING_CONFIG` 优先，`DEMAND_MINING_CONFIG_DIR` 为别名，随后使用 Guards 的统一发现规则。`DEMAND_MINING_DATA_DIR` 必须属于同一个伴生仓。完整顺序与目录布局见 [CONFIG.md](CONFIG.md#discovery-convention-e2)。
+- **挂载：** 按 Guards 的统一发现规则依次查 `DEMAND_MINING_DATA_DIR`、`DEMAND_MINING_CONFIG`、已证明的同级伴生仓。完整顺序与目录布局见 [CONFIG.md](CONFIG.md#discovery-convention-e2)。
 - **首次配置：** 先创建或克隆私有伴生仓并配置 origin，再运行初始化命令。
   普通的未纳入版本管理的目录不满足要求。详见 [Configuration and DATA](docs/runtime-contract.md#configuration-and-data)。
   ```bash

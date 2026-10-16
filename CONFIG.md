@@ -14,7 +14,7 @@ This file is the authoritative config contract (config-spec E1). It is the canon
 
 ## Discovery convention (E2)
 
-`DEMAND_MINING_CONFIG` selects the companion root; `DEMAND_MINING_CONFIG_DIR` is its lower-priority alias. `DEMAND_MINING_DATA_DIR` may select the supported DATA directory in that same companion. Conflicting CONFIG and DATA selections, empty selectors and explicit missing paths fail before any write. With no explicit selector, the installed Guards resolver (`fleet_guards.runtime`) checks a proven sibling companion; there is no home-directory location and no separate XDG search. Settings and DATA share this selection. `--config-dir` on the doctor selects one companion in isolation from inherited selectors; restore normal environment selection before running the product. Runtime state lives at `<companion>/pool`; DATA_DIR must name that exact pool directory.
+`DEMAND_MINING_DATA_DIR` selects the supported DATA directory and `DEMAND_MINING_CONFIG` the companion root; the fleet_guards resolver checks them in that order. With no explicit selector, the installed Guards resolver (`fleet_guards.runtime`) checks a proven sibling companion; there is no home-directory location and no separate XDG search. Settings and DATA share this selection. `--config-dir` on the doctor selects one companion in isolation from inherited selectors; restore normal environment selection before running the product. Runtime state lives at `<companion>/pool`; DATA_DIR must name that exact pool directory.
 
 ## Layouts (two supported)
 

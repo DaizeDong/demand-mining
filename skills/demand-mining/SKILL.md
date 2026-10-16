@@ -107,8 +107,8 @@ python scripts/run.py --in candidates.json --dry-run --no-ledger   # offline pre
 ## Config
 
 Use [CONFIG.md](../../CONFIG.md) for companion selection and required product fields.
-`DEMAND_MINING_CONFIG` takes precedence over `DEMAND_MINING_CONFIG_DIR`, followed by shared
-Guards discovery. `DEMAND_MINING_DATA_DIR` must select that companion's exact `pool/` directory.
+Shared Guards discovery checks `DEMAND_MINING_DATA_DIR`, then `DEMAND_MINING_CONFIG`, then the
+proven sibling. `DEMAND_MINING_DATA_DIR` must select that companion's exact `pool/` directory.
 Invalid explicit selections fail; there is no XDG or public-repository fallback.
 
 Offline helpers may use `scripts/lib.py:DEFAULT_CONFIG`. Collection and writes require an

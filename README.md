@@ -133,7 +133,7 @@ private** companion config repo. Full contract: [CONFIG.md](CONFIG.md). Pure off
 can use `skills/demand-mining/scripts/lib.py:DEFAULT_CONFIG` without configuration. Real
 collection, initialization and writes require the private repository prerequisites below.
 
-- **Mount:** `DEMAND_MINING_CONFIG` → `DEMAND_MINING_CONFIG_DIR` → shared Guards discovery. `DEMAND_MINING_DATA_DIR` must belong to the same companion. See [CONFIG.md](CONFIG.md#discovery-convention-e2) for the exact layout and fallback order.
+- **Mount:** `DEMAND_MINING_DATA_DIR` → `DEMAND_MINING_CONFIG` → proven sibling, all through shared Guards discovery. See [CONFIG.md](CONFIG.md#discovery-convention-e2) for the exact layout and fallback order.
 - **First time:** Create or clone the private companion repository and configure its origin
   before running the initializer.
   See [Configuration and DATA](docs/runtime-contract.md#configuration-and-data).
