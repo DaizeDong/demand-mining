@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 from pathlib import Path
 import secrets
 import shutil
@@ -427,15 +428,6 @@ BUSINESS_LOCK_WAIT_SECONDS = 300.0
 FAILURE_LOG_NAME = "eod-failures.log"
 
 
-def _failure_note_path():
-    """A per-user location outside every repository, or None where none is defined."""
-    for name in ("LOCALAPPDATA", "XDG_STATE_HOME"):
-        base = os.environ.get(name)
-        if base:
-            return Path(base) / "demand-mining" / "eod-exit.log"
-    return None
-
-
 def _failure_text(stage, exc):
     """Type, message chain and code location; enough to tell the cause apart next time."""
     import time
@@ -461,8 +453,8 @@ def _failure_text(stage, exc):
 def _record_failure(stage, exc, log_dir=None):
     """Leave a durable reason before the process ends; returns where it went.
 
-    The private log directory is preferred. When the failure is the destination check itself, the
-    log write is refused too, so the note goes to the per-user location outside every repository.
+    Only the private log directory is written. When the companion refuses the write, the reason
+    goes to stderr and nothing is persisted.
     """
     text = _failure_text(stage, exc)
     try:
@@ -476,16 +468,7 @@ def _record_failure(stage, exc, log_dir=None):
             stream.write(text)
         return "log"
     except Exception:
-        pass
-    path = _failure_note_path()
-    if path is None:
-        return "none"
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with open(path, "a", encoding="utf-8", newline="") as stream:
-            stream.write(text)
-        return "note"
-    except Exception:
+        sys.stderr.write(text[:2000])
         return "none"
 
 

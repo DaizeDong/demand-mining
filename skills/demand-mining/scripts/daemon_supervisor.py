@@ -8,10 +8,9 @@ nothing is written or restarted until a new log handle succeeds. That is retried
 backoff for --admission-retry-seconds; a refusal that outlasts that window stops
 the supervisor.
 
-pythonw.exe discards stderr, so a fatal exit is recorded before the process ends: in
-supervisor.log when that destination still passes the path checks, otherwise in a local note
-outside every repository (%LOCALAPPDATA%/demand-mining/supervisor-exit.log). The note
-holds only the exception type and message, never daemon output.
+pythonw.exe discards stderr, so a fatal exit is recorded before the process ends in
+supervisor.log when that destination still passes the path checks; otherwise the reason goes
+only to stderr. The record holds only the exception type and message, never daemon output.
 
 The supervisor and the daemon run under pythonw.exe, which has no console. Both make
 CREATE_NO_WINDOW the default for their own children (see no_console.py), and the daemon
@@ -48,17 +47,6 @@ def _describe(exc) -> str:
     return " ".join(" <- ".join(parts).split())[:2000]
 
 
-def _exit_note_path():
-    """A per-user location outside every repository, or None where none is defined."""
-    base = os.environ.get("LOCALAPPDATA")
-    if base:
-        return os.path.join(base, "demand-mining", "supervisor-exit.log")
-    base = os.environ.get("XDG_STATE_HOME")
-    if base:
-        return os.path.join(base, "demand-mining", "supervisor-exit.log")
-    return None
-
-
 def _record_fatal(reason: str) -> str:
     """Leave the exit reason on disk before the process ends; returns where it went."""
     if _SUPERVISOR_LOG is not None:
@@ -67,18 +55,12 @@ def _record_fatal(reason: str) -> str:
                 _log(log, f"supervisor exiting: {reason}")
             return "log"
         except BaseException:
-            pass  # the destination itself is refused; fall back to the local note
-    path = _exit_note_path()
-    if path is None:
-        return "none"
+            pass  # the destination itself is refused
     try:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "a", encoding="utf-8") as note:
-            note.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] supervisor exiting "
-                       f"(pid {os.getpid()}): {reason}\n")
-        return "note"
+        sys.stderr.write(f"supervisor exiting (pid {os.getpid()}): {reason[:2000]}\n")
     except Exception:
-        return "none"
+        pass
+    return "none"
 
 
 def _pythonw_for(python_path: str) -> str:

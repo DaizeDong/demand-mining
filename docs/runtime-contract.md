@@ -89,9 +89,8 @@ prevents restart until a new log handle succeeds. The supervisor writes nothing 
 retries with backoff (min/max backoff) for `--admission-retry-seconds` (default 3600); on success it
 logs the refusal it recovered from and restarts the child, and a refusal that outlasts the window
 stops the supervisor. pythonw.exe discards stderr, so every fatal supervisor exit is recorded first:
-as `supervisor exiting: <reason>` in supervisor.log while that log is accepted, otherwise in
-`%LOCALAPPDATA%/demand-mining/supervisor-exit.log` (outside every repository; exception type and
-message only, never daemon output). Direct --log-file uses the same append path, restores the prior
+as `supervisor exiting: <reason>` in supervisor.log while that log is accepted, otherwise only on
+stderr (exception type and message only, never daemon output). Direct --log-file uses the same append path, restores the prior
 output streams on exit, and records startup tracebacks only while the destination is accepted. The
 daily summary loop wakes every 30 minutes but checks its destination only when it is about to
 write: an already confirmed day or a send awaiting reconciliation is read without a write, and a
