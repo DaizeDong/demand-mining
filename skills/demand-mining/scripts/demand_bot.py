@@ -265,7 +265,6 @@ def gen_reply(text: str, sys=None, context: str = "") -> str:
 
 def _demand_from_verdict(v, msg_text, author_hash, channel_name, product_id=None,
                          *, observation_id=None, source_id=None, timestamp=None):
-    v, msg_text, channel_name = safe_data(v), safe_text(msg_text), safe_text(channel_name)
     title = (v.get("title") or "").strip()
     ents = re.findall(r"[a-z][a-z0-9\-]{2,}", title.lower())[:4] or [title.lower()[:24]]
     track = (v.get("track") or "general").strip().lower()
@@ -574,21 +573,10 @@ class DemandBot(discord.Client):
     def _quarantine(self, entries, stage, error_name, backoff):
         """Move held observations into the companion quarantine; raises if that is refused."""
         from observation_retry import quarantine_observation
-        from redact import PrivacyReviewRequired, safe_data
         paths = []
         for entry in entries:
             message = entry.get("message", entry)
-            source = "classification" if stage == "classify" else "observation"
-            if stage != "classify" and "demand" in entry:
-                try:
-                    safe_data(entry["demand"])
-                except PrivacyReviewRequired:
-                    source = "observation"
-                else:
-                    # The observation screens clean again, so the hold came from the
-                    # demand pool's stored rows, which upsert re-screens on every write.
-                    source = "pool"
-            record = {"reason": "privacy_review_required", "stage": stage, "hold_source": source,
+            record = {"reason": "privacy_review_required", "stage": stage,
                       "error": error_name, "attempts": backoff.failures + 1,
                       "privacy_holds": backoff.privacy_holds, "quarantined_at": iso(now_utc()),
                       "product_id": self.cfg.get("product_id") or self.cfg.get("slug"),
@@ -674,12 +662,12 @@ class DemandBot(discord.Client):
         """Log state changes only; quarantine observations the privacy screen keeps holding."""
         from redact import PrivacyReviewRequired
         name = type(exc).__name__
-        held = isinstance(exc, PrivacyReviewRequired) and stage in ("classify", "persist")
+        held = isinstance(exc, PrivacyReviewRequired) and stage == "classify"
         if held and backoff.privacy_holds + 1 >= self._privacy_hold_limit():
             backoff.privacy_holds += 1
             # A classification hold cannot name one message, so the whole unclassified
-            # batch is held; a persistence hold names the head observation.
-            held_entries = list(self._pending_batch if stage == "classify" else self._pending_batch[:1])
+            # batch is held. Persisting to the private pool screens nothing.
+            held_entries = list(self._pending_batch)
             try:
                 self._quarantine(held_entries, stage, name, backoff)
             except Exception as failure:

@@ -1,7 +1,8 @@
 # Privacy and temporary collection retention
 
-Redaction runs before message text reaches a model, embedding, pool write or
-output. `scripts/redact.py` provides the local checks; `run.py` and the live
+Redaction runs before message text reaches a model, embedding or output. The
+live pool lives in the PRIVATE companion and stores what the daemon already
+redacted at ingest without screening it again. `scripts/redact.py` provides the local checks; `run.py` and the live
 collection pipeline apply them at their input boundaries.
 
 ## Local redaction
@@ -10,7 +11,7 @@ collection pipeline apply them at their input boundaries.
 | --- | --- | --- |
 | Regex and checksum | Email, phone, Luhn-valid payment-card numbers, Discord IDs, handles, invites, URLs and IPv4 addresses | `redact.redact()` |
 | Entropy | Long mixed high-entropy tokens that resemble API keys or secrets | Local entropy and token-shape checks |
-| Conservative contextual patterns | Latin name spans and common street-address forms | Local redaction; unsupported personal context is held for review before model, pool or output use |
+| Conservative contextual patterns | Latin name spans and common street-address forms | Local redaction; unsupported personal context is held for review before model or output use |
 
 The doctor lists covered, uncovered and unchecked sensitive types. General
 multilingual named-entity recognition remains unchecked. These checks do not

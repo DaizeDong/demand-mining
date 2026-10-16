@@ -145,12 +145,11 @@ with the same pending batch.
 An observation the privacy screen keeps holding (`PrivacyReviewRequired`) is not
 retried forever. After eight held attempts (about 2.6 hours at the default
 interval) it moves to `pool/quarantine/` in the PRIVATE companion and the batch
-continues. A hold during persistence quarantines the head observation; a hold
-during classification cannot name one message, so the unclassified batch is held
-together. Each record keeps the ingest-redacted text, pseudonymous identities, the
-stage, any verdict or demand already computed, and `hold_source`. `pool` means the
-observation screens clean on its own and the hold came from rows already stored in
-`pool/demands.jsonl`, which every pool write screens again. Nothing is discarded:
+continues. A hold during classification cannot name one message, so the unclassified
+batch is held together. Each record keeps the ingest-redacted text, pseudonymous identities, the
+stage, and any verdict or demand already computed. Holds come only from text bound
+for a model or a reply; writing `pool/demands.jsonl` screens nothing, because the
+pool lives in the PRIVATE companion. Nothing is discarded:
 the quarantine write uses the same destination checks as every other DATA write, and
 when it is refused the observation stays pending and keeps backing off.
 Replaying a record is an explicit operator step after review.

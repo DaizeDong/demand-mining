@@ -9,8 +9,9 @@ One line per demand:
 
 Merge rule (dedup): a new observation whose product_id and canonical_key match an existing demand does NOT create
 a row, it bumps last_seen, unions authors (reach = distinct authors), and appends up to N evidence
-snippets, then re-scores. A genuinely new subject appends a new row. Stores ONLY redacted/distilled
-data (the daemon redacts before it ever calls this). Pure file IO, no network.
+snippets, then re-scores. A genuinely new subject appends a new row. The daemon redacts message
+text before it reaches a model; the pool lives in the PRIVATE companion and does not screen its
+rows again on write. Pure file IO, no network.
 """
 from __future__ import annotations
 
@@ -64,11 +65,8 @@ def _read_rows(path: str) -> list:
 
 
 def _product_id(value):
-    from redact import safe_data
     if not isinstance(value, str) or not value.strip():
         raise ValueError("live pool needs an explicit product identity")
-    if safe_data(value) != value:
-        raise ValueError("product identity cannot change during privacy screening")
     return value
 
 
@@ -86,8 +84,7 @@ def _check_binding(row, product, canonical_key):
 
 def _atomic_write(path: str, rows: list) -> None:
     from data_safety import atomic_bytes
-    from redact import safe_data
-    content = "".join(json.dumps(safe_data(row), ensure_ascii=False) + "\n" for row in rows)
+    content = "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows)
     atomic_bytes(path, content.encode("utf-8"))
 
 
@@ -105,11 +102,7 @@ def upsert(path: str, demand: dict, rescore=None) -> tuple[str, dict]:
     """Insert or merge a demand by product_id and canonical_key. Returns (action, row)
     where action is 'new' or 'merged'. `rescore(row)` (optional) recomputes final_score/grade/tier/
     reach after the merge. Thread + process safe via a lock + atomic replace."""
-    from redact import safe_data
     product = _product_id(demand.get("product_id"))
-    demand = safe_data(demand)
-    if demand.get("product_id") != product:
-        raise ValueError("product identity cannot change during privacy screening")
     ck = demand.get("canonical_key")
     if not isinstance(ck, str) or not ck:
         raise ValueError("pool demand requires canonical_key")
