@@ -6,7 +6,7 @@ local path checks that start no process: it must not be inside this public sourc
 must not traverse parents or filesystem aliases (symbolic links, reparse points,
 hardlinked files) and must sit inside a Git worktree so the DATA stays versioned.
 Repository visibility is not checked at runtime; publication safety is enforced at
-commit time by the Guards hooks and CI.
+commit time by the Guards hooks.
 """
 from __future__ import annotations
 

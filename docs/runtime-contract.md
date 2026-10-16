@@ -50,7 +50,7 @@ start no process. A destination inside the tool, inside Git metadata, outside ev
 worktree, or reached through a parent traversal, symbolic link, junction or hardlinked
 file is refused with the actual path. There is no in-repo or home-directory fallback; an
 uninitialized companion is a write error. Repository visibility is not checked at
-runtime. Keep the companion repository PRIVATE; the commit-time Guards hooks and CI are
+runtime. Keep the companion repository PRIVATE; the commit-time Guards hooks are
 the publication gate.
 
 This applies to explicit archive/corpus/log paths, daemon output, run state,

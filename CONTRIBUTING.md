@@ -17,10 +17,12 @@ Changes must preserve the current runtime and privacy contracts.
 ## Workflow
 
 1. Implement the change and update the affected entry documents and references together.
-2. Run the applicable pinned Guards and Style checks used by CI. Documentation changes use
-   `python style/tools/doc_contract.py --root . --profile skill --stage accepted`.
-3. Preserve `.githooks/` forwarding to pinned Guards. Restore missing submodules with
-   `git submodule update --init --recursive`; do not vendor or bypass scanners.
+2. Commits and pushes run the privacy and dash checks through the `.githooks/` shims, from the local
+   fleet-guards and fleet-style checkouts named by `git config fleet.guards` and `fleet.style`. Set
+   `git config core.hooksPath .githooks` once per clone, and install the runtime package with
+   `pip install -e "$(git config --get fleet.guards)"`. Documentation changes also run
+   `python "$(git config --get fleet.style)/tools/doc_contract.py" --root . --profile skill --stage accepted`.
+3. Preserve the `.githooks/` shims; do not vendor or bypass scanners.
 4. For a release, align plugin metadata, README badges, ROADMAP and CHANGELOG. Documentation-only
    maintenance does not require a version bump. Preserve released history and use Unreleased for
    current changes.

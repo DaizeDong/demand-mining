@@ -68,7 +68,7 @@ NEW、SUPPRESS 或 RESURFACE。发送前先固定计划并核对产物；收到�
 或手动克隆：
 
 ```bash
-git clone --recurse-submodules https://github.com/DaizeDong/demand-mining.git ~/.claude/plugins/demand-mining
+git clone https://github.com/DaizeDong/demand-mining.git ~/.claude/plugins/demand-mining
 ```
 
 ## 快速开始

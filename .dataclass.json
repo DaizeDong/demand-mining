@@ -4,10 +4,10 @@
     "TOOL    = code, SKILL.md, docs, reference data, and metrics ABOUT THE SKILL. Public.",
     "FIXTURE = synthetic test data. This repo ships no test suite, so the list is empty.",
     "DATA    = anything a REAL RUN produced. Versioned only in the PRIVATE companion. Lives in the private companion",
-    "          config, resolved at runtime by tools/datadir.py. This repo ships only the schema.",
+    "          config, resolved at runtime by fleet_guards.runtime.companion_resolver. This repo ships only the schema.",
     "data_sealed = a path that HELD real data, was purged, and must stay dead.",
     "",
-    "Enforced by tools/data_boundary.py in .githooks and in CI."
+    "Enforced by data_boundary.py from the fleet-guards checkout named by git config fleet.guards, run from .githooks."
   ],
   "_audited": "Real writers check that actual destinations sit in a separate Git worktree outside this public source tree (path checks only; visibility is not checked at runtime) before corpus, pool, ledger, archive, receipt, run-state, cursor, daemon-log or backup writes. Explicit invalid configuration fails closed. Source data remains empty because each writer resolves outside the public consumer and cannot use a repository-local fallback.",
   "_readme_diagrams": "TOOL: docs/diagrams/*.dot, *.png and render.py describe the shipped workflow using public code and documentation; they contain no real-run observations.",

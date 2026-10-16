@@ -75,7 +75,7 @@ See the [runtime contract](docs/runtime-contract.md) for identity, recovery and 
 Or clone manually:
 
 ```bash
-git clone --recurse-submodules https://github.com/DaizeDong/demand-mining.git ~/.claude/plugins/demand-mining
+git clone https://github.com/DaizeDong/demand-mining.git ~/.claude/plugins/demand-mining
 ```
 
 ## Quick start
