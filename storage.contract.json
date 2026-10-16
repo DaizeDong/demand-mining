@@ -296,32 +296,6 @@
       }
     },
     {
-      "artifact_id": "pool_atomic_staging_0",
-      "path_pattern": "pool/.demands.jsonl.*",
-      "purpose": "Temporary bytes before atomic publication of pool or summary state.",
-      "schema": "skills/demand-mining/scripts/data_safety.py: atomic_bytes.",
-      "producer": "Runtime atomic publication.",
-      "consumer_or_final_deliverable": "The active writer and interrupted-write reconciliation.",
-      "rebuild_or_restore": "Recreate from retained inputs only after checking whether publication committed.",
-      "retention_rule": {
-        "class": "rebuildable",
-        "rule": "Remove only after the writer is stopped and the final publication outcome is known; never select using corpus TTL."
-      }
-    },
-    {
-      "artifact_id": "pool_atomic_staging_1",
-      "path_pattern": "pool/..daily-summary-*.json.*",
-      "purpose": "Temporary bytes before atomic publication of pool or summary state.",
-      "schema": "skills/demand-mining/scripts/data_safety.py: atomic_bytes.",
-      "producer": "Runtime atomic publication.",
-      "consumer_or_final_deliverable": "The active writer and interrupted-write reconciliation.",
-      "rebuild_or_restore": "Recreate from retained inputs only after checking whether publication committed.",
-      "retention_rule": {
-        "class": "rebuildable",
-        "rule": "Remove only after the writer is stopped and the final publication outcome is known; never select using corpus TTL."
-      }
-    },
-    {
       "artifact_id": "temporary_raw_0",
       "path_pattern": "data/corpus*.json",
       "purpose": "Temporary collection corpus or derived processing chunks.",

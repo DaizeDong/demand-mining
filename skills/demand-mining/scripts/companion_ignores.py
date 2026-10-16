@@ -33,10 +33,6 @@ DEFAULT_CONTRACT = Path(__file__).resolve().parents[3] / "storage.contract.json"
 EXEMPT = {
     # Mode B keeps credential values out of the companion history (scripts/init_config.py).
     "credentials": "Mode B credential values; placed by the operator, never backed up",
-    # Legacy staging names. data_safety.atomic_bytes now stages under .staging/atomic-*.tmp
-    # (declared transient); these names only describe leftovers of older writers.
-    "pool_atomic_staging_0": "legacy staging name; atomic_bytes stages under .staging/",
-    "pool_atomic_staging_1": "legacy staging name; atomic_bytes stages under .staging/",
 }
 
 
