@@ -43,7 +43,7 @@ listed in that script with their reason.
 | Companion path | Purpose and retention |
 | --- | --- |
 | `registry.json`, flat or per-product priority/taxonomy files, `competitors.json` | Current product identity, collection wiring and policy. Preserve the versions needed to interpret pending work. |
-| `secrets/` | Configured credentials and the stable HMAC salt. Preserve according to the selected private credential backup policy. The salt is not an expiring pseudo-map. |
+| `secrets/` | Configured credentials and the stable HMAC salt. `secrets/pseudonym_hmac_salt` is tracked in the PRIVATE companion's own history (it is the companion's DATA, not a credential, and cannot be regenerated); credential files stay gitignored and come from the operator's vault. The salt is not an expiring pseudo-map. |
 | `pool/demands.jsonl` | Product-bound canonical demands and recorded observation identities. No automatic age deletion. |
 | `pool/runs/`, `pool/scheduled/`, `pool/implicit/` | Plans, redacted evidence, manifests, delivery receipts, cursors, caller state and recovery markers. Run bundles include the exact `archive/digests/<year>/<date>.md` delivered content. Preserve while delivery, retries, replay prevention or selected final evidence depends on them. |
 | `pool/card-deliveries/` | Standalone card event state and confirmed receipts, bound to product, exact card ID, new/update kind and rendered content hash. Preserve each state/receipt pair for replay prevention and reconciliation; no automatic TTL. Adjacent process locks are transient. These events do not depend on raw corpus retention. |
