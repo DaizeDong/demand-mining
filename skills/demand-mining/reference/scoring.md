@@ -50,7 +50,7 @@ known Kano delighter remains an independent big-bet reason.
 `Urgency = (UserBusinessValue + TimeCriticality + RiskReduction) / JobSize` (Fibonacci 1/2/3/5/8/13).
 TimeCriticality anchors: 13 = competitor shipped / active churn / contract window; 8 = competitor
 building / quarter window; 3 = time preference; 1 = no deadline. External velocity inputs need
-observed provenance; automatic trend-pulse/competitor integration remains deferred. Scheduled
+observed provenance; automatic competitor integration remains deferred. Scheduled
 grounding discards model-supplied competitor and velocity claims from the internal-only corpus. RICE systematically
 under-weights time-sensitive needs, so urgency is a **separate axis**, never folded in.
 

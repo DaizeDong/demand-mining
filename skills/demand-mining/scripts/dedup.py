@@ -149,7 +149,7 @@ def decide(candidate: dict, matched: dict | None, cfg: dict | None = None) -> di
     crossed_two = (len(prev_sources) < 2 <= len(cur_sources))
     competitor_shipped = bool(cur_comp) and cur_comp != prev_comp and "shipped" in cur_comp.lower()
     # urgency/velocity JUMP (docstring + ARCHITECTURE RESURFACE trigger): a demand whose velocity
-    # spikes (trend acceleration / competitor momentum via trend-pulse) is now-urgent even with the
+    # spikes (trend acceleration / competitor momentum) is now-urgent even with the
     # score/sources/competitor unchanged, re-surface it. Guarded: only when BOTH a prior and a
     # current velocity are present and the absolute jump clears the floor, so a missing velocity or
     # a tiny wiggle never re-pushes (anti-spam, no over-resurface).
