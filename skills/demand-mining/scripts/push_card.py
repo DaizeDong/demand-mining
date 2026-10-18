@@ -137,13 +137,10 @@ def _relay_cmd():
                 return v
         except Exception:
             return shlex.split(env)
-    # Pluggable Agent Center egress: prefer schedule-reminder's unified relay (#demand stream) when
-    # the base is installed; fall back to the Big Brother relay so this skill still works standalone.
+    # Agent Center egress: schedule-reminder's relay.py (#demand stream), the one Discord send path.
     rp = os.environ.get("SCHEDULE_RELAY_PY") or str(
         Path.home() / ".claude/skills/schedule-reminder/scripts/relay.py")
-    if os.path.isfile(rp):
-        return [sys.executable, rp, "send", "--stream", "demand", "--text"]
-    return [sys.executable, str(Path.home() / ".claude/discord_relay/send.py")]
+    return [sys.executable, rp, "send", "--stream", "demand", "--text"]
 
 
 def deliver(message: str, dry_run: bool = False) -> tuple[bool, str]:
