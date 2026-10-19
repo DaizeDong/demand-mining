@@ -21,8 +21,13 @@ def _backup_locked(paths):
         git(root, "add", "--", *relatives, env=environment)
         delta = git(root, "diff", "--cached", "--quiet", "--exit-code", env=environment, allowed=(0, 1))
         if delta.returncode == 1:
+            # commit --only runs against the default index and rejects a path that index has
+            # never seen, which is every file of a new run. Stage just these paths there first;
+            # --only still leaves anything else staged in the default index out of the commit.
+            shared = {**environment, "GIT_INDEX_FILE": None}
+            git(root, "add", "--", *relatives, env=shared)
             git(root, "commit", "--only", "-m", "data: archive demand-mining run",
-                "--", *relatives, env={**environment, "GIT_INDEX_FILE": None})
+                "--", *relatives, env=shared)
         # Rejected pushes stay pending; no pull/rebase/autostash mutates other work.
         git(root, "push", "origin", "HEAD", env=environment)
         return {"status": "confirmed", "files": relatives, "committed": delta.returncode == 1}

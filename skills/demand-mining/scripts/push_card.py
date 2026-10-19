@@ -11,8 +11,9 @@ only relay). Two fail-closed guards run BEFORE anything leaves the machine:
      validated up front so nothing is silently truncated by Discord.
 
 Delivery seam (clean bot switch, zero code change):
-  DEMAND_MINING_RELAY_CMD, JSON list / shell string; receives the message on argv[1].
-  else fallback to a conventional content-only relay under the home dir.
+  DEMAND_MINING_RELAY_CMD, JSON list / shell string; receives the message as its last argv.
+  else schedule-reminder's relay.py in receipt mode (--idempotency-key = content SHA256); its
+  JSON receipt line carries the Discord message IDs that confirm delivery.
 The Discord token is NEVER read or echoed here, the relay owns the token; this script hands text.
 """
 from __future__ import annotations
@@ -128,7 +129,7 @@ def render_text(card: dict, update: bool = False) -> str:
     return "\n".join(lines)
 
 
-def _relay_cmd():
+def _relay_cmd(receipt_key: str = "preflight"):
     env = os.environ.get("DEMAND_MINING_RELAY_CMD")
     if env:
         try:
@@ -138,9 +139,12 @@ def _relay_cmd():
         except Exception:
             return shlex.split(env)
     # Agent Center egress: schedule-reminder's relay.py (#demand stream), the one Discord send path.
+    # --idempotency-key puts relay in receipt mode: one JSON line with the Discord message IDs.
+    # Without it relay prints nothing, and a delivered message could never be confirmed.
     rp = os.environ.get("SCHEDULE_RELAY_PY") or str(
         Path.home() / ".claude/skills/schedule-reminder/scripts/relay.py")
-    return [sys.executable, rp, "send", "--stream", "demand", "--text"]
+    return [sys.executable, rp, "send", "--stream", "demand",
+            "--idempotency-key", receipt_key, "--receipt-adapter", "demand-mining", "--text"]
 
 
 def deliver(message: str, dry_run: bool = False) -> tuple[bool, str]:
@@ -155,11 +159,11 @@ def deliver(message: str, dry_run: bool = False) -> tuple[bool, str]:
         identity = _DELIVERY_IDENTITY.get()
         if identity is not None:
             child_env["DEMAND_MINING_DELIVERY_IDENTITY"] = json.dumps(identity, sort_keys=True)
-        child_env["DEMAND_MINING_DELIVERY_CONTENT_SHA256"] = hashlib.sha256(message.encode("utf-8")).hexdigest()
-        proc = subprocess.run(_relay_cmd() + [message], capture_output=True, text=True,
+        content_hash = hashlib.sha256(message.encode("utf-8")).hexdigest()
+        child_env["DEMAND_MINING_DELIVERY_CONTENT_SHA256"] = content_hash
+        proc = subprocess.run(_relay_cmd(content_hash) + [message], capture_output=True, text=True,
                               encoding="utf-8", errors="replace", timeout=30,
                               env=child_env, **no_window_kwargs())
-        content_hash = hashlib.sha256(message.encode("utf-8")).hexdigest()
         if proc.returncode != 0:
             return False, {"status": "unknown", "adapter_exit": proc.returncode,
                            "content_sha256": content_hash}
@@ -170,9 +174,11 @@ def deliver(message: str, dry_run: bool = False) -> tuple[bool, str]:
                            "content_sha256": content_hash}
         if not isinstance(receipt, dict):
             return False, {"status": "unknown", "reason": "adapter receipt is not an object"}
-        # A native Discord response includes the actual ID and sent content.
-        if receipt.get("id") and receipt.get("content") == message:
-            receipt = {"status": "confirmed", "message_id": str(receipt["id"]),
+        # relay.py receipt mode: {"status": "confirmed", "receipt_id": "<id>[,<id>...]", ...}
+        # with one Discord message ID per chunk, echoing the content hash as idempotency_key.
+        if (receipt.get("status") == "confirmed" and receipt.get("receipt_id")
+                and receipt.get("idempotency_key") == content_hash):
+            receipt = {"status": "confirmed", "message_id": str(receipt["receipt_id"]),
                        "content_sha256": content_hash}
             if identity is not None:
                 receipt["identity"] = identity

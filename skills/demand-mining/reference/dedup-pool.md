@@ -51,8 +51,9 @@ The base's events audit stream is the evolution history. `dedup.decide` → **NE
 score+create) / **SUPPRESS** (recurs, small delta, no new origin → count, don't re-push) /
 **RESURFACE** (new external corroboration / competitor shipped / urgency jump / new origin crossing
 ≥2 / score jump ≥ threshold → evolution UPDATE card). Single-origin cards that meet the push score
-floor fail the independent-source check and appear in `blocked`; lower-score internal demands
-remain subject to the archive floor and other admission checks. A five-day quiet period does not
+floor are valid: they are archived to the pool and digest but not pushed, and the gate lists them in
+`held_single_source`; lower-score internal demands remain subject to the archive floor and other
+admission checks. A five-day quiet period does not
 establish that a product change shipped; the current demand runtime does not automatically mark
 `doing` items `done` on that basis. Scheduled collection resumes from the prior completed cutoff,
 and watermark advancement requires successful receipt-bound finalization. See the

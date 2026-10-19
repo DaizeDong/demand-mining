@@ -8,7 +8,8 @@ never archived to the pool) unless EVERY rule holds:
   * three axes present (rice, opportunity, wsjf)  * tier in the enum
   * >=1 INTERNAL evidence unit {channel, redacted_snippet, ts}  (an iteration suggestion with no
     internal grounding is forbidden filler, anti-pattern: no-evidence filler)
-  * independent_source_count >= min_independent_sources for any card that crosses the push floor
+  * independent_source_count numeric. Requiring >= min_independent_sources above the push floor
+    is a PUSH rule applied in gate_batch: such a single-source card is archived, not pushed.
   * egress DLP: the card carries NO residual PII (redact.has_pii over the user-visible fields) ,
     fail-closed, nothing with leftover PII is ever pushed/archived.
 
@@ -64,17 +65,13 @@ def validate_card(card: dict, cfg: dict | None = None) -> tuple[bool, list[str]]
     if len(internal) < 1:
         errs.append("need >=1 internal evidence {channel,redacted_snippet,ts}")
 
-    # >=2 independent source red line only enforced for push-floor crossers (a backlog implicit
-    # single-complaint demand is allowed in the pool but cannot be pushed as decision-grade).
+    # The >=2 independent source red line is a push-admission rule, not a validity rule: a
+    # single-source card above the push floor is a valid demand that goes to the pool and the
+    # digest but is not pushed as decision-grade. gate_batch applies it.
     try:
-        isc = int(card.get("independent_source_count", 0) or 0)
+        int(card.get("independent_source_count", 0) or 0)
     except (TypeError, ValueError, OverflowError):
-        isc = 0
         errs.append("independent_source_count non-numeric")
-    min_src = int(sc.get("min_independent_sources", 2))
-    if fs is not None and fs >= float(sc.get("min_score_to_push", 70)) \
-            and isc < min_src:
-        errs.append(f"push-grade card needs independent_source_count >= {min_src}, have {isc}")
 
     # egress DLP (fail-closed): no residual PII may ride along in user-visible text.
     leaked = [f for f in _PII_FIELDS if card.get(f) and has_pii(str(card.get(f)))]
@@ -107,7 +104,12 @@ def gate_batch(cards: list[dict], cfg: dict | None = None) -> dict:
 
     # Tier0 (must-be missing) is always push-eligible regardless of score (stop-the-bleed), then
     # the score floor for the rest. Never filler: only floor-clearing cards are pushable/archivable.
-    eligible = [c for c in passed if not is_cut(c)]
+    min_src = int(sc.get("min_independent_sources", 2))
+    # Above the push floor a card needs >=2 independent sources to be pushed; a single-source one
+    # stays archivable (pool + digest) and is listed in held_single_source.
+    held = [c for c in passed if float(c.get("final_score", 0)) >= min_push
+            and int(c.get("independent_source_count", 0) or 0) < min_src]
+    eligible = [c for c in passed if not is_cut(c) and c not in held]
     tier0 = [c for c in eligible if c.get("tier") == "tier0"]
     rest = sorted([c for c in eligible if c.get("tier") != "tier0"
                    and float(c.get("final_score", 0)) >= min_push],
@@ -119,6 +121,7 @@ def gate_batch(cards: list[dict], cfg: dict | None = None) -> dict:
 
     return {"passed": passed, "blocked": blocked, "pushable": pushable,
             "archivable": archivable, "digest_only": digest_only,
+            "held_single_source": [c.get("title", "?") for c in held],
             "empty_day": len(archivable) == 0}
 
 

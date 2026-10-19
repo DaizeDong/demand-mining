@@ -293,6 +293,9 @@ Restore the state and receipt together; deleting them removes replay evidence.
 
 ### Scheduled delivery reconciliation
 
+The default adapter is schedule-reminder's `relay.py send --stream demand` in
+receipt mode (`--idempotency-key` set to the content SHA256); its JSON line's
+`receipt_id` (the Discord message IDs) becomes the receipt `message_id`.
 The finalizer durably records unknown delivery before calling the adapter. An
 exception, timeout or missing receipt remains `pending_reconciliation` and never
 causes automatic resend. If interruption left a confirmed receipt on disk before
@@ -366,7 +369,8 @@ The caller binds every quoted span to the selected corpus channel, then derives
 authors, origins and corroboration counts from the matched corpus observations.
 Optional message identities and timestamps must match. Model count declarations
 do not survive this binding. Empty or nontextual internal evidence blocks a card,
-and a blocked card prevents real-run completion.
+and a blocked card prevents real-run completion. Fewer than two independent sources
+is not a block: above the push floor such a card is archived but not pushed.
 
 Every nonexact automatic duplicate match requires entity overlap and subject
 agreement. The configured candidate-merge band remains review-only. Exact
