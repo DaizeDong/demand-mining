@@ -1,6 +1,9 @@
 ﻿# Scheduling the daily EOD run
 
-Windows Task Scheduler invokes wrapper.ps1, which runs scheduled.py with the
+The skill's tasks are declared in `automation/tasks.json` at the repository root
+(`DemandMiningEOD` daily at 21:40, `DemandMiningDaemon` at logon) and installed with
+background-task-core `install-skill`. Machine overrides live in the companion's
+`automation/tasks.local.json`. The EOD task invokes wrapper.ps1, which runs scheduled.py with the
 selected Python interpreter. The installed llmcall agent interface proposes
 candidates. Local code validates the handoff and owns artifact, receipt and
 watermark persistence. No separate provider CLI is needed.
@@ -12,11 +15,15 @@ at a frozen collection cutoff and resumes from the previous completed cutoff.
 Pending runs are resumed before starting a new day. Historical digest registration is
 not proof that missed source messages were collected.
 
-Register with register-task.ps1 at an appropriate local trigger time after the
-config doctor and scheduled.py --preflight succeed. Registration fixes the
-interpreter: pass -Python with the python.exe that has llmcall installed, or the
-script records the python your shell resolves; the Windows Store alias is refused. Registration is an explicit
-operator action; running a doctor never creates a task or sends a notification.
+Install the tasks after the config doctor and scheduled.py --preflight succeed. The
+declaration passes -Python with the interpreter that has llmcall installed; the
+Windows Store alias is refused. Installation is an explicit operator action; running a
+doctor never creates a task or sends a notification.
+
+The daemon task starts `daemon_supervisor.py` windowless at logon with no execution
+limit; the supervisor restarts the daemon after an ordinary crash. Shadow mode captures
+only. To run it `live` or `dry`, change `--mode` in the manifest's argv and re-run
+`install-skill`.
 The scheduled caller reports incomplete status through its exit code and private
 caller state. It does not issue a second message to report a failed send.
 

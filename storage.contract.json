@@ -160,10 +160,23 @@
       }
     },
     {
+      "artifact_id": "automation_task_overrides",
+      "path_pattern": "automation/tasks.local.json",
+      "purpose": "Private machine choices for the tasks declared in automation/tasks.json.",
+      "schema": "background-task-core docs/skill-tasks.md: companion override",
+      "producer": "Reviewed operator configuration",
+      "consumer_or_final_deliverable": "background-task-core install-skill",
+      "rebuild_or_restore": "Restore the reviewed private configuration and its version history.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "Keep while the skill's tasks are installed; every key must name a task the manifest declares."
+      }
+    },
+    {
       "artifact_id": "credentials",
       "path_pattern": "secrets/**",
       "purpose": "Private credentials, stable pseudonym salt and their setup references.",
-      "schema": "CONFIG.md; scripts/redact.py: _stable_salt; product discord_token_ref configuration.",
+      "schema": "CONFIG.md; scripts/redact.py: _stable_salt. The Discord token is a cv:// discord_token_ref resolved from the credential vault, never a file here.",
       "producer": "Companion maintainer or credential provisioning.",
       "consumer_or_final_deliverable": "Authorized collection and stable author pseudonyms.",
       "rebuild_or_restore": "Restore through the selected private credential backup policy; keep the salt consistent with stored author identities.",

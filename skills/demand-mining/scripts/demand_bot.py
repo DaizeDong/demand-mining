@@ -97,9 +97,7 @@ def _wiring(d):
     prod = next((item for item in reg.get("products", []) if item.get("slug") == selected), None)
     if prod is None:
         raise ValueError("bot product is not registered")
-    ref = prod["discord_token_ref"]
-    tok_path = (d / ref) if not os.path.isabs(ref) else __import__("pathlib").Path(ref)
-    token = read_bot_token(tok_path, "demand_bot")
+    token = read_bot_token(prod["discord_token_ref"], "demand_bot")
     chans = {c["id"]: c.get("name", c["id"]) for c in (prod.get("discord_channels") or [])}
     guild = prod.get("discord_guild")
     display = prod.get("demand_display_channel") or os.environ.get("DEMAND_DISPLAY_CHANNEL")

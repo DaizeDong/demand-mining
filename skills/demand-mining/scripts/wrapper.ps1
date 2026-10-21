@@ -1,7 +1,7 @@
 ﻿<# Scheduled EOD uses installed llmcall routing and the local deterministic finalizer.
 
-   -Python names the interpreter, and the scheduled task passes it: register-task.ps1 resolves it
-   once, when an operator registers the task, and bakes the absolute path into the action. Without
+   -Python names the interpreter, and the scheduled task passes it: the declaration in
+   automation/tasks.json names it as an absolute %ProgramData% path. Without
    -Python the wrapper falls back to `python` on PATH, but never to a Windows Store execution alias
    (...\WindowsApps\python.exe): under Task Scheduler that stub opens the Store or hangs instead of
    running anything, and an EOD run that silently does nothing is the failure this wrapper exists
@@ -29,7 +29,7 @@ if (-not (Test-Path -LiteralPath $Python -PathType Leaf)) {
 }
 $Python = (Resolve-Path -LiteralPath $Python).Path
 if ($Python -match '\\WindowsApps\\') {
-  throw "python is the Windows Store alias ($Python); pass -Python <absolute python.exe> (re-run register-task.ps1 -Python ...)"
+  throw "python is the Windows Store alias ($Python); pass -Python <absolute python.exe> (fix the argv in automation/tasks.json and re-run install-skill)"
 }
 $caller = Join-Path $PSScriptRoot 'scheduled.py'
 $arguments = @('-X', 'utf8', '-B', $caller)

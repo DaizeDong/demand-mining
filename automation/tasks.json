@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "skill": "demand-mining",
+  "tasks": [
+    {
+      "id": "demand-mining/demandminingdaemon",
+      "name": "DemandMiningDaemon",
+      "purpose": "Always-on live-tap gateway daemon (supervised, shadow mode: capture only, never posts).",
+      "kind": "daemon",
+      "enabled": true,
+      "trigger": {"type": "logon"},
+      "argv": [
+        "%ProgramData%\\miniconda3\\pythonw.exe",
+        "${SKILL_ROOT}/skills/demand-mining/scripts/daemon_supervisor.py",
+        "--config-dir", "${COMPANION_ROOT}",
+        "--python", "%ProgramData%\\miniconda3\\python.exe",
+        "--mode", "shadow"
+      ],
+      "cwd": "%SystemRoot%\\System32",
+      "timeout_seconds": 0,
+      "checks": [
+        {"id": "pool", "required": true,
+         "health": {"label": "demand-mining shadow daemon (persistent; rc=0x41301 while running -> judged by artifact only)",
+                    "max_age_hours": 100000,
+                    "artifact": "${COMPANION_ROOT}/pool/demands.jsonl", "artifact_max_age_hours": 6}}
+      ]
+    },
+    {
+      "id": "demand-mining/demandminingeod",
+      "name": "DemandMiningEOD",
+      "purpose": "Daily end-of-day demand radar: collect, rank (RICE/Kano) and push one headline digest.",
+      "enabled": true,
+      "trigger": {"type": "daily", "at": "21:40"},
+      "argv": [
+        "%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+        "-ExecutionPolicy", "Bypass", "-NoProfile",
+        "-File", "${SKILL_ROOT}/skills/demand-mining/scripts/wrapper.ps1",
+        "-Python", "%ProgramData%\\miniconda3\\python.exe",
+        "-ConfigDir", "${COMPANION_ROOT}"
+      ],
+      "cwd": "%SystemRoot%\\System32",
+      "power": {"disallow_start_on_batteries": true, "stop_on_batteries": true},
+      "timeout_seconds": 3600,
+      "checks": [
+        {"id": "digest", "required": true,
+         "health": {"label": "demand-mining EOD digest (daily 21:40)", "max_age_hours": 30,
+                    "artifact": "${COMPANION_ROOT}/pool/digests", "artifact_max_age_hours": 30}}
+      ]
+    }
+  ]
+}

@@ -77,9 +77,12 @@ git clone https://github.com/DaizeDong/demand-mining.git ~/.claude/plugins/deman
 # 离线预览：执行确定性处理，不写入、不联网
 python skills/demand-mining/scripts/run.py --in candidates.json --dry-run --no-ledger
 
-# 完成下方私有配置和预检后，注册 EOD 任务
-powershell -ExecutionPolicy Bypass -File skills/demand-mining/scripts/register-task.ps1 -Time 21:53
+# 完成下方私有配置和预检后，安装 EOD 与常驻网关任务：
+# 任务声明在 automation/tasks.json，由 background-task-core 安装
+python -m background_task_core install-skill --skill-root <demand-mining 检出目录> [--dry-run] <运行时参数>
 ```
+
+`DEMAND_MINING_CONFIG` 必须指向私有伴生仓。本机取舍（开关、时间、控制台分类）写在伴生仓的 `automation/tasks.local.json`，不写进清单。
 
 `candidates.json` 提供候选需求簇及其来源证据。采集、持久化和凭回执完成的过程见上方定时运行流程。
 

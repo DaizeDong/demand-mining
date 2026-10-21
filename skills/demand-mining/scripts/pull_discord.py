@@ -55,8 +55,7 @@ def _load_wiring():
     if not chans or not ref:
         raise SystemExit("pull_discord: product has no discord_channels/discord_token_ref; "
                          "wire the live tap first (see registry.json).")
-    tok_path = (d / ref) if not os.path.isabs(ref) else __import__("pathlib").Path(ref)
-    token = read_bot_token(tok_path, "pull_discord")
+    token = read_bot_token(ref, "pull_discord")
     return chans, token
 
 

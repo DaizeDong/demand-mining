@@ -84,9 +84,13 @@ git clone https://github.com/DaizeDong/demand-mining.git ~/.claude/plugins/deman
 # Offline preview: deterministic processing, no writes or network
 python skills/demand-mining/scripts/run.py --in candidates.json --dry-run --no-ledger
 
-# real EOD after the private setup and preflight described below
-powershell -ExecutionPolicy Bypass -File skills/demand-mining/scripts/register-task.ps1 -Time 21:53
+# real EOD and the live-tap daemon after the private setup and preflight described below:
+# the tasks are declared in automation/tasks.json and installed by background-task-core
+python -m background_task_core install-skill --skill-root <demand-mining checkout> [--dry-run] <runtime arguments>
 ```
+
+`DEMAND_MINING_CONFIG` must name the private companion. Machine choices (enabled, another time,
+console category) go in the companion's `automation/tasks.local.json`, never in the manifest.
 
 `candidates.json` supplies candidate demand clusters and their source evidence. Use the scheduled
 workflow above for collection, durable finalization and receipt-based completion.
