@@ -1981,6 +1981,19 @@
       }
     },
     {
+      "artifact_id": "scheduled-classification-batches",
+      "path_pattern": "pool/scheduled/*/*/classification-*.json",
+      "purpose": "Reuse completed classification work when a logical run is interrupted.",
+      "schema": "Grounded candidates and grounding counts; filename hashes the exact prompt and schema.",
+      "producer": "scheduled.propose",
+      "consumer_or_final_deliverable": "Scheduled classification recovery before finalization and delivery.",
+      "rebuild_or_restore": "Restore with the corresponding logical run. Missing batches are classified on resume.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "Preserve while the logical run or retained evidence depends on these completed batches."
+      }
+    },
+    {
       "artifact_id": "scheduled-coordination",
       "path_pattern": "pool/scheduled/*/.lock",
       "purpose": "Local exclusive transaction coordination",

@@ -1,13 +1,16 @@
 # Runtime contract
 
 The scheduled wrapper invokes `scheduled.py`. That caller collects and redacts
-the source corpus, uses the installed `llmcall.call(prompt, mode="agent")` to
-propose candidates, then calls the local deterministic finalizer. Model, routing,
-timeouts and fallbacks belong to llmcall. Classification, independent audits and
-replies use that same interface with only schema and independence constraints.
-Scheduled preflight imports `llmcall.call` in its current Python interpreter and checks
-that it accepts `call(prompt, mode="agent")`. Absence, a non-callable attribute or an
-incompatible signature fails before readiness. This check makes no model call.
+the source corpus, proposes candidates with `llmcall.call_many` in its default
+judge mode, then calls the local deterministic finalizer. Model, routing,
+timeouts and fallbacks belong to llmcall. Classification batches target 12,000
+JSON characters and at most 80 observations; an oversized observation stays whole.
+Two batches run together. Each successful, grounded result is saved under the
+same private logical run as `classification-<prompt-and-schema-hash>.json`.
+A failed pair stops the attempt, and a later attempt reuses completed batches
+whose exact input and classification contract match. Merging and delivery still
+wait for the full collection. Preflight checks the installed `call_many` interface
+without making a model call.
 
 The scheduled task's console is hidden, so its stderr reaches nobody. When `scheduled.py` fails
 for any reason, including before `execute()` persists `active.json`, it appends one line to
