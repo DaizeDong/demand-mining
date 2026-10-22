@@ -5,7 +5,7 @@
     {
       "id": "demand-mining/demandminingdaemon",
       "name": "DemandMiningDaemon",
-      "purpose": "Always-on live-tap gateway daemon (supervised, shadow mode: capture only, never posts).",
+      "purpose": "Always-on live-tap gateway daemon (supervised; shadow mode permits direct replies, dashboard posts and daily summaries).",
       "kind": "daemon",
       "enabled": true,
       "trigger": {"type": "logon"},
