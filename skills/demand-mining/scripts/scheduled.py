@@ -240,7 +240,7 @@ def ground_candidates(candidates, corpus, report=None):
 
 
 def _feedback_batches(corpus):
-    """Pack whole observations, targeting 32k JSON characters and at most 200 rows.
+    """Pack whole observations, targeting 12k JSON characters and at most 80 rows.
 
     An oversized observation travels alone rather than losing any of its text or identity.
     Channel and row order are retained, so adjacent feedback usually stays together.
@@ -249,7 +249,7 @@ def _feedback_batches(corpus):
     for channel, rows in corpus.get("channels", {}).items():
         for row in rows:
             row_size = len(json.dumps(row, ensure_ascii=False)) + len(channel) + 4
-            if count and (size + row_size > 32_000 or count >= 200):
+            if count and (size + row_size > 12_000 or count >= 80):
                 yield {**corpus, "channels": channels}
                 channels, size, count = {}, 0, 0
             channels.setdefault(channel, []).append(row)
@@ -259,7 +259,7 @@ def _feedback_batches(corpus):
         yield {**corpus, "channels": channels}
 
 
-def propose(corpus, cfg, report=None):
+def propose(corpus, cfg, report=None, *, checkpoint_dir=None):
     from llmcall import call_many
     clean = safe_data(corpus)
     prompt = (
@@ -271,6 +271,8 @@ def propose(corpus, cfg, report=None):
         "redacted_snippet, ts, observation_id), impact_label, effort_weeks, "
         "importance, satisfaction, "
         "user_business_value, time_criticality, risk_reduction, job_size, kano, why, recommendation. "
+        "Use numbers for score inputs: importance/satisfaction 0-10, WSJF inputs 1/2/3/5/8/13; "
+        "effort_weeks is a number or null. Keep summaries concise. "
         "Ground every evidence span in the supplied text. Consider every observation, including "
         "isolated requests: the local caller combines batches and decides admission and publication. "
         "Use consistent concise subject names and tracks for recurring demands. "
@@ -284,24 +286,42 @@ def propose(corpus, cfg, report=None):
         },
     }
     batches = list(_feedback_batches(clean))
-    responses = call_many(
-        [prompt + json.dumps(batch, ensure_ascii=False) for batch in batches],
-        schema=schema, max_workers=2)
-    grounded = []
-    for index, (batch, response) in enumerate(zip(batches, responses), 1):
-        if not response or getattr(response, "error", None):
-            exc = RuntimeError(f"llmcall did not complete candidate classification batch {index}/{len(batches)}")
-            exc._scheduled_error_category = _llm_failure_category(response)
-            raise exc
-        candidates = safe_data([_screenable(item) for item in response.data["candidates"]])
-        stats = {}
-        try:
-            grounded.extend(ground_candidates(candidates, batch, stats))
-        finally:
-            if report is not None:
-                for key, value in stats.items():
+    prompts = [prompt + json.dumps(batch, ensure_ascii=False) for batch in batches]
+    paths = [(Path(checkpoint_dir) / f"classification-{digest({'prompt': ask, 'schema': schema})}.json")
+             if checkpoint_dir is not None else None for ask in prompts]
+    completed = {}
+    pending = []
+    for index, path in enumerate(paths):
+        if path is not None and path.exists():
+            completed[index] = json.loads(path.read_text(encoding="utf-8"))
+        else:
+            pending.append(index)
+    # Finish and persist each pair before scheduling more work. A failed pair stops this
+    # attempt; an existing logical run can reuse every successful batch on its next run.
+    try:
+        for start in range(0, len(pending), 2):
+            indexes = pending[start:start + 2]
+            responses = call_many([prompts[index] for index in indexes], schema=schema, max_workers=2)
+            failure = None
+            for index, response in zip(indexes, responses):
+                if not response or getattr(response, "error", None):
+                    failure = RuntimeError(f"llmcall did not complete candidate classification batch {index + 1}/{len(batches)}")
+                    failure._scheduled_error_category = _llm_failure_category(response)
+                    continue
+                candidates = safe_data([_screenable(item) for item in response.data["candidates"]])
+                stats = {}
+                grounded = ground_candidates(candidates, batches[index], stats)
+                completed[index] = {"candidates": grounded, "grounding": stats}
+                if paths[index] is not None:
+                    atomic_json(paths[index], completed[index])
+            if failure is not None:
+                raise failure
+    finally:
+        if report is not None:
+            for saved in completed.values():
+                for key, value in saved["grounding"].items():
                     report[key] = report.get(key, 0) + value
-    return grounded
+    return [candidate for index in range(len(batches)) for candidate in completed[index]["candidates"]]
 
 
 def execute(config_dir=None, log_dir=None, *, backup_enabled=None):
@@ -355,7 +375,7 @@ def execute(config_dir=None, log_dir=None, *, backup_enabled=None):
                 stage = "classification"
                 grounding = {}
                 try:
-                    candidates = propose(corpus, cfg, grounding)
+                    candidates = propose(corpus, cfg, grounding, checkpoint_dir=root)
                 finally:
                     # Counts only, no content: how many proposed items grounding dropped is the
                     # evidence a later reader needs to tell a strict check from a bad reply.
