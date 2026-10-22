@@ -92,12 +92,15 @@ _STREET = re.compile(
     r"(?:[.,]?\s+(?:apt|apartment|suite|unit|#)\s*[\w-]+)?", re.I)
 _NAME = re.compile(r"\b[A-Z][a-z]+(?:[-'][A-Z]?[a-z]+)?(?:\s+[A-Z][a-z]+(?:[-'][A-Z]?[a-z]+)?){1,3}\b")
 _NAME_CONTEXT = re.compile(
-    r"(?i)(?:my name is|name\s*:|contact person\s*:|named)\s+"
-    r"([a-z][a-z'-]+(?:\s+[a-z][a-z'-]+){0,2})(?=\s*(?:[.!?;\n]|$))")
+    r"(?i)(?:my name is\s+|(?:name|contact person)\s*[:=]\s*|named\s+)"
+    r"([a-z][a-z'-]+(?:[ \t]+[a-z][a-z'-]+){0,2})(?=\s*(?:[.!?;)\]\n]|$))")
 _CJK_PERSON = re.compile(
     r"(?:我叫|姓名[：:]|联系人[：:])\s*([\u3400-\u9fff]{2,4})(?=\s*(?:[。！？；\n]|$))")
 _CJK_ADDRESS = re.compile(
     r"(?:地址[：:]|住址[：:]|住在)\s*[^。！？\n]{2,100}(?=\s*(?:[。！？\n]|$))")
+_RESIDENCE_CONTEXT = re.compile(
+    r"(?i)\b(?:lives?|resides?)\s+(?:at|in)\s+"
+    r"[^.!?;\n)\]]{2,100}(?=\s*(?:[.!?;)\]\n]|$))")
 _PERSON_CUES = re.compile(
     r"(?i)\b(?:"
     r"(?:my|his|her|their|our|your)\s+(?:(?:full|legal|real|first|last|given|family)\s+)?name\b"
@@ -196,6 +199,7 @@ def redact(text: str, salt: bytes | None = None) -> dict:
 
     text = _STREET.sub(lambda m: local_match("ADDRESS", m.group()), text)
     text = _CJK_ADDRESS.sub(lambda m: local_match("ADDRESS", m.group()), text)
+    text = _RESIDENCE_CONTEXT.sub(lambda m: local_match("ADDRESS", m.group()), text)
     text = _CJK_PERSON.sub(lambda m: local_match("PERSON", m.group()), text)
     text = _NAME_CONTEXT.sub(lambda m: local_match("PERSON", m.group()), text)
     cue_spans = [(match.start(), match.end()) for match in _PERSON_CUES.finditer(text)]
@@ -211,22 +215,6 @@ def redact(text: str, salt: bytes | None = None) -> dict:
         return local_match("PERSON", match.group())
 
     text = _NAME.sub(named_span, text)
-    review_required = False
-    generated = [placeholder for kind in ("PERSON", "ADDRESS")
-                 for placeholder in mint._by_type.get(kind, {}).values()]
-    for cue in _PERSON_CUES.finditer(text):
-        tail = re.split(r"[.!?;。！？；\n]", text[cue.end():], maxsplit=1)[0]
-        tail = re.sub(r"(?i)^\s*(?:is\b|at\b|in\b|:|=|是|为|為)\s*", "", tail)
-        for placeholder in generated:
-            tail = tail.replace(placeholder, "")
-        if re.search(r"\w", tail):
-            review_required = True
-            break
-    if review_required:
-        # The boundary sees an explicit hold marker, never the unchecked text.
-        text = "[PRIVACY_REVIEW_REQUIRED]"
-        bump("PRIVACY_REVIEW")
-
     # 1) invite links (before generic URL), 2) emails, 3) discord mentions/ids, 4) urls,
     # 5) credit cards (Luhn), 6) phones, 7) ipv4, 8) handles, 9) Tier2 secret tokens.
     def sub_invite(m):
@@ -292,6 +280,22 @@ def redact(text: str, salt: bytes | None = None) -> dict:
             bump("SECRET"); return mint.get("SECRET", v)
         return v
     text = _TOKEN.sub(sub_token, text)
+
+    # Judge residual personal context after structured values such as URLs have
+    # been removed; query parameters can contain the same words as personal cues.
+    review_required = False
+    generated = [placeholder for table in mint._by_type.values() for placeholder in table.values()]
+    for cue in _PERSON_CUES.finditer(text):
+        tail = re.split(r"[.!?;。！？；\n]", text[cue.end():], maxsplit=1)[0]
+        tail = re.sub(r"(?i)^\s*(?:is\b|at\b|in\b|:|=|是|为|為)\s*", "", tail)
+        for placeholder in generated:
+            tail = tail.replace(placeholder, "")
+        if re.search(r"\w", tail):
+            review_required = True
+            break
+    if review_required:
+        text = "[PRIVACY_REVIEW_REQUIRED]"
+        bump("PRIVACY_REVIEW")
 
     placeholders = {ph: kind for kind, table in mint._by_type.items() for ph in table.values()}
     return {"redacted": text, "placeholders": placeholders, "found": found,
