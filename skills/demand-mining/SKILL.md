@@ -71,7 +71,8 @@ rules. Read [PHILOSOPHY.md](../../PHILOSOPHY.md) for the rationale and privacy l
    this skill mines private conversation and `push_card.deliver`'s `has_pii` gate aborts on any
    url/handle, so evidence stays private. Honest empty day.
 7. **Schedule**, `reference/cron-setup.md`. OS Task Scheduler → `wrapper.ps1` → `scheduled.py` →
-   installed `llmcall.call(prompt, mode="agent")` for candidates. The local finalizer owns current
+   installed `llmcall.call_many` in default judge mode for bounded candidate batches.
+   Completed batches are reused within the same logical run. The local finalizer owns current
    artifacts, confirmed delivery receipts and watermark state. Backup is separate and checked.
    See `../../docs/runtime-contract.md` for timezone, PRIVATE destinations and reconciliation.
    **Never CronCreate.**
