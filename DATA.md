@@ -48,7 +48,7 @@ listed in that script with their reason.
 | `pool/runs/`, `pool/scheduled/`, `pool/implicit/` | Plans, redacted evidence, manifests, delivery receipts, cursors, caller state and recovery markers. Run bundles include the exact `archive/digests/<year>/<date>.md` delivered content. Preserve while delivery, retries, replay prevention or selected final evidence depends on them. |
 | `pool/card-deliveries/` | Standalone card event state and confirmed receipts, bound to product, exact card ID, new/update kind and rendered content hash. Preserve each state/receipt pair for replay prevention and reconciliation; no automatic TTL. Adjacent process locks are transient. These events do not depend on raw corpus retention. |
 | `pool/quarantine/` | Live observations the privacy screen held repeatedly, in ingest-redacted form with the stage. Preserve until each record is reviewed and replayed or explicitly rejected; there is no age deletion. |
-| `pool/digests/`, `pool/.daily-summary-*.json` | Redacted final digests and live-summary delivery state. Preserve required evidence and unresolved outcomes. |
+| `pool/digests/`, `pool/.daily-summary-*.json` | Legacy redacted final digests (scheduled runs now write theirs inside the `pool/runs/` bundle) and live-summary delivery state. Preserve required evidence and unresolved outcomes. |
 | `pool/.last_summary` | Legacy summary marker. Preserve during migration; a date alone does not prove delivery. |
 | `pool/logs/` | Current diagnostic logs. Coordinate rotation with the writer and retain incident evidence; the corpus TTL does not rotate logs. |
 | `data/corpus*.json`, `data/raw/`, `data/chunks/`, `data/eod2_chunks/`, `data/eod3_chunks/` | Temporary collection material eligible for the raw retention limit. |

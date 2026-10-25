@@ -16,7 +16,7 @@
         "--python", "%ProgramData%\\miniconda3\\python.exe",
         "--mode", "shadow"
       ],
-      "cwd": "%SystemRoot%\\System32",
+      "cwd": "${SKILL_ROOT}",
       "timeout_seconds": 0,
       "checks": [
         {"id": "pool", "required": true,
@@ -38,13 +38,13 @@
         "-Python", "%ProgramData%\\miniconda3\\python.exe",
         "-ConfigDir", "${COMPANION_ROOT}"
       ],
-      "cwd": "%SystemRoot%\\System32",
+      "cwd": "${SKILL_ROOT}",
       "power": {"disallow_start_on_batteries": true, "stop_on_batteries": true},
       "timeout_seconds": 3600,
       "checks": [
         {"id": "digest", "required": true,
          "health": {"label": "demand-mining EOD digest (daily 21:40)", "max_age_hours": 30,
-                    "artifact": "${COMPANION_ROOT}/pool/digests", "artifact_max_age_hours": 30}}
+                    "artifact": "${COMPANION_ROOT}/pool/runs", "artifact_max_age_hours": 30}}
       ]
     }
   ]

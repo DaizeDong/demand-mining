@@ -239,6 +239,13 @@ def ground_candidates(candidates, corpus, report=None):
     return grounded
 
 
+# Whole-chain llmcall budget per batch. The judge default (180s) caps the head rung at about 124s,
+# and a full 12k-character batch takes 17-121s there (llmcall ledger, 2026-10-22/23), so the tail
+# was cut mid-answer and the 19s left for each fallback could not finish either. 360s gives the
+# head about 300s; the next run still resumes from saved batches if a chain does fail.
+CLASSIFICATION_BUDGET_SECONDS = 360.0
+
+
 def _feedback_batches(corpus):
     """Pack whole observations, targeting 12k JSON characters and at most 80 rows.
 
@@ -301,7 +308,8 @@ def propose(corpus, cfg, report=None, *, checkpoint_dir=None):
     try:
         for start in range(0, len(pending), 2):
             indexes = pending[start:start + 2]
-            responses = call_many([prompts[index] for index in indexes], schema=schema, max_workers=2)
+            responses = call_many([prompts[index] for index in indexes], schema=schema, max_workers=2,
+                                  timeout=CLASSIFICATION_BUDGET_SECONDS)
             failure = None
             for index, response in zip(indexes, responses):
                 if not response or getattr(response, "error", None):

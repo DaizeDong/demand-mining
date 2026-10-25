@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- **Live classification is one llmcall pass.** The second-model audit of borderline verdicts (`_audit_sys`, the `avoid=` re-ask and `live.classify_rounds`) is removed.
+- **Scheduled classification batches get a 360s llmcall budget.** Under the 180s judge default the head rung was cut at about 124s while full batches take up to about 121s, so batches failed with every fallback starved.
+- Both tasks run with the repository as their working directory instead of `System32`, and the EOD health check reads `pool/runs/`, where scheduled digests are written.
 - Drop the retired trend-pulse source from the delegation, scoring and dedup notes.
 - **Live pool writes no longer run the privacy screen.** Every `upsert`/`set_status` rewrote the whole `pool/demands.jsonl` through `redact.safe_data`, so one stored row with person or address text made every later pool write raise `PrivacyReviewRequired`. The pool is PRIVATE companion DATA, so `demand_pool` now writes rows as given; redaction stays where text leaves the machine (model prompts, replies, admin notes, delivery). `_demand_from_verdict` no longer screens already-redacted text again, a persistence failure is no longer a privacy hold, and quarantine records drop `hold_source`.
 - `config_paths.companion_root()` no longer re-implements the environment order: an explicit CLI path is used as given, otherwise the shared fleet_guards resolver answers (`DEMAND_MINING_DATA_DIR`, `DEMAND_MINING_CONFIG`, proven sibling). The `DEMAND_MINING_CONFIG_DIR` alias and the CONFIG/DATA conflict check are gone, and `storage_mode()` raises when `secrets/README.md` declares no `Active storage mode` instead of assuming Mode B.
