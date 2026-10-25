@@ -346,7 +346,9 @@ checkpoint cannot be bypassed by disabling backup.
 Structural regex/checksum/entropy redaction remains enabled. Local conservative
 rules also scrub Latin person-name spans and common street-address formats.
 Unsupported personal-context spans are held with a visible privacy-review error
-before model, pool or output boundaries. Nested candidate/evidence metadata is
+before model, pool or output boundaries. Scheduled collection leaves a held message out of the
+corpus and counts it as `privacy_held` in the collection record; the rest of the window is still
+classified. Nested candidate/evidence metadata is
 scrubbed, and author IDs become HMAC pseudonyms. Harmless product language stays
 usable. The config doctor explicitly lists covered, uncovered and unchecked
 sensitive types; these rules do not constitute a general multilingual NER model.

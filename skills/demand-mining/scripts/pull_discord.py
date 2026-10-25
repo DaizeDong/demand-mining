@@ -122,7 +122,7 @@ def pull(channels, token, since_hours=72.0, full=False, source_window=None):
             time.sleep(0.3)
         if len(msgs) >= _HARD_CAP and not stop:
             raise RuntimeError(f"collection cap reached before completion: {name}")
-        clean = []
+        clean, held = [], 0
         for m in msgs:
             a = m.get("author") or {}
             if a.get("bot") or m.get("webhook_id"):
@@ -132,20 +132,27 @@ def pull(channels, token, since_hours=72.0, full=False, source_window=None):
                 continue
             if not m.get("id") or not a.get("id"):
                 raise ValueError("collection observation lacks message or author identity")
+            screened = redact(body)
+            if screened["review_required"]:
+                # Held like a live observation: the text stays out of the corpus and every model
+                # prompt, and the rest of the day's feedback is still collected.
+                held += 1
+                continue
             clean.append({
                 "observation_id": pseudonymize("discord-message:" + str(cid) + ":" + str(m["id"])),
                 "source_id": pseudonymize("discord-channel:" + str(cid)),
                 "author_hash": pseudonymize(str(a.get("id", ""))),
-                "text": safe_text(body),
+                "text": screened["redacted"],
                 "ts": m.get("timestamp") or m.get("ts"),
                 "reply_to": pseudonymize(str(m["referenced_message"]["id"]))
                     if (m.get("referenced_message") or {}).get("id") else None,
             })
         clean.reverse()  # chronological
         corpus[name] = clean
-        stats[name] = {"raw": len(msgs), "human_text": len(clean)}
+        stats[name] = {"raw": len(msgs), "human_text": len(clean), "privacy_held": held}
     return {"stats": stats, "channels": corpus, "collection": {"status": "complete",
-            "source_window": source_window, "source_count": len(channels)}}
+            "source_window": source_window, "source_count": len(channels),
+            "privacy_held": sum(item["privacy_held"] for item in stats.values())}}
 
 
 def main() -> int:
