@@ -113,22 +113,13 @@ from llmcall import call as _llmcall  # noqa: E402
 _VERDICT_SCHEMA = {"type": "array"}
 
 
-def _llm(prompt: str, timeout=None, avoid=None, schema=None):
-    """Return scrubbed output and provider, raising on a failed task.
-
-    `timeout` remains a compatibility argument; installed policy controls it.
-    Audit independence is the only provider-related task constraint.
-    """
-    constraints = {}
-    if schema is not None:
-        constraints["schema"] = schema
-    if avoid is not None:
-        constraints["avoid"] = avoid
+def _llm(prompt: str, schema=None):
+    """Return scrubbed output, raising on a failed task."""
+    constraints = {"schema": schema} if schema is not None else {}
     r = _llmcall(safe_text(prompt), **constraints)
     if not r or getattr(r, "error", None):
         raise RuntimeError("llmcall did not complete the requested task")
-    value = r.data if schema is not None else r.text
-    return safe_data(value), r.provider
+    return safe_data(r.data if schema is not None else r.text)
 
 
 def _classify_sys(product):
@@ -142,53 +133,15 @@ def _classify_sys(product):
     )
 
 
-def _audit_sys(product):
-    return (
-        f"You independently AUDIT another model's product-demand classifications for the {product} "
-        "community. Each numbered message is shown WITH a draft verdict. Judge each on your own and "
-        "return ONLY a corrected JSON array (same schema and order): flip is_demand if the draft is "
-        "wrong, recalibrate confidence, fix title/track/kano. Keep a verdict as-is if already correct. "
-        'Schema per item: {"i","is_demand","confidence","title","track","kano","why"}.'
-    )
-
-
-def _uncertain(v):
-    """A verdict is worth a second look only if its confidence sits in the ambiguous band. Confidently
-    clear verdicts (very high or very low) do not, so a clean batch converges in one pass."""
-    try:
-        c = float(v.get("confidence", 0) or 0)
-    except (TypeError, ValueError):
-        return False
-    return 0.3 <= c <= 0.85
-
-
-def _verdicts_stable(a, b):
-    """Converged when the auditor changed nothing that matters: same is_demand + same confidence band
-    per index. Ignores prose (title/why) churn so we do not loop forever on cosmetic rewording."""
-    ka = {x.get("i"): x for x in a if isinstance(x, dict)}
-    kb = {x.get("i"): x for x in b if isinstance(x, dict)}
-    if ka.keys() != kb.keys():
-        return False
-    for i, x in ka.items():
-        y = kb[i]
-        if bool(x.get("is_demand")) != bool(y.get("is_demand")):
-            return False
-        if round(float(x.get("confidence", 0) or 0), 1) != round(float(y.get("confidence", 0) or 0), 1):
-            return False
-    return True
-
-
-def classify_batch(items, sys=None, product="this product", max_rounds=2):
-    """items: [{'i','channel','text'}] -> list of verdict dicts. The shared interface
-    drafts, then (only while some verdict is borderline) an independent model audits, up to
-    max_rounds passes, stopping as soon as the audit stops changing anything. Clear batches cost one
-    pass; ambiguous ones earn extra scrutiny. Invalid or failed output raises."""
+def classify_batch(items, sys=None, product="this product"):
+    """items: [{'i','channel','text'}] -> list of verdict dicts from one llmcall pass.
+    Invalid or failed output raises."""
     if not items:
         return []
     items = safe_data(items)
     sys = sys or _classify_sys(product)
     lines = "\n".join(f'{it["i"]}. [{it["channel"]}] {it["text"][:280]}' for it in items)
-    draft, drafted_by = _llm(sys + "\n\nMESSAGES:\n" + lines, schema=_VERDICT_SCHEMA)  # round 1
+    draft = _llm(sys + "\n\nMESSAGES:\n" + lines, schema=_VERDICT_SCHEMA)
     def checked(values):
         if not isinstance(values, list) or any(not isinstance(v, dict) for v in values):
             raise ValueError("classification must return an array of verdict objects")
@@ -209,30 +162,7 @@ def classify_batch(items, sys=None, product="this product", max_rounds=2):
             raise ValueError("classification omitted, duplicated or added message indices")
         return safe_data(values)
 
-    draft = checked(draft)
-    audit_sys = _audit_sys(product)
-    by_i = {it["i"]: it for it in items}
-    for _ in range(max(0, max_rounds - 1)):
-        if not any(_uncertain(v) for v in draft):
-            break  # every verdict is confidently clear -> converged
-        shown = "\n".join(
-            f'{v.get("i")}. [{by_i.get(v.get("i"), {}).get("channel", "?")}] '
-            f'{(by_i.get(v.get("i"), {}).get("text", "") or "")[:280]}\n   draft: '
-            f'{json.dumps({k: v.get(k) for k in ("is_demand", "confidence", "title", "track", "kano")}, ensure_ascii=False)}'
-            for v in draft)
-        # Audit on a DIFFERENT model for independence: name the rung that drafted and llmcall rules
-        # out its whole model family. Stating the REQUIREMENT rather than an order keeps working when
-        # the ladder changes, and avoids the model that ACTUALLY answered rather than the one a
-        # hardcoded order assumed would.
-        revised, audited_by = _llm(audit_sys + "\n\nMESSAGES + DRAFTS:\n" + shown,
-                          avoid=drafted_by, schema=_VERDICT_SCHEMA)
-        revised = checked(revised)
-        if _verdicts_stable(draft, revised):
-            draft = revised
-            break  # auditor agrees -> converged, stop early
-        draft = revised
-        drafted_by = audited_by
-    return draft
+    return checked(draft)
 
 
 def _reply_sys(product):
@@ -253,7 +183,7 @@ def gen_reply(text: str, sys=None, context: str = "") -> str:
     text, context = safe_text(text), safe_text(context)
     sys = sys or _reply_sys("this product")
     ctx = f"\n\nCONVERSATION CONTEXT:\n{context[:1200]}" if context else ""
-    out, _ = _llm(sys + ctx + f'\n\nUSER MESSAGE:\n{text[:400]}\n\nYour one-line reply:')
+    out = _llm(sys + ctx + f'\n\nUSER MESSAGE:\n{text[:400]}\n\nYour one-line reply:')
     out = (out or "").strip().splitlines()[0] if out else ""
     out = re.sub(r"\s*[\u2013\u2014\u2015]+\s*", ", ", out)  # house rule: no en/em dash in output
     if not out:
@@ -343,9 +273,6 @@ class DemandBot(discord.Client):
         self.classification_status = "starting"
         self.hi = float(cfg.get("live", {}).get("high_confidence", 0.7))
         self.lo = float(cfg.get("live", {}).get("low_confidence", 0.4))
-        # adaptive self-refine depth for classification (1 = single pass, no audit). Replies stay
-        # one-shot on purpose: a warm ack is low-stakes and latency-sensitive.
-        self.classify_rounds = int(cfg.get("live", {}).get("classify_rounds", 2))
         # the admin channel gets APPENDED activity notes in real time (never an edited-in-place summary,
         # which used to clobber a reply), plus one full summary per configured local day.
         live = cfg.get("live", {})
@@ -485,7 +412,7 @@ class DemandBot(discord.Client):
             if _SIGNAL.search(subject):
                 verdicts = await asyncio.to_thread(
                     classify_batch, [{"i": 0, "channel": channel, "text": subject}],
-                    self.classify_sys, self.product, self.classify_rounds)
+                    self.classify_sys, self.product)
                 if len(verdicts) != 1:
                     raise ValueError("direct classification is incomplete")
                 entry["verdict"] = verdicts[0]
@@ -613,7 +540,7 @@ class DemandBot(discord.Client):
                               "text": entry["message"]["text"]}
                              for i, entry in enumerate(self._pending_batch)]
                     verdicts = await asyncio.to_thread(classify_batch, items, self.classify_sys,
-                                                       self.product, self.classify_rounds)
+                                                       self.product)
                     vmap = {value["i"]: value for value in verdicts}
                     if set(vmap) != set(range(len(items))) or len(verdicts) != len(items):
                         raise ValueError("classification batch is incomplete")
