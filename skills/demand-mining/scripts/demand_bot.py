@@ -825,6 +825,9 @@ class DemandBot(discord.Client):
 
 def _run(args) -> int:
     mode = "dry" if args.dry_run else args.mode
+    if mode != "dry":
+        import machine_role
+        machine_role.refuse_on_secondary()  # the secondary machine never runs the Discord bot
     d = _config_dir()
     cfg = load_config()
     ensure_stable_salt()

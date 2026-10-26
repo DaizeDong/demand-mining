@@ -113,6 +113,9 @@ def main() -> int:
     ap.add_argument("--admission-retry-seconds", type=float, default=3600.0,
                     help="how long a refused log or config destination is retried before the supervisor stops")
     args = ap.parse_args()
+    if args.mode != "dry":
+        import machine_role
+        machine_role.refuse_on_secondary()  # the secondary machine never keeps the bot alive
     global _SUPERVISOR_LOG
 
     os.environ["DEMAND_MINING_CONFIG"] = args.config_dir
