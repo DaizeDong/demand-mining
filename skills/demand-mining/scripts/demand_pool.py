@@ -21,6 +21,7 @@ import os
 import threading
 import time
 
+import machine_role
 from lib import iso, now_utc, merge_observations
 
 try:
@@ -102,6 +103,7 @@ def upsert(path: str, demand: dict, rescore=None) -> tuple[str, dict]:
     """Insert or merge a demand by product_id and canonical_key. Returns (action, row)
     where action is 'new' or 'merged'. `rescore(row)` (optional) recomputes final_score/grade/tier/
     reach after the merge. Thread + process safe via a lock + atomic replace."""
+    machine_role.refuse_on_secondary()  # the pool is rewritten whole, so only the primary writes it
     product = _product_id(demand.get("product_id"))
     ck = demand.get("canonical_key")
     if not isinstance(ck, str) or not ck:
@@ -139,6 +141,7 @@ def upsert(path: str, demand: dict, rescore=None) -> tuple[str, dict]:
 
 
 def set_status(path: str, canonical_key: str, status: str, *, product_id=None) -> bool:
+    machine_role.refuse_on_secondary()  # the pool is rewritten whole, so only the primary writes it
     product = _product_id(product_id)
     if status not in _STATUSES:
         raise ValueError(f"bad status {status}")

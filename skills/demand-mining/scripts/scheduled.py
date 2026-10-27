@@ -549,6 +549,8 @@ def main():
                           "data_dir": str(destination), "log_dir": str(logs),
                           "privacy": privacy_coverage()}))
         return 0
+    import machine_role
+    machine_role.refuse_on_secondary()  # the EOD run writes the pool and delivers, so only the primary runs it
     import retention
     stage, log_dir = "preflight", args.log_dir
     try:
