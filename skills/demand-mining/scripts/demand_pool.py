@@ -20,6 +20,7 @@ import json
 import os
 import threading
 import time
+from pathlib import Path
 
 import machine_role
 from lib import iso, now_utc, merge_observations
@@ -140,22 +141,74 @@ def upsert(path: str, demand: dict, rescore=None) -> tuple[str, dict]:
         return "merged", row
 
 
+def _commit_pool(root, rel: str, message: str) -> None:
+    from data_safety import git
+    if git(root, "diff", "--quiet", "HEAD", "--", rel, allowed=(0, 1)).returncode == 1:
+        git(root, "commit", "--only", "-m", message, "--", rel)
+
+
+def _pull_pool(root) -> None:
+    """Merge the companion's origin in, the other machine's lines winning a conflicting hunk.
+
+    A merge rather than a rebase: it leaves the primary's other dirty run files (daemon logs written
+    while this runs) untouched instead of stashing them away and back."""
+    from data_safety import git
+    branch = git(root, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
+    git(root, "fetch", "origin", branch)
+    if git(root, "merge", "--no-edit", "-X", "theirs", "FETCH_HEAD", allowed=(0, 1, 128)).returncode != 0:
+        git(root, "merge", "--abort", allowed=(0, 128))
+        raise RuntimeError(f"could not merge origin into the demand companion {root}; resolve it by hand")
+
+
 def set_status(path: str, canonical_key: str, status: str, *, product_id=None) -> bool:
-    machine_role.refuse_on_secondary()  # the pool is rewritten whole, so only the primary writes it
+    """Owner-maintained status, written through on either machine: pull the companion, change the
+    row under the pool lock, commit only the pool file and push. A rejected push pulls again and
+    replays this one change on the latest pool before pushing once more."""
+    from data_safety import check_destination, file_lock, git
     product = _product_id(product_id)
     if status not in _STATUSES:
         raise ValueError(f"bad status {status}")
-    with _LOCK, _file_lock(path):
-        rows = _read_rows(path)
-        for r in rows:
-            if r.get("product_id") == product and r.get("canonical_key") == canonical_key:
-                r["status"] = status
-                r["last_seen"] = iso(now_utc())
-                _atomic_write(path, rows)
+    admission = check_destination(path)
+    root = Path(admission["root"])
+    rel = Path(admission["path"]).relative_to(root).as_posix()
+    with file_lock(root / ".demand-backup.lock", timeout=300), _LOCK, _file_lock(path):
+        # Rows this machine's daemon wrote but nobody committed yet go in first, so the merge sees them.
+        _commit_pool(root, rel, "data: snapshot demand pool before a status change")
+        for _ in range(2):
+            _pull_pool(root)
+            rows = _read_rows(path)
+            row = next((r for r in rows
+                        if r.get("product_id") == product and r.get("canonical_key") == canonical_key), None)
+            if row is None:
+                return False
+            row["status"] = status
+            row["last_seen"] = iso(now_utc())
+            _atomic_write(path, rows)
+            _commit_pool(root, rel, f"data: set demand status to {status}")
+            if git(root, "push", "origin", "HEAD", allowed=(0, 1)).returncode == 0:
                 return True
-    return False
+    raise RuntimeError("status change is committed in the demand companion but its push was rejected twice")
+
+
+def main(argv=None) -> int:
+    import argparse
+    parser = argparse.ArgumentParser(description="Set the status of one demand in the live pool.")
+    sub = parser.add_subparsers(dest="command", required=True)
+    cmd = sub.add_parser("set-status", help="change one demand's status and push the companion")
+    cmd.add_argument("--product-id", required=True)
+    cmd.add_argument("--key", required=True, help="canonical_key of the demand")
+    cmd.add_argument("--status", required=True, choices=_STATUSES)
+    cmd.add_argument("--pool", help="pool file (default: <companion>/pool/demands.jsonl)")
+    args = parser.parse_args(argv)
+    found = set_status(args.pool or pool_path(), args.key, args.status, product_id=args.product_id)
+    print(json.dumps({"updated": found, "key": args.key, "status": args.status}))
+    return 0 if found else 1
 
 
 def ranked(path: str, exclude_status=("shipped", "wontfix", "duplicate"), *, product_id=None) -> list:
     rows = [r for r in load(path, product_id=product_id) if r.get("status") not in exclude_status]
     return sorted(rows, key=lambda r: -float(r.get("final_score", 0) or 0))
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

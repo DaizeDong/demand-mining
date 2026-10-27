@@ -121,6 +121,14 @@ the selected product explicitly; direct feedback, passive collection and daily
 summaries use the same binding. Missing identity fails before a pool read or
 write. A rescorer cannot move a row to another product or canonical key.
 
+A status is the owner's own record, so either machine may change it
+(`python skills/demand-mining/scripts/demand_pool.py set-status --product-id <id> --key <canonical_key> --status <status>`).
+set_status writes through: under the pool lock it merges the companion's origin
+(the other machine's lines win a conflicting hunk), changes the row, commits only
+`pool/demands.jsonl` and pushes; a rejected push merges again, replays the one
+change on the latest pool and pushes once more, then fails loudly. upsert and the
+scheduled EOD write the pool only on the primary machine.
+
 Every stored pool row carries its product_id (the pre-product rows were attributed once, in
 the companion, on 2026-10-16). Keep the product identity stable when renaming the display name.
 
