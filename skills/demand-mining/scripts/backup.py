@@ -28,8 +28,12 @@ def _backup_locked(paths):
             git(root, "add", "--", *relatives, env=shared)
             git(root, "commit", "--only", "-m", "data: archive demand-mining run",
                 "--", *relatives, env=shared)
-        # Rejected pushes stay pending; no pull/rebase/autostash mutates other work.
-        git(root, "push", "origin", "HEAD", env=environment)
+        # The other machine may have pushed a status change; merge it in (the pool row by row) and
+        # push once more. A second rejection raises and the run stays pending.
+        if git(root, "push", "origin", "HEAD", env=environment, allowed=(0, 1)).returncode == 1:
+            from demand_pool import sync_origin
+            sync_origin(root)
+            git(root, "push", "origin", "HEAD")
         return {"status": "confirmed", "files": relatives, "committed": delta.returncode == 1}
     finally:
         for path in (index, index + ".lock"):

@@ -147,23 +147,91 @@ def _commit_pool(root, rel: str, message: str) -> None:
         git(root, "commit", "--only", "-m", message, "--", rel)
 
 
-def _pull_pool(root) -> None:
-    """Merge the companion's origin in, the other machine's lines winning a conflicting hunk.
+_ABSENT = object()
 
-    A merge rather than a rebase: it leaves the primary's other dirty run files (daemon logs written
-    while this runs) untouched instead of stashing them away and back."""
+
+def _rows_at(root, rev: str, rel: str) -> list:
     from data_safety import git
-    branch = git(root, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
-    git(root, "fetch", "origin", branch)
-    if git(root, "merge", "--no-edit", "-X", "theirs", "FETCH_HEAD", allowed=(0, 1, 128)).returncode != 0:
-        git(root, "merge", "--abort", allowed=(0, 128))
-        raise RuntimeError(f"could not merge origin into the demand companion {root}; resolve it by hand")
+    shown = git(root, "show", f"{rev}:{rel}", allowed=(0, 128))
+    if shown.returncode != 0:
+        return []
+    return [json.loads(line) for line in shown.stdout.splitlines() if line.strip()]
+
+
+def _merge_rows(base: list, ours: list, theirs: list) -> list:
+    """Three-way merge keyed by (product_id, canonical_key), field by field.
+
+    A field the other machine changed and this one did not takes the other machine's value; a field
+    both changed keeps this machine's value. Rows only the other machine has are appended."""
+    key = lambda r: (r.get("product_id"), r.get("canonical_key"))
+    base_by = {key(r): r for r in base}
+    theirs_by = {key(r): r for r in theirs}
+    out, seen = [], set()
+    for row in ours:
+        k = key(row)
+        seen.add(k)
+        other = theirs_by.get(k)
+        if other is None or other == row:
+            out.append(row)
+            continue
+        old = base_by.get(k, {})
+        merged = dict(row)
+        for field in set(other) | set(old):
+            theirs_value, base_value = other.get(field, _ABSENT), old.get(field, _ABSENT)
+            if theirs_value != base_value and row.get(field, _ABSENT) == base_value:
+                if theirs_value is _ABSENT:
+                    merged.pop(field, None)
+                else:
+                    merged[field] = theirs_value
+        out.append(merged)
+    out.extend(r for r in theirs if key(r) not in seen and key(r) not in base_by)
+    return out
+
+
+def _sync_pool(root, rel: str, path: str, change=None, message: str = "data: merge demand companion origin"):
+    """Bring the fetched origin (FETCH_HEAD) into the companion and apply `change(rows)` on top.
+
+    Caller holds _LOCK and the pool file lock and has just fetched. The pool file is merged row by row
+    (never text-level), so neither machine's rows are dropped; any other file that conflicts aborts
+    the merge and raises. Returns change's result (None without a change)."""
+    from data_safety import git
+
+    def ancestor(a, b):
+        return git(root, "merge-base", "--is-ancestor", a, b, allowed=(0, 1)).returncode == 0
+
+    merging = False
+    if not ancestor("FETCH_HEAD", "HEAD"):
+        # Rows this machine's daemon wrote but nobody committed yet go in first, so the merge sees them.
+        _commit_pool(root, rel, "data: snapshot demand pool before merging origin")
+        if ancestor("HEAD", "FETCH_HEAD"):
+            git(root, "merge", "--ff-only", "FETCH_HEAD")
+        else:
+            base = git(root, "merge-base", "HEAD", "FETCH_HEAD").stdout.strip()
+            rows = _merge_rows(_rows_at(root, base, rel), _rows_at(root, "HEAD", rel),
+                               _rows_at(root, "FETCH_HEAD", rel))
+            code = git(root, "merge", "--no-ff", "--no-commit", "FETCH_HEAD", allowed=(0, 1, 2, 128)).returncode
+            conflicted = set(git(root, "diff", "--name-only", "--diff-filter=U").stdout.split())
+            if code not in (0, 1) or conflicted - {rel}:
+                git(root, "merge", "--abort", allowed=(0, 128))
+                raise RuntimeError(f"could not merge origin into the demand companion {root}; resolve it by hand")
+            merging = True
+    if not merging:
+        rows = _read_rows(path)
+    result = change(rows) if change else None
+    if merging or result:
+        _atomic_write(path, rows)
+    if merging:
+        git(root, "add", "--", rel)
+        git(root, "commit", "--no-edit", "-m", message)
+    elif result:
+        _commit_pool(root, rel, message)
+    return result
 
 
 def set_status(path: str, canonical_key: str, status: str, *, product_id=None) -> bool:
-    """Owner-maintained status, written through on either machine: pull the companion, change the
-    row under the pool lock, commit only the pool file and push. A rejected push pulls again and
-    replays this one change on the latest pool before pushing once more."""
+    """Owner-maintained status, written through on either machine: fetch the companion's origin,
+    merge it row by row and change the row under the pool lock, commit, then push. A rejected push
+    fetches again and replays this one change on the latest pool before pushing once more."""
     from data_safety import check_destination, file_lock, git
     product = _product_id(product_id)
     if status not in _STATUSES:
@@ -171,23 +239,38 @@ def set_status(path: str, canonical_key: str, status: str, *, product_id=None) -
     admission = check_destination(path)
     root = Path(admission["root"])
     rel = Path(admission["path"]).relative_to(root).as_posix()
-    with file_lock(root / ".demand-backup.lock", timeout=300), _LOCK, _file_lock(path):
-        # Rows this machine's daemon wrote but nobody committed yet go in first, so the merge sees them.
-        _commit_pool(root, rel, "data: snapshot demand pool before a status change")
+
+    def change(rows):
+        row = next((r for r in rows
+                    if r.get("product_id") == product and r.get("canonical_key") == canonical_key), None)
+        if row is None:
+            return False
+        row["status"] = status
+        row["last_seen"] = iso(now_utc())
+        return True
+
+    with file_lock(root / ".demand-backup.lock", timeout=300):
+        branch = git(root, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
         for _ in range(2):
-            _pull_pool(root)
-            rows = _read_rows(path)
-            row = next((r for r in rows
-                        if r.get("product_id") == product and r.get("canonical_key") == canonical_key), None)
-            if row is None:
+            git(root, "fetch", "origin", branch)  # network work stays outside the pool lock
+            with _LOCK, _file_lock(path):
+                found = _sync_pool(root, rel, path, change, f"data: set demand status to {status}")
+            if not found:
                 return False
-            row["status"] = status
-            row["last_seen"] = iso(now_utc())
-            _atomic_write(path, rows)
-            _commit_pool(root, rel, f"data: set demand status to {status}")
             if git(root, "push", "origin", "HEAD", allowed=(0, 1)).returncode == 0:
                 return True
     raise RuntimeError("status change is committed in the demand companion but its push was rejected twice")
+
+
+def sync_origin(root) -> None:
+    """Merge the companion's origin in (row by row for the pool). Caller holds the backup lock."""
+    from data_safety import git
+    path = pool_path()
+    rel = Path(path).relative_to(Path(root)).as_posix()
+    branch = git(root, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
+    git(root, "fetch", "origin", branch)
+    with _LOCK, _file_lock(path):
+        _sync_pool(root, rel, path)
 
 
 def main(argv=None) -> int:

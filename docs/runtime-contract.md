@@ -123,11 +123,15 @@ write. A rescorer cannot move a row to another product or canonical key.
 
 A status is the owner's own record, so either machine may change it
 (`python skills/demand-mining/scripts/demand_pool.py set-status --product-id <id> --key <canonical_key> --status <status>`).
-set_status writes through: under the pool lock it merges the companion's origin
-(the other machine's lines win a conflicting hunk), changes the row, commits only
-`pool/demands.jsonl` and pushes; a rejected push merges again, replays the one
-change on the latest pool and pushes once more, then fails loudly. upsert and the
-scheduled EOD write the pool only on the primary machine.
+set_status writes through: it fetches the companion's origin, then under the pool
+lock merges it, changes the row and commits, and pushes; a rejected push fetches
+again, replays the one change on the latest pool and pushes once more, then fails
+loudly. The pool merges row by row, keyed by product_id and canonical_key: a field
+only the other machine changed takes its value, a field both changed keeps this
+machine's, and rows only the other side has are added. So a status set on one
+machine never drops evidence the primary's daemon merged meanwhile. Any other
+conflicting file aborts the merge and raises. upsert and the scheduled EOD write
+the pool only on the primary machine.
 
 Every stored pool row carries its product_id (the pre-product rows were attributed once, in
 the companion, on 2026-10-16). Keep the product identity stable when renaming the display name.
@@ -334,8 +338,9 @@ kept but do not establish confirmed delivery.
 Backup inspects staged changes using an isolated Git index, then uses Git's
 path-limited `commit --only` so only declared run paths are committed and unrelated
 staged edits survive. A repository lock serializes this skill's backups. Each Git result is
-checked; a failure stops later backup steps. No pull/rebase/autostash affects
-unrelated work. Delivery completion and backup status are separate. A failed
+checked; a failure stops later backup steps. A push rejected because the other
+machine pushed a status change merges origin in (the pool row by row, as above)
+and pushes once more; no rebase or autostash touches unrelated work. Delivery completion and backup status are separate. A failed
 backup returns `delivered_backup_pending`; rerunning retries backup against the
 same confirmed delivery without sending again. A local test with fake adapters
 does not establish live delivery or remote backup persistence.
