@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-- **Either machine can change a demand's status.** `demand_pool.set_status` no longer refuses on the secondary machine; it writes through (fetch the companion's origin, merge the pool row by row so neither machine's rows or fields are dropped, change the row, commit, push, and on a rejected push merge and replay the change once). An EOD backup push rejected by such a change merges the same way and pushes again. `demand_pool.py set-status` is its command line. `upsert` and `scheduled.py` still run only on the primary.
+- **Either machine can change a demand's status, committed locally.** `demand_pool.set_status` changes the row and commits only `pool/demands.jsonl` in the companion without fetching or pushing; the nightly companion sync carries it to the other machine. `demand_pool.py set-status` is its command line. An EOD backup push rejected by the other machine's change merges origin row by row and pushes again. `upsert` and `scheduled.py` still run only on the primary.
 - **One privacy-held Discord message no longer fails the whole EOD.** Scheduled collection leaves it out of the corpus and counts it as `privacy_held`, as the live path already does by quarantining and continuing.
 - **Live classification is one llmcall pass.** The second-model audit of borderline verdicts (`_audit_sys`, the `avoid=` re-ask and `live.classify_rounds`) is removed.
 - **Scheduled classification batches get a 360s llmcall budget.** Under the 180s judge default the head rung was cut at about 124s while full batches take up to about 121s, so batches failed with every fallback starved.

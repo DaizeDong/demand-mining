@@ -229,37 +229,27 @@ def _sync_pool(root, rel: str, path: str, change=None, message: str = "data: mer
 
 
 def set_status(path: str, canonical_key: str, status: str, *, product_id=None) -> bool:
-    """Owner-maintained status, written through on either machine: fetch the companion's origin,
-    merge it row by row and change the row under the pool lock, commit, then push. A rejected push
-    fetches again and replays this one change on the latest pool before pushing once more."""
-    from data_safety import check_destination, file_lock, git
+    """Owner-maintained status, allowed on either machine: change the row under the pool lock and
+    commit only the pool file locally. Nothing is fetched or pushed here; the nightly companion sync
+    rebases and pushes it, and the primary's EOD backup merges origin row by row on a rejected push."""
+    from data_safety import check_destination, file_lock
     product = _product_id(product_id)
     if status not in _STATUSES:
         raise ValueError(f"bad status {status}")
     admission = check_destination(path)
     root = Path(admission["root"])
     rel = Path(admission["path"]).relative_to(root).as_posix()
-
-    def change(rows):
+    with file_lock(root / ".demand-backup.lock", timeout=300), _LOCK, _file_lock(path):
+        rows = _read_rows(path)
         row = next((r for r in rows
                     if r.get("product_id") == product and r.get("canonical_key") == canonical_key), None)
         if row is None:
             return False
         row["status"] = status
         row["last_seen"] = iso(now_utc())
-        return True
-
-    with file_lock(root / ".demand-backup.lock", timeout=300):
-        branch = git(root, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
-        for _ in range(2):
-            git(root, "fetch", "origin", branch)  # network work stays outside the pool lock
-            with _LOCK, _file_lock(path):
-                found = _sync_pool(root, rel, path, change, f"data: set demand status to {status}")
-            if not found:
-                return False
-            if git(root, "push", "origin", "HEAD", allowed=(0, 1)).returncode == 0:
-                return True
-    raise RuntimeError("status change is committed in the demand companion but its push was rejected twice")
+        _atomic_write(path, rows)
+        _commit_pool(root, rel, f"data: set demand status to {status}")
+    return True
 
 
 def sync_origin(root) -> None:
@@ -277,7 +267,7 @@ def main(argv=None) -> int:
     import argparse
     parser = argparse.ArgumentParser(description="Set the status of one demand in the live pool.")
     sub = parser.add_subparsers(dest="command", required=True)
-    cmd = sub.add_parser("set-status", help="change one demand's status and push the companion")
+    cmd = sub.add_parser("set-status", help="change one demand's status and commit it in the companion (no push)")
     cmd.add_argument("--product-id", required=True)
     cmd.add_argument("--key", required=True, help="canonical_key of the demand")
     cmd.add_argument("--status", required=True, choices=_STATUSES)

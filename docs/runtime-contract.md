@@ -123,15 +123,14 @@ write. A rescorer cannot move a row to another product or canonical key.
 
 A status is the owner's own record, so either machine may change it
 (`python skills/demand-mining/scripts/demand_pool.py set-status --product-id <id> --key <canonical_key> --status <status>`).
-set_status writes through: it fetches the companion's origin, then under the pool
-lock merges it, changes the row and commits, and pushes; a rejected push fetches
-again, replays the one change on the latest pool and pushes once more, then fails
-loudly. The pool merges row by row, keyed by product_id and canonical_key: a field
-only the other machine changed takes its value, a field both changed keeps this
-machine's, and rows only the other side has are added. So a status set on one
-machine never drops evidence the primary's daemon merged meanwhile. Any other
-conflicting file aborts the merge and raises. upsert and the scheduled EOD write
-the pool only on the primary machine.
+set_status changes the row under the pool lock and commits only
+`pool/demands.jsonl` in the local companion; it neither fetches nor pushes. The
+nightly companion sync rebases that commit onto the other machine's and pushes it.
+When the primary's EOD backup push is rejected it merges origin in row by row,
+keyed by product_id and canonical_key: a field only the other machine changed
+takes its value, a field both changed keeps this machine's, and rows only the
+other side has are added. upsert and the scheduled EOD write the pool only on the
+primary machine.
 
 Every stored pool row carries its product_id (the pre-product rows were attributed once, in
 the companion, on 2026-10-16). Keep the product identity stable when renaming the display name.
